@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             PermissionCatalogSeeder::class,
             DefaultUserGroupsSeeder::class,
+            DefaultAssessmentTypesSeeder::class,
         ]);
     }
 }
