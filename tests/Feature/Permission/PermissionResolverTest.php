@@ -9,6 +9,8 @@ use App\Domain\Permission\Models\UserGroup;
 use App\Domain\Permission\Models\UserPermissionOverride;
 use App\Domain\Permission\Models\UserScopeAssignment;
 use App\Domain\Permission\PermissionResolver;
+use App\Domain\School\Models\LearningGroup;
+use App\Domain\School\Models\SchoolYear;
 use App\Models\User;
 use Database\Seeders\DefaultUserGroupsSeeder;
 use Database\Seeders\PermissionCatalogSeeder;
@@ -23,6 +25,8 @@ class PermissionResolverTest extends TestCase
 
     private PermissionResolver $resolver;
     private User $user;
+    private int $groupAId;
+    private int $groupBId;
 
     protected function setUp(): void
     {
@@ -31,7 +35,6 @@ class PermissionResolverTest extends TestCase
         $this->seed(PermissionCatalogSeeder::class);
         $this->seed(DefaultUserGroupsSeeder::class);
 
-        // Resolver ohne Cache, damit Tests deterministisch sind
         $this->resolver = new PermissionResolver(useCache: false);
 
         $this->user = User::create([
@@ -40,6 +43,18 @@ class PermissionResolverTest extends TestCase
             'password' => Hash::make('pass-1234567890'),
             'is_active' => true,
         ]);
+
+        $sy = SchoolYear::create([
+            'label' => 'TEST',
+            'start_date' => '2026-08-01',
+            'end_date' => '2027-07-31',
+        ]);
+        $this->groupAId = LearningGroup::create([
+            'school_year_id' => $sy->id, 'name' => 'A', 'group_type' => 'klasse',
+        ])->id;
+        $this->groupBId = LearningGroup::create([
+            'school_year_id' => $sy->id, 'name' => 'B', 'group_type' => 'klasse',
+        ])->id;
     }
 
     #[Test]
@@ -100,10 +115,13 @@ class PermissionResolverTest extends TestCase
     #[Test]
     public function user_with_scopes_is_restricted(): void
     {
-        UserScopeAssignment::create(['user_id' => $this->user->id, 'learning_group_id' => 42]);
-        UserScopeAssignment::create(['user_id' => $this->user->id, 'learning_group_id' => 43]);
+        UserScopeAssignment::create(['user_id' => $this->user->id, 'learning_group_id' => $this->groupAId]);
+        UserScopeAssignment::create(['user_id' => $this->user->id, 'learning_group_id' => $this->groupBId]);
 
-        $this->assertEquals([42, 43], $this->resolver->scopeLearningGroupIds($this->user));
+        $this->assertEquals(
+            [$this->groupAId, $this->groupBId],
+            $this->resolver->scopeLearningGroupIds($this->user),
+        );
     }
 
     #[Test]
@@ -112,10 +130,10 @@ class PermissionResolverTest extends TestCase
         $lehrkraft = UserGroup::query()->where('name', 'Lehrkraft')->firstOrFail();
         $this->user->userGroups()->attach($lehrkraft->id);
 
-        UserScopeAssignment::create(['user_id' => $this->user->id, 'learning_group_id' => 42]);
+        UserScopeAssignment::create(['user_id' => $this->user->id, 'learning_group_id' => $this->groupAId]);
 
-        $this->assertTrue($this->resolver->canForLearningGroup($this->user, 'students.view', 42));
-        $this->assertFalse($this->resolver->canForLearningGroup($this->user, 'students.view', 99));
+        $this->assertTrue($this->resolver->canForLearningGroup($this->user, 'students.view', $this->groupAId));
+        $this->assertFalse($this->resolver->canForLearningGroup($this->user, 'students.view', $this->groupBId));
     }
 
     #[Test]
@@ -124,10 +142,10 @@ class PermissionResolverTest extends TestCase
         $admin = UserGroup::query()->where('name', 'Admin')->firstOrFail();
         $this->user->userGroups()->attach($admin->id);
 
-        UserScopeAssignment::create(['user_id' => $this->user->id, 'learning_group_id' => 42]);
+        UserScopeAssignment::create(['user_id' => $this->user->id, 'learning_group_id' => $this->groupAId]);
 
         // system.backup.run ist nicht scopeable → Scope wird ignoriert
-        $this->assertTrue($this->resolver->canForLearningGroup($this->user, 'system.backup.run', 99));
+        $this->assertTrue($this->resolver->canForLearningGroup($this->user, 'system.backup.run', $this->groupBId));
     }
 
     #[Test]
