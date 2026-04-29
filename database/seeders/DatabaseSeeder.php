@@ -17,6 +17,8 @@ class DatabaseSeeder extends Seeder
             PermissionCatalogSeeder::class,
             DefaultUserGroupsSeeder::class,
             DefaultAssessmentTypesSeeder::class,
+            DefaultSupportThresholdsSeeder::class,
+            DefaultPrintTemplatesSeeder::class,
         ]);
     }
 }
