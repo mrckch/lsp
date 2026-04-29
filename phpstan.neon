@@ -1,0 +1,12 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app/
+        - database/seeders/
+    level: 6
+    ignoreErrors:
+        - '#PHPDoc tag @var#'
+    excludePaths:
+        - app/Console/Kernel.php

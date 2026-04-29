@@ -1,0 +1,36 @@
+# LSP – Caddyfile
+# In Produktion via Umgebungsvariable LSP_HOSTNAME setzen.
+
+{
+    # Globale Optionen
+    email {$LETSENCRYPT_EMAIL:admin@example.com}
+}
+
+{$LSP_HOSTNAME:localhost} {
+    root * /srv/public
+    encode zstd gzip
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(self), microphone=(), geolocation=()"
+        -Server
+    }
+
+    # Statische Dateien direkt liefern, sonst an PHP-FPM
+    @notfile {
+        not file
+    }
+    rewrite @notfile /index.php
+
+    php_fastcgi app:9000
+    file_server
+
+    log {
+        output stdout
+        format json
+    }
+}

@@ -1,0 +1,140 @@
+services:
+  web:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "${LSP_HTTP_PORT:-8080}:80"
+      - "${LSP_HTTPS_PORT:-8443}:443"
+    environment:
+      LSP_HOSTNAME: ${LSP_HOSTNAME:-localhost}
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:-admin@example.com}
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - app_public:/srv/public:ro
+    depends_on:
+      - app
+    networks: [lsp]
+
+  app:
+    build:
+      context: .
+      dockerfile: infra/app/Dockerfile
+    image: lsp/app:dev
+    restart: unless-stopped
+    environment:
+      APP_ENV: ${APP_ENV:-local}
+      APP_DEBUG: ${APP_DEBUG:-true}
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-lsp}
+      DB_USERNAME: ${DB_USERNAME:-lsp}
+      DB_PASSWORD: ${DB_PASSWORD:-lsp_dev}
+      REDIS_HOST: cache
+      REDIS_PORT: 6379
+      QUEUE_CONNECTION: redis
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+      GOTENBERG_URL: http://pdf:3000
+      LSP_AUTO_MIGRATE: ${LSP_AUTO_MIGRATE:-false}
+    volumes:
+      - ./:/var/www/html
+      - app_public:/var/www/html/public
+      - app_storage:/var/www/html/storage
+    depends_on:
+      db: { condition: service_healthy }
+      cache: { condition: service_started }
+    networks: [lsp]
+
+  queue:
+    image: lsp/app:dev
+    restart: unless-stopped
+    command: php artisan queue:work --queue=high,default,pdf,mail,backup --tries=3 --timeout=120
+    environment: &app_env
+      APP_ENV: ${APP_ENV:-local}
+      DB_HOST: db
+      DB_DATABASE: ${DB_DATABASE:-lsp}
+      DB_USERNAME: ${DB_USERNAME:-lsp}
+      DB_PASSWORD: ${DB_PASSWORD:-lsp_dev}
+      REDIS_HOST: cache
+      QUEUE_CONNECTION: redis
+      GOTENBERG_URL: http://pdf:3000
+    volumes:
+      - ./:/var/www/html
+      - app_storage:/var/www/html/storage
+    depends_on: [app]
+    networks: [lsp]
+
+  scheduler:
+    image: lsp/app:dev
+    restart: unless-stopped
+    command: ["sh","-c","while true; do php artisan schedule:run --no-interaction >> /dev/stdout 2>&1; sleep 60; done"]
+    environment: *app_env
+    volumes:
+      - ./:/var/www/html
+      - app_storage:/var/www/html/storage
+    depends_on: [app]
+    networks: [lsp]
+
+  pdf:
+    image: gotenberg/gotenberg:8
+    restart: unless-stopped
+    command:
+      - "gotenberg"
+      - "--api-port=3000"
+      - "--api-timeout=60s"
+      - "--chromium-disable-javascript=false"
+    networks: [lsp]
+
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${DB_DATABASE:-lsp}
+      MARIADB_USER: ${DB_USERNAME:-lsp}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-lsp_dev}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-lsp_root_dev}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [lsp]
+
+  cache:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - cache_data:/data
+    networks: [lsp]
+
+  backup:
+    image: lsp/app:dev
+    restart: unless-stopped
+    command: ["sh","-c","while true; do sleep 3600; done"]  # placeholder; real worker comes in Phase 4
+    environment: *app_env
+    volumes:
+      - ./:/var/www/html
+      - app_storage:/var/www/html/storage
+      - backup_data:/backups
+    depends_on: [app]
+    networks: [lsp]
+
+volumes:
+  caddy_data:
+  caddy_config:
+  app_public:
+  app_storage:
+  db_data:
+  cache_data:
+  backup_data:
+
+networks:
+  lsp:
+    driver: bridge

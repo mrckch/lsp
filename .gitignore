@@ -1,0 +1,56 @@
+# Laravel
+/vendor/
+/node_modules/
+/public/build/
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/storage/app/private/
+/storage/app/public/
+/storage/framework/cache/
+/storage/framework/sessions/
+/storage/framework/testing/
+/storage/framework/views/
+/storage/logs/
+/bootstrap/cache/*.php
+.env
+.env.backup
+.env.production
+.phpunit.result.cache
+.phpunit.cache
+auth.json
+npm-debug.log
+yarn-error.log
+/.fleet
+/.idea
+/.nova
+/.vscode
+/.zed
+
+# Compiled
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker / Secrets
+/secrets/
+/backups/
+docker-compose.override.local.yml
+
+# IDE
+*.swp
+*.swo
+*~
+
+# Build artifacts
+*.tar.gz
+*.zip
+
+# Project-specific
+/storage/app/lsp/
+/storage/app/imports/
+/storage/app/exports/
+/storage/app/print-jobs/

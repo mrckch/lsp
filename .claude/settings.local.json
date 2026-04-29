@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p /tmp/sls-projekt)",
+      "Read(//tmp/**)",
+      "Bash(unzip -o \"/c/Users/MarcHötten-Löns/Downloads/sls-projekt.zip\" -d .)"
+    ]
+  }
+}

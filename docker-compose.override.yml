@@ -1,0 +1,24 @@
+# Local development overrides.
+# Auto-loaded by `docker compose` on top of docker-compose.yml.
+
+services:
+  web:
+    ports:
+      - "8080:80"
+
+  app:
+    environment:
+      APP_DEBUG: "true"
+      LOG_LEVEL: debug
+
+  db:
+    ports:
+      - "33060:3306"   # Optional: für externes DB-Tool
+
+  cache:
+    ports:
+      - "63790:6379"
+
+  pdf:
+    ports:
+      - "3001:3000"

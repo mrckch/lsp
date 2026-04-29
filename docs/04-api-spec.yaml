@@ -1,0 +1,784 @@
+openapi: 3.1.0
+info:
+  title: LSP – Lese-Screening-Portal API
+  version: 0.1.0
+  description: |
+    REST-API des LSP. API-First, alle UI-Funktionen sind über diese API abgebildet.
+    Auth via Laravel Sanctum (Cookie-Session für SPA, Bearer-Token für externe Clients).
+
+    Dieses Dokument ist ein **Grundgerüst** – die finale Spec wird durch Scramble (Laravel)
+    auto-generiert. Die hier definierten Pfade und Schemas legen die Konturen fest.
+
+  license:
+    name: EUPL 1.2
+    url: https://eupl.eu/1.2/de/
+  contact:
+    name: LSP-Projekt
+
+servers:
+  - url: https://{host}/api/v1
+    description: Produktion
+    variables:
+      host: { default: lsp.example.de }
+  - url: http://localhost:8080/api/v1
+    description: Lokale Entwicklung
+
+tags:
+  - name: Auth
+  - name: Setup
+  - name: SchoolYears
+  - name: LearningGroups
+  - name: Students
+  - name: Import
+  - name: Questionnaires
+  - name: NormTables
+  - name: FeedbackSets
+  - name: NoticeTexts
+  - name: AssessmentTypes
+  - name: SupportThresholds
+  - name: TestRuns
+  - name: Attempts
+  - name: Analytics
+  - name: PrintTemplates
+  - name: PrintJobs
+  - name: Mail
+  - name: Backup
+  - name: Users
+  - name: UserGroups
+  - name: Permissions
+  - name: Audit
+  - name: Clearname
+  - name: StudentTest
+
+security:
+  - sanctumCookie: []
+  - bearerAuth: []
+
+paths:
+  # ─────────── Auth ───────────
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login mit Username + Passwort
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200': { description: Erfolg, Token oder Cookie gesetzt }
+        '401': { description: Falsche Zugangsdaten }
+        '423': { description: 2FA erforderlich }
+
+  /auth/2fa/verify:
+    post:
+      tags: [Auth]
+      summary: TOTP verifizieren
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, example: '123456' }
+      responses:
+        '200': { description: 2FA bestätigt }
+        '401': { description: Code ungültig }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      responses:
+        '204': { description: Logout }
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      responses:
+        '200':
+          description: Aktueller User mit effective_permissions und scopes
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CurrentUser' }
+
+  # ─────────── Setup-Wizard ───────────
+  /setup/status:
+    get:
+      tags: [Setup]
+      security: []
+      responses:
+        '200':
+          description: Ist die Anwendung bereits eingerichtet?
+          content: { application/json: { schema: { $ref: '#/components/schemas/SetupStatus' } } }
+
+  /setup/initialize:
+    post:
+      tags: [Setup]
+      security: []
+      summary: Erstinstallation – Admin anlegen, DEK erzeugen, Recovery-Key zurückgeben
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SetupInitRequest' }
+      responses:
+        '201':
+          description: Setup abgeschlossen, Recovery-Key wird **einmalig** zurückgegeben
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SetupInitResponse' }
+
+  # ─────────── Schuljahre ───────────
+  /school-years:
+    get: { tags: [SchoolYears], responses: { '200': { description: Liste } } }
+    post: { tags: [SchoolYears], responses: { '201': { description: Angelegt } } }
+  /school-years/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get: { tags: [SchoolYears], responses: { '200': { description: Detail } } }
+    patch: { tags: [SchoolYears], responses: { '200': { description: Aktualisiert } } }
+    delete: { tags: [SchoolYears], responses: { '204': { description: Archiviert } } }
+
+  # ─────────── Lerngruppen ───────────
+  /learning-groups:
+    get:
+      tags: [LearningGroups]
+      parameters:
+        - name: school_year_id
+          in: query
+          schema: { type: integer }
+      responses: { '200': { description: Liste } }
+    post: { tags: [LearningGroups], responses: { '201': { description: Angelegt } } }
+  /learning-groups/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get: { tags: [LearningGroups], responses: { '200': { description: Detail } } }
+    patch: { tags: [LearningGroups], responses: { '200': { description: Aktualisiert } } }
+    delete: { tags: [LearningGroups], responses: { '204': { description: Gelöscht } } }
+
+  # ─────────── Schüler ───────────
+  /students:
+    get:
+      tags: [Students]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [aktiv, archiviert, alle], default: aktiv }
+        - name: school_year_id
+          in: query
+          schema: { type: integer }
+        - name: learning_group_id
+          in: query
+          schema: { type: integer }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+      responses:
+        '200':
+          description: Paginierte Liste (Klarnamen nur wenn Klarnamen-Session aktiv und Permission)
+    post: { tags: [Students], responses: { '201': { description: Angelegt } } }
+
+  /students/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get: { tags: [Students], responses: { '200': { description: Detail } } }
+    patch: { tags: [Students], responses: { '200': { description: Aktualisiert } } }
+    delete: { tags: [Students], responses: { '204': { description: Endgültig gelöscht (DSGVO)' } } }
+
+  /students/{id}/archive:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post: { tags: [Students], responses: { '204': { description: Ins Archiv verschoben } } }
+
+  /students/{id}/unarchive:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post: { tags: [Students], responses: { '204': { description: Reaktiviert } } }
+
+  /students/{id}/history:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      tags: [Students, Analytics]
+      summary: Längsschnitt – alle Versuche eines Schülers
+      responses:
+        '200':
+          description: Verlaufsdaten + LQ-Werte
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudentHistory' }
+
+  # ─────────── Import ───────────
+  /import/sources:
+    get: { tags: [Import], responses: { '200': { description: Verfügbare Quellen } } }
+
+  /import/jobs:
+    post:
+      tags: [Import]
+      summary: Neuen Importjob starten (Datei-Upload)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: '#/components/schemas/ImportJobCreate' }
+      responses:
+        '201': { description: Job angelegt im Status "uploaded" }
+
+  /import/jobs/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get: { tags: [Import], responses: { '200': { description: Status + Statistik } } }
+
+  /import/jobs/{id}/validate:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      tags: [Import]
+      summary: Dry-Run / Validierung mit Mapping
+      responses:
+        '200': { description: Diff-Ergebnis (Status diff_ready) }
+
+  /import/jobs/{id}/diff:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get: { tags: [Import], responses: { '200': { description: Diff-Einträge inkl. Archivkandidaten } } }
+
+  /import/jobs/{id}/diff/{entry_id}:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+      - name: entry_id
+        in: path
+        required: true
+        schema: { type: integer }
+    patch:
+      tags: [Import]
+      summary: Admin-Entscheidung pro Diff-Zeile setzen (confirm/exclude)
+      responses: { '200': { description: Aktualisiert } }
+
+  /import/jobs/{id}/commit:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      tags: [Import]
+      summary: Bestätigte Diff-Aktionen ausführen
+      responses: { '200': { description: Commit ausgeführt } }
+
+  /import/jobs/{id}/abort:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post: { tags: [Import], responses: { '204': { description: Abgebrochen } } }
+
+  # ─────────── Test-Konfiguration ───────────
+  /questionnaires:
+    get: { tags: [Questionnaires], responses: { '200': { description: Liste } } }
+    post: { tags: [Questionnaires], responses: { '201': { description: Angelegt } } }
+  /questionnaires/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get: { tags: [Questionnaires], responses: { '200': { description: Detail mit Fragen + Übungsfragen } } }
+    patch: { tags: [Questionnaires], responses: { '200': { description: Aktualisiert } } }
+  /questionnaires/{id}/import:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post: { tags: [Questionnaires], responses: { '200': { description: Fragen-Import' } } }
+
+  /norm-tables:
+    get: { tags: [NormTables], responses: { '200': { description: Liste } } }
+    post: { tags: [NormTables], responses: { '201': { description: Angelegt } } }
+  /norm-tables/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get: { tags: [NormTables], responses: { '200': { description: Detail mit Zeilen } } }
+    patch: { tags: [NormTables], responses: { '200': { description: Aktualisiert } } }
+  /norm-tables/{id}/import:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post: { tags: [NormTables], responses: { '200': { description: Zeilen-Import (CSV/XLSX) } } }
+
+  /feedback-sets:
+    get: { tags: [FeedbackSets], responses: { '200': { description: Liste } } }
+    post: { tags: [FeedbackSets], responses: { '201': { description: Angelegt } } }
+  /feedback-sets/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get: { tags: [FeedbackSets], responses: { '200': { description: Detail } } }
+    patch: { tags: [FeedbackSets], responses: { '200': { description: Aktualisiert } } }
+
+  /notice-texts:
+    get: { tags: [NoticeTexts], responses: { '200': { description: Liste } } }
+    post: { tags: [NoticeTexts], responses: { '201': { description: Angelegt } } }
+  /notice-texts/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    patch: { tags: [NoticeTexts], responses: { '200': { description: Aktualisiert } } }
+
+  /assessment-types:
+    get: { tags: [AssessmentTypes], responses: { '200': { description: Liste } } }
+    post: { tags: [AssessmentTypes], responses: { '201': { description: Angelegt } } }
+
+  /support-thresholds:
+    get: { tags: [SupportThresholds], responses: { '200': { description: Liste } } }
+    post: { tags: [SupportThresholds], responses: { '201': { description: Angelegt } } }
+  /support-thresholds/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    patch: { tags: [SupportThresholds], responses: { '200': { description: Aktualisiert } } }
+
+  # ─────────── Erhebungen / Testdurchläufe ───────────
+  /test-runs:
+    get:
+      tags: [TestRuns]
+      parameters:
+        - name: school_year_id
+          in: query
+          schema: { type: integer }
+        - name: status
+          in: query
+          schema: { type: string }
+      responses: { '200': { description: Liste } }
+    post: { tags: [TestRuns], responses: { '201': { description: Angelegt } } }
+  /test-runs/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get: { tags: [TestRuns], responses: { '200': { description: Detail } } }
+    patch: { tags: [TestRuns], responses: { '200': { description: Aktualisiert } } }
+    delete: { tags: [TestRuns], responses: { '204': { description: Gelöscht } } }
+
+  /test-runs/{id}/status:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      tags: [TestRuns]
+      summary: Status ändern (aktiv/pausiert/abgeschlossen/archiviert)
+      responses: { '200': { description: Status geändert } }
+
+  /test-runs/{id}/security:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get: { tags: [TestRuns], responses: { '200': { description: Lehrkraft-/Klarnamen-Codes } } }
+    post: { tags: [TestRuns], responses: { '200': { description: Codes neu generieren } } }
+
+  /test-runs/{id}/login-codes:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get: { tags: [TestRuns], responses: { '200': { description: Login-Codes pro Schüler } } }
+
+  /test-runs/{id}/attempts:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get: { tags: [TestRuns, Attempts], responses: { '200': { description: Versuche im Durchlauf } } }
+
+  # ─────────── Versuche ───────────
+  /attempts/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get: { tags: [Attempts], responses: { '200': { description: Detail inkl. Antworten } } }
+  /attempts/{id}/reset:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post: { tags: [Attempts], responses: { '200': { description: Versuch zurückgesetzt } } }
+  /attempts/{id}/recalculate-lq:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post: { tags: [Attempts], responses: { '200': { description: LQ neu berechnet } } }
+
+  # ─────────── Auswertung ───────────
+  /analytics/cohort:
+    get:
+      tags: [Analytics]
+      parameters:
+        - { name: school_year_id, in: query, schema: { type: integer } }
+        - { name: grade_level, in: query, schema: { type: string } }
+        - { name: learning_group_id, in: query, schema: { type: integer } }
+        - { name: assessment_type_id, in: query, schema: { type: integer } }
+      responses: { '200': { description: Aggregierte Kennzahlen } }
+
+  /analytics/trend:
+    get:
+      tags: [Analytics]
+      summary: Wer ist besser / schlechter geworden (Δ-LQ)
+      parameters:
+        - { name: from_test_run_id, in: query, required: true, schema: { type: integer } }
+        - { name: to_test_run_id, in: query, required: true, schema: { type: integer } }
+      responses: { '200': { description: Schüler-Liste mit Delta } }
+
+  /analytics/support-list:
+    get:
+      tags: [Analytics]
+      summary: Aktuelle Förderbedarfsliste
+      parameters:
+        - { name: school_year_id, in: query, schema: { type: integer } }
+      responses: { '200': { description: Schüler mit Schwellenmatch } }
+
+  # ─────────── Drucksachen ───────────
+  /print/templates:
+    get: { tags: [PrintTemplates], responses: { '200': { description: Liste } } }
+    post: { tags: [PrintTemplates], responses: { '201': { description: Angelegt } } }
+  /print/templates/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get: { tags: [PrintTemplates], responses: { '200': { description: Detail mit Versionen } } }
+  /print/templates/{id}/versions:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post: { tags: [PrintTemplates], responses: { '201': { description: Neue Version' } } }
+
+  /print/jobs:
+    post:
+      tags: [PrintJobs]
+      summary: PDF-Job starten
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PrintJobRequest' }
+      responses: { '202': { description: Job angelegt, Status pending } }
+  /print/jobs/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get: { tags: [PrintJobs], responses: { '200': { description: Status / Ergebnis' } } }
+
+  /print/documents/{id}/download:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get: { tags: [PrintJobs], responses: { '200': { description: Binär-PDF } } }
+
+  # ─────────── Mail ───────────
+  /mail/settings:
+    get: { tags: [Mail], responses: { '200': { description: SMTP-Einstellungen' } } }
+    put: { tags: [Mail], responses: { '200': { description: Aktualisiert' } } }
+  /mail/messages:
+    get: { tags: [Mail], responses: { '200': { description: Mailprotokoll' } } }
+    post:
+      tags: [Mail]
+      summary: Mail versenden
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MailSendRequest' }
+      responses: { '202': { description: In Queue' } }
+
+  # ─────────── Backup ───────────
+  /backup/targets:
+    get: { tags: [Backup], responses: { '200': { description: Liste' } } }
+    post: { tags: [Backup], responses: { '201': { description: Angelegt' } } }
+  /backup/targets/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    patch: { tags: [Backup], responses: { '200': { description: Aktualisiert' } } }
+    delete: { tags: [Backup], responses: { '204': { description: Gelöscht' } } }
+
+  /backup/runs:
+    get: { tags: [Backup], responses: { '200': { description: Backup-Historie' } } }
+    post:
+      tags: [Backup]
+      summary: Backup manuell starten
+      responses: { '202': { description: Backup-Job angelegt' } }
+
+  /backup/runs/{id}/download:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get: { tags: [Backup], responses: { '200': { description: Verschlüsselte Backup-Datei' } } }
+
+  # ─────────── Klarnamen ───────────
+  /clearname/unlock:
+    post:
+      tags: [Clearname]
+      summary: Klarnamen-Passwort eingeben (DEK in Session entwrappen)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string, format: password }
+      responses:
+        '200': { description: Entsperrt }
+        '401': { description: Falsches Passwort }
+  /clearname/lock:
+    post: { tags: [Clearname], responses: { '204': { description: Gesperrt' } } }
+  /clearname/status:
+    get:
+      tags: [Clearname]
+      responses:
+        '200':
+          description: Aktueller Klarnamen-Status der Session
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClearnameStatus' }
+  /clearname/password:
+    put:
+      tags: [Clearname]
+      summary: Eigenes Klarnamen-Passwort ändern
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [old_password, new_password]
+              properties:
+                old_password: { type: string }
+                new_password: { type: string }
+      responses: { '200': { description: Aktualisiert' } }
+  /clearname/password/rotate:
+    post:
+      tags: [Clearname]
+      summary: Schulweite Rotation auslösen (Admin)
+      responses: { '200': { description: Rotation gestartet' } }
+  /clearname/recovery:
+    post:
+      tags: [Clearname]
+      summary: Recovery-Key verwenden, neues Passwort setzen
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recovery_key, new_password]
+              properties:
+                recovery_key: { type: string }
+                new_password: { type: string }
+      responses: { '200': { description: Wiederhergestellt' } }
+
+  # ─────────── Benutzer ───────────
+  /users:
+    get: { tags: [Users], responses: { '200': { description: Liste' } } }
+    post: { tags: [Users], responses: { '201': { description: Angelegt' } } }
+  /users/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get: { tags: [Users], responses: { '200': { description: Detail' } } }
+    patch: { tags: [Users], responses: { '200': { description: Aktualisiert' } } }
+    delete: { tags: [Users], responses: { '204': { description: Gelöscht' } } }
+  /users/{id}/reset-password:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post: { tags: [Users], responses: { '200': { description: Passwort zurückgesetzt' } } }
+  /users/{id}/permissions:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get: { tags: [Users, Permissions], responses: { '200': { description: Effective + Overrides' } } }
+    put: { tags: [Users, Permissions], responses: { '200': { description: Overrides setzen' } } }
+  /users/{id}/scopes:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get: { tags: [Users, Permissions], responses: { '200': { description: Lerngruppen-Scope' } } }
+    put: { tags: [Users, Permissions], responses: { '200': { description: Scope setzen' } } }
+
+  /user-groups:
+    get: { tags: [UserGroups], responses: { '200': { description: Liste' } } }
+    post: { tags: [UserGroups], responses: { '201': { description: Angelegt' } } }
+  /user-groups/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    patch: { tags: [UserGroups], responses: { '200': { description: Aktualisiert' } } }
+    delete: { tags: [UserGroups], responses: { '204': { description: Gelöscht' } } }
+  /user-groups/{id}/permissions:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get: { tags: [UserGroups, Permissions], responses: { '200': { description: Permissions der Klasse' } } }
+    put: { tags: [UserGroups, Permissions], responses: { '200': { description: Permissions setzen' } } }
+
+  /permissions:
+    get:
+      tags: [Permissions]
+      summary: Vollständiger Permission-Katalog (für UI)
+      responses: { '200': { description: Permission-Liste' } }
+
+  # ─────────── Audit ───────────
+  /audit:
+    get:
+      tags: [Audit]
+      parameters:
+        - { name: actor_user_id, in: query, schema: { type: integer } }
+        - { name: action, in: query, schema: { type: string } }
+        - { name: entity_type, in: query, schema: { type: string } }
+        - { name: includes_clearnames, in: query, schema: { type: boolean } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+      responses: { '200': { description: Audit-Einträge' } }
+
+  # ─────────── Schüler-Test-Endpunkte (öffentlich, Code-basiert) ───────────
+  /student-test/login:
+    post:
+      tags: [StudentTest]
+      security: []
+      summary: Schüler meldet sich mit 10-stelligem Code an
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [login_code]
+              properties:
+                login_code: { type: string, minLength: 10, maxLength: 10 }
+      responses:
+        '200': { description: Session-Token + Test-Metadaten (Hinweistext, Übungsphase) }
+        '404': { description: Code unbekannt }
+        '410': { description: Code verbraucht / gesperrt }
+
+  /student-test/practice/start:
+    post: { tags: [StudentTest], responses: { '200': { description: Übungs-Fragen + Zeit' } } }
+  /student-test/practice/answer:
+    post: { tags: [StudentTest], responses: { '200': { description: Übungs-Antwort' } } }
+
+  /student-test/start:
+    post: { tags: [StudentTest], responses: { '200': { description: Hauptphase startet, Fragen geliefert' } } }
+  /student-test/answer:
+    post:
+      tags: [StudentTest]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question_id, answer]
+              properties:
+                question_id: { type: integer }
+                answer: { type: string, enum: [richtig, falsch] }
+      responses:
+        '200': { description: Antwort gespeichert' }
+  /student-test/submit:
+    post: { tags: [StudentTest], responses: { '200': { description: Test abgegeben' } } }
+  /student-test/result:
+    get:
+      tags: [StudentTest]
+      summary: Ergebnis (LQ nur wenn aus Norm ableitbar)
+      responses:
+        '200': { description: Ergebnis' }
+
+components:
+  securitySchemes:
+    sanctumCookie:
+      type: apiKey
+      in: cookie
+      name: lsp_session
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: token
+
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+
+  schemas:
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string }
+        password: { type: string, format: password }
+        remember: { type: boolean, default: false }
+
+    CurrentUser:
+      type: object
+      properties:
+        id: { type: integer }
+        username: { type: string }
+        display_name: { type: string }
+        groups:
+          type: array
+          items: { type: string }
+        permissions:
+          type: array
+          items: { type: string, example: students.view }
+        scope:
+          type: object
+          properties:
+            ungescoped: { type: boolean }
+            learning_group_ids:
+              type: array
+              items: { type: integer }
+        two_factor_enabled: { type: boolean }
+        last_2fa_at: { type: string, format: date-time, nullable: true }
+        clearname_unlocked: { type: boolean }
+
+    SetupStatus:
+      type: object
+      properties:
+        initialized: { type: boolean }
+        version: { type: string }
+
+    SetupInitRequest:
+      type: object
+      required: [admin_username, admin_password, school_name, clearname_password]
+      properties:
+        admin_username: { type: string }
+        admin_password: { type: string }
+        admin_email: { type: string }
+        school_name: { type: string }
+        clearname_password: { type: string, description: Initiales Klarnamen-Passwort des Admin }
+
+    SetupInitResponse:
+      type: object
+      properties:
+        recovery_key:
+          type: string
+          description: |
+            **WICHTIG:** Wird **nur einmalig** zurückgegeben. Im Schultresor verwahren.
+            Geht dieser Schlüssel verloren UND alle User-Klarnamen-Passwörter, sind die Klarnamen unwiederbringlich verloren.
+        recovery_key_fingerprint: { type: string }
+
+    StudentHistory:
+      type: object
+      properties:
+        student:
+          type: object
+          properties:
+            id: { type: integer }
+            student_code: { type: string }
+            full_name: { type: string, description: Nur wenn Klarnamen entsperrt + Permission }
+        attempts:
+          type: array
+          items:
+            type: object
+            properties:
+              attempt_id: { type: integer }
+              test_run_name: { type: string }
+              assessment_type: { type: string }
+              school_year: { type: string }
+              learning_group: { type: string }
+              submitted_at: { type: string, format: date-time }
+              score_raw: { type: integer }
+              lq_at_submission: { type: integer, nullable: true }
+              lq_current: { type: integer, nullable: true }
+              parallel_form: { type: string }
+        comparators:
+          type: object
+          properties:
+            class_average_lq: { type: array, items: { type: number } }
+            grade_average_lq: { type: array, items: { type: number } }
+
+    ImportJobCreate:
+      type: object
+      required: [source_key, school_year_id, file]
+      properties:
+        source_key: { type: string, example: schild_csv }
+        school_year_id: { type: integer }
+        group_type: { type: string, enum: [klasse, kurs] }
+        file:
+          type: string
+          format: binary
+
+    PrintJobRequest:
+      type: object
+      required: [template_key, context_type, context_id]
+      properties:
+        template_key: { type: string, example: rueckmeldung }
+        template_version_id: { type: integer, nullable: true, description: 'Default = current_version' }
+        context_type: { type: string, enum: [attempt, test_run, student, custom] }
+        context_id: { type: integer }
+        parameters:
+          type: object
+          additionalProperties: true
+
+    MailSendRequest:
+      type: object
+      required: [to, subject, body_html]
+      properties:
+        to:
+          type: array
+          items: { type: string, format: email }
+        cc: { type: array, items: { type: string, format: email } }
+        bcc: { type: array, items: { type: string, format: email } }
+        subject: { type: string }
+        body_html: { type: string }
+        body_text: { type: string }
+        attachments_document_ids:
+          type: array
+          items: { type: integer }
+        related_entity_type: { type: string }
+        related_entity_id: { type: integer }
+
+    ClearnameStatus:
+      type: object
+      properties:
+        unlocked: { type: boolean }
+        rotation_required: { type: boolean }
+        rotation_reason: { type: string, nullable: true }
+
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+        message: { type: string }
+        details: { type: object, additionalProperties: true }
