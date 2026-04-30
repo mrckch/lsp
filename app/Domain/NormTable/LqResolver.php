@@ -13,8 +13,8 @@ use App\Domain\NormTable\Models\NormTableRow;
 final class LqResolver
 {
     /**
-     * @return int|null  null wenn keine passende Norm-Zeile vorhanden ist
-     *                   (→ Schüler bekommt KEIN Ergebnis angezeigt)
+     * @return int|null null wenn keine passende Norm-Zeile vorhanden ist
+     *                  (→ Schüler bekommt KEIN Ergebnis angezeigt)
      */
     public function resolve(int $rawScore, string $gender, ?NormTable $normTable): ?int
     {

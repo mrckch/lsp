@@ -13,6 +13,7 @@ class CreatePrintTemplate extends CreateRecord
     protected static string $resource = PrintTemplateResource::class;
 
     protected $html;
+
     protected $css;
 
     protected function mutateFormDataBeforeCreate(array $data): array

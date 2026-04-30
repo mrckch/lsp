@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Domain\Backup;
 
 use App\Domain\Audit\Models\AuditLog;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Filesystem\FilesystemAdapter;
 
 /**
  * Stellt ein verschlüsseltes Backup wieder her.
@@ -202,7 +202,7 @@ final class BackupRestorer
      * Dateien mit content_b64=null (zu groß beim Backup) werden übersprungen.
      *
      * @param  array<string, array{content_b64:?string, size:int, mtime?:int, skipped_reason?:string}>  $files
-     * @return array{0:int,1:int}  [restored, skipped]
+     * @return array{0:int,1:int} [restored, skipped]
      */
     private function restoreFiles(array $files): array
     {
@@ -271,7 +271,7 @@ final class BackupRestorer
             DB::statement("DELETE FROM \"$table\"");
             // Auto-Increment-Reset ist optional; SQLite-sequence-Tabelle existiert nur bei AUTOINCREMENT
             try {
-                DB::statement("DELETE FROM sqlite_sequence WHERE name = ?", [$table]);
+                DB::statement('DELETE FROM sqlite_sequence WHERE name = ?', [$table]);
             } catch (\Throwable) {
                 // sqlite_sequence existiert nicht → ignorieren
             }
@@ -294,6 +294,7 @@ final class BackupRestorer
         foreach (array_chunk($rows, self::INSERT_BATCH) as $chunk) {
             $clean = array_map(function ($row) use ($columns) {
                 $r = (array) $row;
+
                 // Nur bekannte Spalten übernehmen (ältere Backups → unbekannte Felder dropen)
                 return array_intersect_key($r, array_flip($columns));
             }, $chunk);

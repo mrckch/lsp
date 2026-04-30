@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\School\Models;
 
+use App\Domain\Student\Models\StudentEnrollment;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -34,7 +35,7 @@ class SchoolYear extends Model
 
     public function enrollments(): HasMany
     {
-        return $this->hasMany(\App\Domain\Student\Models\StudentEnrollment::class);
+        return $this->hasMany(StudentEnrollment::class);
     }
 
     public static function active()

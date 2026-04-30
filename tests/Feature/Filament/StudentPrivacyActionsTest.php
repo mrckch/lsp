@@ -30,6 +30,7 @@ class StudentPrivacyActionsTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private Student $student;
 
     protected function setUp(): void

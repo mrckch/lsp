@@ -43,16 +43,16 @@ final class PermissionCatalog
             ['key' => 'import.sources.manage',                   'area' => 'import',     'description' => 'Importquellen konfigurieren',                         'is_scopeable' => false, 'requires_two_factor' => true],
 
             // Test config
-            ['key' => 'questionnaires.view',                     'area' => 'test_config','description' => 'Fragebögen ansehen',                                  'is_scopeable' => false, 'requires_two_factor' => false],
-            ['key' => 'questionnaires.manage',                   'area' => 'test_config','description' => 'Fragebögen anlegen/ändern/importieren',               'is_scopeable' => false, 'requires_two_factor' => false],
-            ['key' => 'norm_tables.view',                        'area' => 'test_config','description' => 'Normtabellen ansehen',                                'is_scopeable' => false, 'requires_two_factor' => false],
-            ['key' => 'norm_tables.manage',                      'area' => 'test_config','description' => 'Normtabellen anlegen/ändern/importieren',             'is_scopeable' => false, 'requires_two_factor' => false],
-            ['key' => 'feedback_sets.view',                      'area' => 'test_config','description' => 'Rückmeldesets ansehen',                               'is_scopeable' => false, 'requires_two_factor' => false],
-            ['key' => 'feedback_sets.manage',                    'area' => 'test_config','description' => 'Rückmeldesets anlegen/ändern',                        'is_scopeable' => false, 'requires_two_factor' => false],
-            ['key' => 'notice_texts.view',                       'area' => 'test_config','description' => 'Hinweistexte ansehen',                                'is_scopeable' => false, 'requires_two_factor' => false],
-            ['key' => 'notice_texts.manage',                     'area' => 'test_config','description' => 'Hinweistexte anlegen/ändern',                         'is_scopeable' => false, 'requires_two_factor' => false],
-            ['key' => 'assessment_types.manage',                 'area' => 'test_config','description' => 'Erhebungstypen pflegen',                              'is_scopeable' => false, 'requires_two_factor' => false],
-            ['key' => 'support_thresholds.manage',               'area' => 'test_config','description' => 'Förderbedarfsschwellen pflegen',                      'is_scopeable' => false, 'requires_two_factor' => false],
+            ['key' => 'questionnaires.view',                     'area' => 'test_config', 'description' => 'Fragebögen ansehen',                                  'is_scopeable' => false, 'requires_two_factor' => false],
+            ['key' => 'questionnaires.manage',                   'area' => 'test_config', 'description' => 'Fragebögen anlegen/ändern/importieren',               'is_scopeable' => false, 'requires_two_factor' => false],
+            ['key' => 'norm_tables.view',                        'area' => 'test_config', 'description' => 'Normtabellen ansehen',                                'is_scopeable' => false, 'requires_two_factor' => false],
+            ['key' => 'norm_tables.manage',                      'area' => 'test_config', 'description' => 'Normtabellen anlegen/ändern/importieren',             'is_scopeable' => false, 'requires_two_factor' => false],
+            ['key' => 'feedback_sets.view',                      'area' => 'test_config', 'description' => 'Rückmeldesets ansehen',                               'is_scopeable' => false, 'requires_two_factor' => false],
+            ['key' => 'feedback_sets.manage',                    'area' => 'test_config', 'description' => 'Rückmeldesets anlegen/ändern',                        'is_scopeable' => false, 'requires_two_factor' => false],
+            ['key' => 'notice_texts.view',                       'area' => 'test_config', 'description' => 'Hinweistexte ansehen',                                'is_scopeable' => false, 'requires_two_factor' => false],
+            ['key' => 'notice_texts.manage',                     'area' => 'test_config', 'description' => 'Hinweistexte anlegen/ändern',                         'is_scopeable' => false, 'requires_two_factor' => false],
+            ['key' => 'assessment_types.manage',                 'area' => 'test_config', 'description' => 'Erhebungstypen pflegen',                              'is_scopeable' => false, 'requires_two_factor' => false],
+            ['key' => 'support_thresholds.manage',               'area' => 'test_config', 'description' => 'Förderbedarfsschwellen pflegen',                      'is_scopeable' => false, 'requires_two_factor' => false],
 
             // Test runs
             ['key' => 'test_runs.view',                          'area' => 'test_runs',  'description' => 'Testdurchläufe ansehen',                              'is_scopeable' => true,  'requires_two_factor' => false],

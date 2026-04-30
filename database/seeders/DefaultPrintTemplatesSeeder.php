@@ -79,7 +79,7 @@ class DefaultPrintTemplatesSeeder extends Seeder
 
     private function commonCss(): string
     {
-        return <<<CSS
+        return <<<'CSS'
 @page { size: A4; margin: 2cm; }
 body { font-family: Helvetica, Arial, sans-serif; font-size: 11pt; color: #111827; }
 h1 { font-size: 16pt; color: #1e3a8a; margin: 0 0 0.5cm; }
@@ -94,7 +94,7 @@ CSS;
 
     private function feedbackHtml(): string
     {
-        return <<<HTML
+        return <<<'HTML'
 <h1>Lese-Screening – Rückmeldung</h1>
 <p class="muted">Schule: {{school_name}} · Erstellt am {{date}}</p>
 <div class="box">

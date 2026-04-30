@@ -32,16 +32,36 @@ class NormTableResource extends Resource
 {
     use AuthorizedResource;
 
-    protected static function viewPermission(): ?string { return 'norm_tables.view'; }
-    protected static function createPermission(): ?string { return 'norm_tables.manage'; }
-    protected static function editPermission(): ?string { return 'norm_tables.manage'; }
-    protected static function deletePermission(): ?string { return 'norm_tables.manage'; }
+    protected static function viewPermission(): ?string
+    {
+        return 'norm_tables.view';
+    }
+
+    protected static function createPermission(): ?string
+    {
+        return 'norm_tables.manage';
+    }
+
+    protected static function editPermission(): ?string
+    {
+        return 'norm_tables.manage';
+    }
+
+    protected static function deletePermission(): ?string
+    {
+        return 'norm_tables.manage';
+    }
 
     protected static ?string $model = NormTable::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-table-cells';
+
     protected static ?string $navigationGroup = 'Test-Konfiguration';
+
     protected static ?int $navigationSort = 20;
+
     protected static ?string $modelLabel = 'Normtabelle';
+
     protected static ?string $pluralModelLabel = 'Normtabellen';
 
     public static function form(Form $form): Form
@@ -163,6 +183,7 @@ class NormTableResource extends Resource
         while (($row = fgetcsv($handle, 0, ';', '"', '')) !== false) {
             if ($first && ! is_numeric(trim($row[0] ?? ''))) {
                 $first = false;
+
                 continue;
             }
             $first = false;

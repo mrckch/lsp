@@ -36,16 +36,36 @@ class UserResource extends Resource
 {
     use AuthorizedResource;
 
-    protected static function viewPermission(): ?string { return 'users.view'; }
-    protected static function createPermission(): ?string { return 'users.manage'; }
-    protected static function editPermission(): ?string { return 'users.manage'; }
-    protected static function deletePermission(): ?string { return 'users.delete'; }
+    protected static function viewPermission(): ?string
+    {
+        return 'users.view';
+    }
+
+    protected static function createPermission(): ?string
+    {
+        return 'users.manage';
+    }
+
+    protected static function editPermission(): ?string
+    {
+        return 'users.manage';
+    }
+
+    protected static function deletePermission(): ?string
+    {
+        return 'users.delete';
+    }
 
     protected static ?string $model = User::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-users';
+
     protected static ?string $navigationGroup = 'Verwaltung';
+
     protected static ?int $navigationSort = 10;
+
     protected static ?string $modelLabel = 'Benutzer';
+
     protected static ?string $pluralModelLabel = 'Benutzer';
 
     public static function form(Form $form): Form
@@ -114,7 +134,7 @@ class UserResource extends Resource
                     ->icon('heroicon-o-lock-open')
                     ->color('warning')
                     ->visible(fn (User $r) => app(PermissionResolver::class)
-                            ->can(auth()->user(), 'clearname.password.provision')
+                        ->can(auth()->user(), 'clearname.password.provision')
                         && ! app(CryptoService::class)->hasActiveWrap($r))
                     ->form([
                         TextInput::make('initial_password')
@@ -167,7 +187,7 @@ class UserResource extends Resource
                     ->icon('heroicon-o-lock-closed')
                     ->color('danger')
                     ->visible(fn (User $r) => app(PermissionResolver::class)
-                            ->can(auth()->user(), 'clearname.password.revoke')
+                        ->can(auth()->user(), 'clearname.password.revoke')
                         && app(CryptoService::class)->hasActiveWrap($r))
                     ->requiresConfirmation()
                     ->modalDescription('Der User kann anschließend keine Klarnamen mehr entsperren. '.
@@ -233,6 +253,7 @@ class UserResource extends Resource
                             foreach ($records as $user) {
                                 if ($user->email === null) {
                                     $skipped++;
+
                                     continue;
                                 }
 

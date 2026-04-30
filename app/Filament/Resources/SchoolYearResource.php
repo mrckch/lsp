@@ -22,16 +22,36 @@ class SchoolYearResource extends Resource
 {
     use AuthorizedResource;
 
-    protected static function viewPermission(): ?string { return 'school_years.view'; }
-    protected static function createPermission(): ?string { return 'school_years.manage'; }
-    protected static function editPermission(): ?string { return 'school_years.manage'; }
-    protected static function deletePermission(): ?string { return 'school_years.manage'; }
+    protected static function viewPermission(): ?string
+    {
+        return 'school_years.view';
+    }
+
+    protected static function createPermission(): ?string
+    {
+        return 'school_years.manage';
+    }
+
+    protected static function editPermission(): ?string
+    {
+        return 'school_years.manage';
+    }
+
+    protected static function deletePermission(): ?string
+    {
+        return 'school_years.manage';
+    }
 
     protected static ?string $model = SchoolYear::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-calendar';
+
     protected static ?string $navigationGroup = 'Stammdaten';
+
     protected static ?int $navigationSort = 10;
+
     protected static ?string $modelLabel = 'Schuljahr';
+
     protected static ?string $pluralModelLabel = 'Schuljahre';
 
     public static function form(Form $form): Form

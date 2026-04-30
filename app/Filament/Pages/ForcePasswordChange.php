@@ -24,7 +24,9 @@ class ForcePasswordChange extends Page implements HasForms
     use InteractsWithForms;
 
     protected static ?string $title = 'Passwort ändern (Pflicht)';
+
     protected static bool $shouldRegisterNavigation = false;
+
     protected static string $view = 'filament.pages.force-password-change';
 
     public ?array $data = [];

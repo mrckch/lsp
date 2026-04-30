@@ -22,6 +22,7 @@ class AuditStatsWidgetTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $teacher;
 
     protected function setUp(): void

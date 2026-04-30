@@ -10,8 +10,8 @@ use App\Domain\School\Models\SchoolYear;
 use App\Filament\Concerns\AuthorizedResource;
 use App\Filament\Resources\LearningGroupResource\Pages;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -20,21 +20,42 @@ use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class LearningGroupResource extends Resource
 {
     use AuthorizedResource;
 
-    protected static function viewPermission(): ?string { return 'learning_groups.view'; }
-    protected static function createPermission(): ?string { return 'learning_groups.manage'; }
-    protected static function editPermission(): ?string { return 'learning_groups.manage'; }
-    protected static function deletePermission(): ?string { return 'learning_groups.manage'; }
+    protected static function viewPermission(): ?string
+    {
+        return 'learning_groups.view';
+    }
+
+    protected static function createPermission(): ?string
+    {
+        return 'learning_groups.manage';
+    }
+
+    protected static function editPermission(): ?string
+    {
+        return 'learning_groups.manage';
+    }
+
+    protected static function deletePermission(): ?string
+    {
+        return 'learning_groups.manage';
+    }
 
     protected static ?string $model = LearningGroup::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-academic-cap';
+
     protected static ?string $navigationGroup = 'Stammdaten';
+
     protected static ?int $navigationSort = 20;
+
     protected static ?string $modelLabel = 'Lerngruppe';
+
     protected static ?string $pluralModelLabel = 'Lerngruppen';
 
     public static function form(Form $form): Form
@@ -56,8 +77,7 @@ class LearningGroupResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (\Illuminate\Database\Eloquent\Builder $q) =>
-                app(ScopeFilter::class)->applyToLearningGroups($q, auth()->user()))
+            ->modifyQueryUsing(fn (Builder $q) => app(ScopeFilter::class)->applyToLearningGroups($q, auth()->user()))
             ->columns([
                 TextColumn::make('schoolYear.label')->label('Schuljahr')->sortable(),
                 TextColumn::make('name')->sortable()->searchable(),

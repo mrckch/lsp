@@ -28,6 +28,7 @@ class ViewStudentTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private Student $student;
 
     protected function setUp(): void
@@ -91,7 +92,9 @@ class ViewStudentTest extends TestCase
     {
         $page = new ViewStudent;
         // ViewRecord erwartet Eloquent-Record als Property
-        (function () use ($s) { $this->record = $s; })->call($page);
+        (function () use ($s) {
+            $this->record = $s;
+        })->call($page);
 
         return $page;
     }

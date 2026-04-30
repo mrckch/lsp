@@ -12,6 +12,7 @@ use App\Domain\PrintTemplate\Models\PrintTemplate;
 use App\Domain\Student\Models\Student;
 use App\Filament\Concerns\AuthorizedPage;
 use App\Filament\Concerns\HandlesPrintErrors;
+use App\Models\AppSetting;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -39,13 +40,19 @@ class StudentHistoryChart extends Page implements HasForms
     }
 
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
+
     protected static ?string $navigationGroup = 'Auswertung';
+
     protected static ?int $navigationSort = 10;
+
     protected static ?string $title = 'Verlaufsdiagramm';
+
     protected static ?string $navigationLabel = 'Verlauf (Schüler)';
+
     protected static string $view = 'filament.pages.student-history-chart';
 
     public ?array $data = [];
+
     public ?int $studentId = null;
 
     public function mount(): void
@@ -145,7 +152,7 @@ class StudentHistoryChart extends Page implements HasForms
                 $version = $template->currentVersion;
 
                 $vars = [
-                    'school_name' => \App\Models\AppSetting::singleton()->school_name ?? '',
+                    'school_name' => AppSetting::singleton()->school_name ?? '',
                     'student_name' => $student->first_name_encrypted.' '.$student->last_name_encrypted,
                     'student_code' => $student->student_code,
                     'date' => now()->format('d.m.Y'),

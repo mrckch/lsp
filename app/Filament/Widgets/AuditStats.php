@@ -21,6 +21,7 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 class AuditStats extends StatsOverviewWidget
 {
     protected static ?int $sort = 70;
+
     protected static ?string $pollingInterval = '60s';
 
     public static function canView(): bool

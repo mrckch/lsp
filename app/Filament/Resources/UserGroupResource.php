@@ -10,8 +10,8 @@ use App\Filament\Concerns\AuthorizedResource;
 use App\Filament\Resources\UserGroupResource\Pages;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -25,16 +25,36 @@ class UserGroupResource extends Resource
 {
     use AuthorizedResource;
 
-    protected static function viewPermission(): ?string { return 'user_groups.manage'; }
-    protected static function createPermission(): ?string { return 'user_groups.manage'; }
-    protected static function editPermission(): ?string { return 'user_groups.manage'; }
-    protected static function deletePermission(): ?string { return 'user_groups.manage'; }
+    protected static function viewPermission(): ?string
+    {
+        return 'user_groups.manage';
+    }
+
+    protected static function createPermission(): ?string
+    {
+        return 'user_groups.manage';
+    }
+
+    protected static function editPermission(): ?string
+    {
+        return 'user_groups.manage';
+    }
+
+    protected static function deletePermission(): ?string
+    {
+        return 'user_groups.manage';
+    }
 
     protected static ?string $model = UserGroup::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
+
     protected static ?string $navigationGroup = 'Verwaltung';
+
     protected static ?int $navigationSort = 20;
+
     protected static ?string $modelLabel = 'Benutzerklasse';
+
     protected static ?string $pluralModelLabel = 'Benutzerklassen';
 
     public static function form(Form $form): Form

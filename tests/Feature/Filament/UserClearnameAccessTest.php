@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Filament;
 
+use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Crypto\CryptoService;
 use App\Domain\Permission\Models\UserGroup;
 use App\Filament\Resources\UserResource\Pages\ListUsers;
@@ -64,7 +65,7 @@ class UserClearnameAccessTest extends TestCase
         $this->assertTrue($this->crypto->hasActiveWrap($this->teacher));
 
         // Audit-Log: provision wird mit Target-Username + Actor erfasst
-        $audit = \App\Domain\Audit\Models\AuditLog::query()
+        $audit = AuditLog::query()
             ->where('action', 'clearname.password.provisioned')->first();
         $this->assertNotNull($audit);
         $this->assertEquals($this->admin->id, $audit->actor_user_id);
@@ -108,7 +109,7 @@ class UserClearnameAccessTest extends TestCase
         $this->assertFalse($this->crypto->hasActiveWrap($this->teacher));
 
         // Audit-Log: revoke mit Wrap-Count
-        $audit = \App\Domain\Audit\Models\AuditLog::query()
+        $audit = AuditLog::query()
             ->where('action', 'clearname.password.revoked')->first();
         $this->assertNotNull($audit);
         $this->assertEquals($this->admin->id, $audit->actor_user_id);

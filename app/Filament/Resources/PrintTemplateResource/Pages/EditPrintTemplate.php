@@ -22,6 +22,7 @@ class EditPrintTemplate extends EditRecord
     protected static string $resource = PrintTemplateResource::class;
 
     protected $html;
+
     protected $css;
 
     protected function getHeaderActions(): array

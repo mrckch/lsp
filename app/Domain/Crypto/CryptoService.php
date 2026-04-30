@@ -29,8 +29,11 @@ final class CryptoService
     public const SESSION_KEY = 'lsp.dek';
 
     public const DEK_BYTES = 32;          // AES-256
+
     public const NONCE_BYTES = 12;        // GCM Standard
+
     public const SALT_BYTES = 16;
+
     public const RECOVERY_KEY_BYTES = 32;
 
     public const DEFAULT_KDF = [

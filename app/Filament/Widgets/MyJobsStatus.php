@@ -21,8 +21,11 @@ use Illuminate\Support\Collection;
 class MyJobsStatus extends Widget
 {
     protected static ?int $sort = 80;
+
     protected static string $view = 'filament.widgets.my-jobs-status';
+
     protected int|string|array $columnSpan = 'full';
+
     protected static ?string $pollingInterval = '10s';
 
     public static function canView(): bool

@@ -11,6 +11,7 @@ use Illuminate\Console\Command;
 class BackupRunCommand extends Command
 {
     protected $signature = 'backup:run {target_id?}';
+
     protected $description = 'Führt ein Backup für ein bestimmtes (oder alle aktiven) Backup-Ziele aus.';
 
     public function handle(BackupRunner $runner): int

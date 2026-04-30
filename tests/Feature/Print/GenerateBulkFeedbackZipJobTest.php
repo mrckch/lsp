@@ -31,6 +31,7 @@ class GenerateBulkFeedbackZipJobTest extends TestCase
     use RefreshDatabase;
 
     private TestRun $run;
+
     private User $admin;
 
     protected function setUp(): void

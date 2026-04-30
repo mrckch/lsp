@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Print;
 
+use App\Domain\Analytics\AnalyticsService;
 use App\Domain\Attempt\Models\TestAttempt;
 use App\Domain\Crypto\CryptoService;
 use App\Domain\Permission\Models\UserScopeAssignment;
@@ -29,9 +30,13 @@ class BulkHistoryExporterTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $teacher;
+
     private array $studentsByName = [];
+
     private LearningGroup $g1;
+
     private LearningGroup $g2;
 
     protected function setUp(): void
@@ -81,7 +86,7 @@ class BulkHistoryExporterTest extends TestCase
 
         // 3 Schüler in 5a mit Versuchen, 1 in 5b mit Versuch, 1 ohne Versuch
         foreach ([['Anna', $this->g1, true], ['Bob', $this->g1, true], ['Carla', $this->g1, true],
-                  ['Dora', $this->g2, true], ['Emil', $this->g1, false]] as [$name, $g, $hasAttempt]) {
+            ['Dora', $this->g2, true], ['Emil', $this->g1, false]] as [$name, $g, $hasAttempt]) {
             $s = $this->mkStudent($name, $g, $sy);
             $this->studentsByName[$name] = $s;
             if ($hasAttempt) {
@@ -125,7 +130,7 @@ class BulkHistoryExporterTest extends TestCase
     #[Test]
     public function it_exports_pdfs_for_all_given_students_with_attempts(): void
     {
-        $exporter = new BulkHistoryExporter($this->fakeGotenberg(), app(\App\Domain\Analytics\AnalyticsService::class));
+        $exporter = new BulkHistoryExporter($this->fakeGotenberg(), app(AnalyticsService::class));
         $ids = collect($this->studentsByName)->pluck('id')->all();
 
         $result = $exporter->exportFor($ids);
@@ -144,7 +149,7 @@ class BulkHistoryExporterTest extends TestCase
             'user_id' => $this->teacher->id, 'learning_group_id' => $this->g1->id,
         ]);
 
-        $exporter = new BulkHistoryExporter($this->fakeGotenberg(), app(\App\Domain\Analytics\AnalyticsService::class));
+        $exporter = new BulkHistoryExporter($this->fakeGotenberg(), app(AnalyticsService::class));
         $ids = collect($this->studentsByName)->pluck('id')->all();
 
         $result = $exporter->exportFor($ids, forUser: $this->teacher);
@@ -160,7 +165,7 @@ class BulkHistoryExporterTest extends TestCase
     {
         PrintTemplate::query()->where('key', 'verlaufsdiagramm')->delete();
 
-        $exporter = new BulkHistoryExporter($this->fakeGotenberg(), app(\App\Domain\Analytics\AnalyticsService::class));
+        $exporter = new BulkHistoryExporter($this->fakeGotenberg(), app(AnalyticsService::class));
         $this->expectException(\RuntimeException::class);
         $exporter->exportFor([1]);
     }

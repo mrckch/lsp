@@ -7,7 +7,6 @@ namespace App\Domain\Mail;
 use App\Domain\Mail\Models\MailAttachment;
 use App\Domain\Mail\Models\MailMessage;
 use App\Domain\Mail\Models\MailSettings;
-use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;

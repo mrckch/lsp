@@ -6,7 +6,6 @@ namespace Tests\Feature\TestEngine;
 
 use App\Domain\Attempt\Models\AttemptLqHistory;
 use App\Domain\Attempt\Models\StudentLoginCode;
-use App\Domain\Attempt\Models\TestAttempt;
 use App\Domain\Attempt\TestEngine;
 use App\Domain\Crypto\CryptoService;
 use App\Domain\NormTable\LqResolver;
@@ -32,12 +31,19 @@ class TestEngineTest extends TestCase
     use RefreshDatabase;
 
     private TestEngine $engine;
+
     private User $admin;
+
     private SchoolYear $sy;
+
     private Questionnaire $questionnaire;
+
     private NormTable $norm;
+
     private TestRun $run;
+
     private Student $student;
+
     private StudentLoginCode $loginCode;
 
     protected function setUp(): void

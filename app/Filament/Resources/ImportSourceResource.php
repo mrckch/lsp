@@ -27,16 +27,36 @@ class ImportSourceResource extends Resource
 {
     use AuthorizedResource;
 
-    protected static function viewPermission(): ?string { return 'import.sources.manage'; }
-    protected static function createPermission(): ?string { return 'import.sources.manage'; }
-    protected static function editPermission(): ?string { return 'import.sources.manage'; }
-    protected static function deletePermission(): ?string { return 'import.sources.manage'; }
+    protected static function viewPermission(): ?string
+    {
+        return 'import.sources.manage';
+    }
+
+    protected static function createPermission(): ?string
+    {
+        return 'import.sources.manage';
+    }
+
+    protected static function editPermission(): ?string
+    {
+        return 'import.sources.manage';
+    }
+
+    protected static function deletePermission(): ?string
+    {
+        return 'import.sources.manage';
+    }
 
     protected static ?string $model = ImportSource::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-link';
+
     protected static ?string $navigationGroup = 'System';
+
     protected static ?int $navigationSort = 25;
+
     protected static ?string $modelLabel = 'Importquelle';
+
     protected static ?string $pluralModelLabel = 'Importquellen';
 
     public static function form(Form $form): Form

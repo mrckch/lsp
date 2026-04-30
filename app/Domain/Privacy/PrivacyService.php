@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Domain\Privacy;
 
+use App\Domain\Attempt\Models\TestAttempt;
 use App\Domain\Audit\AuditLogger;
 use App\Domain\Audit\Models\AuditLog;
-use App\Domain\Attempt\Models\TestAttempt;
 use App\Domain\Crypto\CryptoService;
 use App\Domain\Student\Models\Student;
 use App\Models\User;

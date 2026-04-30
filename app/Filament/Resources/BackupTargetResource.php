@@ -27,16 +27,36 @@ class BackupTargetResource extends Resource
 {
     use AuthorizedResource;
 
-    protected static function viewPermission(): ?string { return 'system.backup.targets.manage'; }
-    protected static function createPermission(): ?string { return 'system.backup.targets.manage'; }
-    protected static function editPermission(): ?string { return 'system.backup.targets.manage'; }
-    protected static function deletePermission(): ?string { return 'system.backup.targets.manage'; }
+    protected static function viewPermission(): ?string
+    {
+        return 'system.backup.targets.manage';
+    }
+
+    protected static function createPermission(): ?string
+    {
+        return 'system.backup.targets.manage';
+    }
+
+    protected static function editPermission(): ?string
+    {
+        return 'system.backup.targets.manage';
+    }
+
+    protected static function deletePermission(): ?string
+    {
+        return 'system.backup.targets.manage';
+    }
 
     protected static ?string $model = BackupTarget::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-cloud-arrow-up';
+
     protected static ?string $navigationGroup = 'System';
+
     protected static ?int $navigationSort = 40;
+
     protected static ?string $modelLabel = 'Backup-Ziel';
+
     protected static ?string $pluralModelLabel = 'Backup-Ziele';
 
     public static function form(Form $form): Form

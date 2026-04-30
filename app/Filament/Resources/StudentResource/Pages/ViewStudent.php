@@ -8,7 +8,6 @@ use App\Domain\Analytics\AnalyticsService;
 use App\Domain\Attempt\Models\TestAttempt;
 use App\Domain\Permission\PermissionResolver;
 use App\Domain\Privacy\PrivacyService;
-use App\Domain\Student\Models\Student;
 use App\Filament\Resources\StudentResource;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -23,6 +22,7 @@ use Filament\Resources\Pages\ViewRecord;
 class ViewStudent extends ViewRecord
 {
     protected static string $resource = StudentResource::class;
+
     protected static string $view = 'filament.resources.student.view';
 
     public function getTitle(): string

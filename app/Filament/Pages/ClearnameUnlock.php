@@ -20,13 +20,21 @@ class ClearnameUnlock extends Page implements HasForms
     use AuthorizedPage;
     use InteractsWithForms;
 
-    protected static function requiredPermission(): ?string { return 'clearname.unlock'; }
+    protected static function requiredPermission(): ?string
+    {
+        return 'clearname.unlock';
+    }
 
     protected static ?string $navigationIcon = 'heroicon-o-lock-open';
+
     protected static ?string $navigationGroup = 'Klarnamen';
+
     protected static ?int $navigationSort = 10;
+
     protected static ?string $title = 'Klarnamen entsperren';
+
     protected static ?string $navigationLabel = 'Entsperren';
+
     protected static string $view = 'filament.pages.clearname-unlock';
 
     public ?array $data = [];

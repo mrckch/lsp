@@ -23,13 +23,21 @@ class MailSettingsPage extends Page implements HasForms
     use AuthorizedPage;
     use InteractsWithForms;
 
-    protected static function requiredPermission(): ?string { return 'mail.settings.manage'; }
+    protected static function requiredPermission(): ?string
+    {
+        return 'mail.settings.manage';
+    }
 
     protected static ?string $navigationIcon = 'heroicon-o-envelope';
+
     protected static ?string $navigationGroup = 'System';
+
     protected static ?int $navigationSort = 30;
+
     protected static ?string $title = 'Mail-Einstellungen';
+
     protected static ?string $navigationLabel = 'Mail (SMTP)';
+
     protected static string $view = 'filament.pages.mail-settings';
 
     public ?array $data = [];

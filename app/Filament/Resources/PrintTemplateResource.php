@@ -35,16 +35,36 @@ class PrintTemplateResource extends Resource
     use AuthorizedResource;
     use HandlesPrintErrors;
 
-    protected static function viewPermission(): ?string { return 'print.templates.view'; }
-    protected static function createPermission(): ?string { return 'print.templates.manage'; }
-    protected static function editPermission(): ?string { return 'print.templates.manage'; }
-    protected static function deletePermission(): ?string { return 'print.templates.manage'; }
+    protected static function viewPermission(): ?string
+    {
+        return 'print.templates.view';
+    }
+
+    protected static function createPermission(): ?string
+    {
+        return 'print.templates.manage';
+    }
+
+    protected static function editPermission(): ?string
+    {
+        return 'print.templates.manage';
+    }
+
+    protected static function deletePermission(): ?string
+    {
+        return 'print.templates.manage';
+    }
 
     protected static ?string $model = PrintTemplate::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
+
     protected static ?string $navigationGroup = 'Drucksachen';
+
     protected static ?int $navigationSort = 10;
+
     protected static ?string $modelLabel = 'Druckvorlage';
+
     protected static ?string $pluralModelLabel = 'Druckvorlagen';
 
     public static function form(Form $form): Form

@@ -14,6 +14,7 @@ trait HandlesPrintErrors
 {
     /**
      * @template T
+     *
      * @param  callable():T  $action
      * @return T|null
      */

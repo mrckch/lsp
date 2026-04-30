@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Tests\Feature\Import;
 
 use App\Domain\Crypto\CryptoService;
+use App\Domain\Import\Adapters\SchildCsvImporter;
 use App\Domain\Import\Adapters\SvwsApiImporter;
 use App\Domain\Import\DTOs\ImportInput;
+use App\Domain\Import\ImporterFactory;
+use App\Domain\Import\Models\ImportDiffEntry;
 use App\Domain\Import\Models\ImportSource;
 use App\Domain\Import\SvwsApiClient;
 use App\Domain\School\Models\LearningGroup;
@@ -150,7 +153,7 @@ class SvwsApiImporterTest extends TestCase
         $diff = $importer->diff($this->input(), $this->year->id, 'klasse');
 
         // Alle Diff-Einträge bestätigen
-        $entries = \App\Domain\Import\Models\ImportDiffEntry::query()
+        $entries = ImportDiffEntry::query()
             ->where('import_job_id', $diff->importJobId)->get();
         $decisions = [];
         foreach ($entries as $e) {
@@ -291,9 +294,9 @@ class SvwsApiImporterTest extends TestCase
             ),
             'svws.test/db/svwsdb/schueler/abschnitt/*' => Http::response([
                 ['id' => 100, 'nachname' => 'Sek1', 'vorname' => 'A', 'geschlecht' => 'm',
-                 'idKlasse' => 1, 'jahrgang' => '05', 'status' => 2, 'idSchuljahresabschnitt' => 1],
+                    'idKlasse' => 1, 'jahrgang' => '05', 'status' => 2, 'idSchuljahresabschnitt' => 1],
                 ['id' => 101, 'nachname' => 'Sek2', 'vorname' => 'B', 'geschlecht' => 'w',
-                 'idKlasse' => 1, 'jahrgang' => '11', 'status' => 2, 'idSchuljahresabschnitt' => 1],
+                    'idKlasse' => 1, 'jahrgang' => '11', 'status' => 2, 'idSchuljahresabschnitt' => 1],
             ], 200),
             'svws.test/db/svwsdb/klassen/abschnitt/*' => Http::response(
                 json_decode(file_get_contents(base_path('tests/Fixtures/svws/klassen_abschnitt_1.json')), true),
@@ -352,9 +355,9 @@ class SvwsApiImporterTest extends TestCase
     #[Test]
     public function importer_factory_returns_correct_adapter(): void
     {
-        $factory = app(\App\Domain\Import\ImporterFactory::class);
+        $factory = app(ImporterFactory::class);
 
-        $this->assertInstanceOf(\App\Domain\Import\Adapters\SchildCsvImporter::class, $factory->make('schild_csv'));
+        $this->assertInstanceOf(SchildCsvImporter::class, $factory->make('schild_csv'));
         $this->assertInstanceOf(SvwsApiImporter::class, $factory->make('svws_api'));
 
         $this->expectException(\InvalidArgumentException::class);

@@ -6,14 +6,10 @@ namespace App\Filament\Resources;
 
 use App\Domain\Attempt\TestEngine;
 use App\Domain\FeedbackSet\Models\FeedbackSet;
-use App\Domain\Mail\MailService;
 use App\Domain\NormTable\Models\NormTable;
+use App\Domain\NoticeText\Models\NoticeText;
 use App\Domain\Permission\PermissionResolver;
 use App\Domain\Permission\ScopeFilter;
-use App\Domain\NoticeText\Models\NoticeText;
-use App\Domain\PrintJob\BulkFeedbackGenerator;
-use App\Jobs\GenerateBulkFeedbackZipJob;
-use App\Jobs\SendBulkFeedbackMailJob;
 use App\Domain\Questionnaire\Models\Questionnaire;
 use App\Domain\School\Models\LearningGroup;
 use App\Domain\School\Models\SchoolYear;
@@ -22,6 +18,8 @@ use App\Domain\TestRun\Models\TestRun;
 use App\Filament\Concerns\AuthorizedResource;
 use App\Filament\Concerns\HandlesPrintErrors;
 use App\Filament\Resources\TestRunResource\Pages;
+use App\Jobs\GenerateBulkFeedbackZipJob;
+use App\Jobs\SendBulkFeedbackMailJob;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -38,16 +36,33 @@ use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class TestRunResource extends Resource
 {
     use AuthorizedResource;
     use HandlesPrintErrors;
 
-    protected static function viewPermission(): ?string { return 'test_runs.view'; }
-    protected static function createPermission(): ?string { return 'test_runs.create'; }
-    protected static function editPermission(): ?string { return 'test_runs.manage_own'; }
-    protected static function deletePermission(): ?string { return 'test_runs.delete'; }
+    protected static function viewPermission(): ?string
+    {
+        return 'test_runs.view';
+    }
+
+    protected static function createPermission(): ?string
+    {
+        return 'test_runs.create';
+    }
+
+    protected static function editPermission(): ?string
+    {
+        return 'test_runs.manage_own';
+    }
+
+    protected static function deletePermission(): ?string
+    {
+        return 'test_runs.delete';
+    }
 
     /**
      * Per-Record-Authorisierung:
@@ -55,19 +70,19 @@ class TestRunResource extends Resource
      *  - fremder Run                              → 'test_runs.manage_all'
      *  - immer zusätzlich: Scope-Check auf die verknüpften Lerngruppen
      */
-    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function canEdit(Model $record): bool
     {
         return self::authorizeForOwnership($record, ownPermission: 'test_runs.manage_own', allPermission: 'test_runs.manage_all');
     }
 
-    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function canDelete(Model $record): bool
     {
         return self::authorizeForOwnership($record, ownPermission: 'test_runs.delete', allPermission: 'test_runs.delete')
             && self::canEdit($record);
     }
 
     private static function authorizeForOwnership(
-        \Illuminate\Database\Eloquent\Model $record,
+        Model $record,
         string $ownPermission,
         string $allPermission,
     ): bool {
@@ -99,10 +114,15 @@ class TestRunResource extends Resource
     }
 
     protected static ?string $model = TestRun::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-play-circle';
+
     protected static ?string $navigationGroup = 'Erhebungen';
+
     protected static ?int $navigationSort = 10;
+
     protected static ?string $modelLabel = 'Testdurchlauf';
+
     protected static ?string $pluralModelLabel = 'Testdurchläufe';
 
     public static function form(Form $form): Form
@@ -160,8 +180,7 @@ class TestRunResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (\Illuminate\Database\Eloquent\Builder $q) =>
-                app(ScopeFilter::class)->applyToTestRuns($q, auth()->user()))
+            ->modifyQueryUsing(fn (Builder $q) => app(ScopeFilter::class)->applyToTestRuns($q, auth()->user()))
             ->columns([
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('short_code')->label('Code')->badge(),

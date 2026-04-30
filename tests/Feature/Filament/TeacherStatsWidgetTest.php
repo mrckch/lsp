@@ -29,10 +29,15 @@ class TeacherStatsWidgetTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $teacher;
+
     private SchoolYear $sy;
+
     private LearningGroup $g5a;
+
     private LearningGroup $g5b;
+
     private TestRun $run5a;
 
     protected function setUp(): void
@@ -87,7 +92,7 @@ class TeacherStatsWidgetTest extends TestCase
 
         // 2 SuS in 5a (LQs 90, 110), 1 SuS in 5b (LQ 80)
         foreach ([['Anna', $this->g5a, $this->run5a, 90], ['Bob', $this->g5a, $this->run5a, 110],
-                  ['Carl', $this->g5b, $run5b, 80]] as [$name, $g, $run, $lq]) {
+            ['Carl', $this->g5b, $run5b, 80]] as [$name, $g, $run, $lq]) {
             $s = new Student;
             $s->external_student_id = $name;
             $s->external_id_source = 'manual';

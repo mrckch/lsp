@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class AttemptLqHistory extends Model
 {
     public $timestamps = false;
+
     protected $table = 'attempt_lq_history';
 
     protected $fillable = [

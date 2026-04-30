@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Permission;
 
-use App\Domain\Attempt\Models\TestAttempt;
 use App\Domain\Attempt\Models\StudentLoginCode;
+use App\Domain\Attempt\Models\TestAttempt;
 use App\Domain\Crypto\CryptoService;
 use App\Domain\Permission\Models\UserGroup;
 use App\Domain\Permission\Models\UserScopeAssignment;
@@ -29,13 +29,21 @@ class ScopeFilterExtendedTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $teacher;
+
     private SchoolYear $sy;
+
     private LearningGroup $g1;
+
     private LearningGroup $g2;
+
     private TestRun $run1;
+
     private TestRun $run2;
+
     private Student $studentA;
+
     private Student $studentB;
 
     protected function setUp(): void

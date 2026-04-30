@@ -24,8 +24,11 @@ class PermissionResolverTest extends TestCase
     use RefreshDatabase;
 
     private PermissionResolver $resolver;
+
     private User $user;
+
     private int $groupAId;
+
     private int $groupBId;
 
     protected function setUp(): void

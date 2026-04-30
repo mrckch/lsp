@@ -33,6 +33,7 @@ class MailSupportListJobTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private SchoolYear $sy;
 
     protected function setUp(): void

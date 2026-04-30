@@ -26,7 +26,10 @@ class RecoveryKeyManagement extends Page
 {
     use AuthorizedPage;
 
-    protected static function requiredPermission(): ?string { return 'clearname.recovery.regenerate'; }
+    protected static function requiredPermission(): ?string
+    {
+        return 'clearname.recovery.regenerate';
+    }
 
     protected static ?string $navigationIcon = 'heroicon-o-key';
 

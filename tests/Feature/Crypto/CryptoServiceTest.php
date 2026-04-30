@@ -20,6 +20,7 @@ class CryptoServiceTest extends TestCase
     use RefreshDatabase;
 
     private CryptoService $crypto;
+
     private User $admin;
 
     protected function setUp(): void

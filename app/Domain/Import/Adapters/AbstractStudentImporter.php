@@ -18,6 +18,7 @@ use App\Domain\Student\Models\Student;
 use App\Domain\Student\Models\StudentEnrollment;
 use App\Domain\Student\Models\StudentGroupMembership;
 use App\Models\AppSetting;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -299,7 +300,7 @@ abstract class AbstractStudentImporter implements StudentImporter
         });
 
         $this->audit->logUser(
-            auth()->user() ?? \App\Models\User::find($job->started_by_user_id),
+            auth()->user() ?? User::find($job->started_by_user_id),
             action: 'import.committed',
             entityType: 'import_job',
             entityId: $job->id,
@@ -323,7 +324,7 @@ abstract class AbstractStudentImporter implements StudentImporter
     }
 
     /**
-     * @return array<string,mixed>|null  null wenn keine Änderung; sonst Liste der Felder
+     * @return array<string,mixed>|null null wenn keine Änderung; sonst Liste der Felder
      */
     protected function detectChange(Student $student, array $row, int $schoolYearId): ?array
     {

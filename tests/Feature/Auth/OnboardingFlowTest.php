@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Auth;
 
 use App\Domain\Auth\OnboardingService;
+use App\Domain\Mail\MailService;
 use App\Domain\Mail\Models\MailMessage;
 use App\Filament\Pages\ForcePasswordChange;
 use App\Jobs\SendWelcomeMailJob;
@@ -96,7 +97,7 @@ class OnboardingFlowTest extends TestCase
         $user = $this->makeUser();
 
         $job = new SendWelcomeMailJob($user->id, 'INIT-PW01-XYZA-BC23', null);
-        $job->handle(app(\App\Domain\Mail\MailService::class));
+        $job->handle(app(MailService::class));
 
         $msg = MailMessage::query()->first();
         $this->assertNotNull($msg);
@@ -113,13 +114,13 @@ class OnboardingFlowTest extends TestCase
         $user = $this->makeUser(email: null);
 
         $job = new SendWelcomeMailJob($user->id, 'X', null);
-        $job->handle(app(\App\Domain\Mail\MailService::class));
+        $job->handle(app(MailService::class));
 
         $this->assertEquals(0, MailMessage::count());
     }
 
     #[Test]
-    public function force_change_page_canAccess_only_when_flag_set(): void
+    public function force_change_page_can_access_only_when_flag_set(): void
     {
         $user = $this->makeUser();
         $this->actingAs($user);

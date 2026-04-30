@@ -31,9 +31,13 @@ class SupportListPageTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $teacher;
+
     private SchoolYear $sy;
+
     private LearningGroup $g5a;
+
     private LearningGroup $g5b;
 
     protected function setUp(): void

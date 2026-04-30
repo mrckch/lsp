@@ -10,7 +10,6 @@ use App\Domain\PrintJob\GotenbergClient;
 use App\Domain\PrintJob\PrintJobRunner;
 use App\Domain\PrintTemplate\Models\PrintTemplate;
 use App\Domain\School\Models\SchoolYear;
-use App\Domain\Student\Models\Student;
 use App\Domain\SupportThreshold\ThresholdEvaluator;
 use App\Filament\Concerns\AuthorizedPage;
 use App\Filament\Concerns\HandlesPrintErrors;
@@ -42,10 +41,15 @@ class SupportListPage extends Page implements HasForms
     }
 
     protected static ?string $navigationIcon = 'heroicon-o-exclamation-triangle';
+
     protected static ?string $navigationGroup = 'Auswertung';
+
     protected static ?int $navigationSort = 20;
+
     protected static ?string $title = 'Förderbedarfs-Liste';
+
     protected static ?string $navigationLabel = 'Förderbedarf';
+
     protected static string $view = 'filament.pages.support-list';
 
     public ?array $data = [];

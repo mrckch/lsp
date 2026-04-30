@@ -10,8 +10,8 @@ use App\Filament\Resources\QuestionnaireResource\Pages;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables\Actions\DeleteAction;
@@ -25,16 +25,36 @@ class QuestionnaireResource extends Resource
 {
     use AuthorizedResource;
 
-    protected static function viewPermission(): ?string { return 'questionnaires.view'; }
-    protected static function createPermission(): ?string { return 'questionnaires.manage'; }
-    protected static function editPermission(): ?string { return 'questionnaires.manage'; }
-    protected static function deletePermission(): ?string { return 'questionnaires.manage'; }
+    protected static function viewPermission(): ?string
+    {
+        return 'questionnaires.view';
+    }
+
+    protected static function createPermission(): ?string
+    {
+        return 'questionnaires.manage';
+    }
+
+    protected static function editPermission(): ?string
+    {
+        return 'questionnaires.manage';
+    }
+
+    protected static function deletePermission(): ?string
+    {
+        return 'questionnaires.manage';
+    }
 
     protected static ?string $model = Questionnaire::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
+
     protected static ?string $navigationGroup = 'Test-Konfiguration';
+
     protected static ?int $navigationSort = 10;
+
     protected static ?string $modelLabel = 'Fragebogen';
+
     protected static ?string $pluralModelLabel = 'Fragebögen';
 
     public static function form(Form $form): Form

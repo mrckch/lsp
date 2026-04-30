@@ -7,8 +7,6 @@ namespace Tests\Feature\Analytics;
 use App\Domain\Analytics\AnalyticsService;
 use App\Domain\Attempt\Models\TestAttempt;
 use App\Domain\Crypto\CryptoService;
-use App\Domain\NormTable\Models\NormTable;
-use App\Domain\NormTable\Models\NormTableRow;
 use App\Domain\Questionnaire\Models\Questionnaire;
 use App\Domain\Questionnaire\Models\QuestionnaireQuestion;
 use App\Domain\School\Models\LearningGroup;
@@ -30,9 +28,13 @@ class AnalyticsAndThresholdsTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private SchoolYear $sy;
+
     private TestRun $run1;
+
     private TestRun $run2;
+
     private array $students = [];
 
     protected function setUp(): void

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Filament;
 
 use App\Domain\Permission\Models\UserGroup;
+use App\Domain\Permission\PermissionResolver;
 use App\Filament\Resources\UserResource\Pages\ListUsers;
 use App\Jobs\SendWelcomeMailJob;
 use App\Models\AppSetting;
@@ -138,7 +139,7 @@ class UserBulkWelcomeTest extends TestCase
 
         // Lehrkraft sieht die User-Liste gar nicht (canViewAny = false), darum weicht
         // dieser Test auf eine direkte Berechtigungsprüfung aus.
-        $resolver = app(\App\Domain\Permission\PermissionResolver::class);
+        $resolver = app(PermissionResolver::class);
         $this->assertFalse($resolver->can($teacher, 'users.manage'));
 
         // Selbst wenn die Action aufgerufen würde, muss der Permission-Check greifen.
@@ -160,7 +161,7 @@ class UserBulkWelcomeTest extends TestCase
 
         $target = $this->makeUser('target', 't@example.com');
 
-        \Livewire\Livewire::test(ListUsers::class)
+        Livewire::test(ListUsers::class)
             ->assertTableActionHidden('sendWelcome', $target);
     }
 }

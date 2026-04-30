@@ -27,8 +27,11 @@ class LqRecalculationServiceTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private NormTable $norm;
+
     private TestRun $run;
+
     private Questionnaire $q;
 
     protected function setUp(): void

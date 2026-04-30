@@ -410,7 +410,7 @@ class BackupRestoreTest extends TestCase
             snapshotBefore: true,
         );
 
-        $audit = \App\Domain\Audit\Models\AuditLog::query()
+        $audit = AuditLog::query()
             ->where('action', 'system.backup.restored')->first();
         $this->assertNotNull($audit->context['pre_snapshot_path']);
         $this->assertStringStartsWith('lsp/backups/', $audit->context['pre_snapshot_path']);

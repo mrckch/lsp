@@ -21,16 +21,36 @@ class AssessmentTypeResource extends Resource
 {
     use AuthorizedResource;
 
-    protected static function viewPermission(): ?string { return 'assessment_types.manage'; }
-    protected static function createPermission(): ?string { return 'assessment_types.manage'; }
-    protected static function editPermission(): ?string { return 'assessment_types.manage'; }
-    protected static function deletePermission(): ?string { return 'assessment_types.manage'; }
+    protected static function viewPermission(): ?string
+    {
+        return 'assessment_types.manage';
+    }
+
+    protected static function createPermission(): ?string
+    {
+        return 'assessment_types.manage';
+    }
+
+    protected static function editPermission(): ?string
+    {
+        return 'assessment_types.manage';
+    }
+
+    protected static function deletePermission(): ?string
+    {
+        return 'assessment_types.manage';
+    }
 
     protected static ?string $model = AssessmentType::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-tag';
+
     protected static ?string $navigationGroup = 'Test-Konfiguration';
+
     protected static ?int $navigationSort = 5;
+
     protected static ?string $modelLabel = 'Erhebungstyp';
+
     protected static ?string $pluralModelLabel = 'Erhebungstypen';
 
     public static function form(Form $form): Form

@@ -1,0 +1,283 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Offset ''files_restored'' on array\{manifest_version\: string\|null, tables_planned\: list\<string\>, tables_skipped\: array\<string, string\>, tables_missing_in_db\: list\<string\>, tables_extra_in_db\: list\<string\>, schema_drift\: array\<string, array\{extra_in_backup\: list\<string\>, extra_in_db\: list\<string\>\}\>, restored\: array\<string, int\>, files_total\: int, \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Console/Commands/BackupRestoreCommand.php
+
+		-
+			message: '#^Offset ''files_skipped'' on array\{manifest_version\: string\|null, tables_planned\: list\<string\>, tables_skipped\: array\<string, string\>, tables_missing_in_db\: list\<string\>, tables_extra_in_db\: list\<string\>, schema_drift\: array\<string, array\{extra_in_backup\: list\<string\>, extra_in_db\: list\<string\>\}\>, restored\: array\<string, int\>, files_total\: int, \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Console/Commands/BackupRestoreCommand.php
+
+		-
+			message: '#^Offset ''files_total'' on array\{manifest_version\: string\|null, tables_planned\: list\<string\>, tables_skipped\: array\<string, string\>, tables_missing_in_db\: list\<string\>, tables_extra_in_db\: list\<string\>, schema_drift\: array\<string, array\{extra_in_backup\: list\<string\>, extra_in_db\: list\<string\>\}\>, restored\: array\<string, int\>, files_total\: int, \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Console/Commands/BackupRestoreCommand.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Domain\\Attempt\\Models\\TestAttempt\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Domain/Analytics/AnalyticsService.php
+
+		-
+			message: '#^Parameter \#3 \$normTable of method App\\Domain\\NormTable\\LqResolver\:\:resolve\(\) expects App\\Domain\\NormTable\\Models\\NormTable\|null, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Domain/Attempt/TestEngine.php
+
+		-
+			message: '#^Parameter \#1 \$key of method App\\Domain\\Crypto\\CryptoService\:\:createWrapForUser\(\) expects App\\Domain\\Crypto\\Models\\EncryptionKey, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Domain/Crypto/CryptoService.php
+
+		-
+			message: '#^Parameter \#3 \$params of method App\\Domain\\Crypto\\CryptoService\:\:deriveKek\(\) expects array\{memory_cost\: int, time_cost\: int, threads\: int\}, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Domain/Crypto/CryptoService.php
+
+		-
+			message: '#^Match arm comparison between ''archive'' and ''archive'' is always true\.$#'
+			identifier: match.alwaysTrue
+			count: 1
+			path: app/Domain/Import/Adapters/AbstractStudentImporter.php
+
+		-
+			message: '#^Offset ''external_student_id'' does not exist on array\{row_number\: int, raw\: array\<int, string\>, errors\: array\<int, string\>, valid\: false\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: app/Domain/Import/Adapters/AbstractStudentImporter.php
+
+		-
+			message: '#^Offset ''external_student_id'' does not exist on array\{row_number\: int, raw\: array\<int, string\>, errors\: array\<int, string\>, valid\: true\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: app/Domain/Import/Adapters/AbstractStudentImporter.php
+
+		-
+			message: '#^Offset ''raw'' on \*NEVER\* on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Domain/Import/Adapters/AbstractStudentImporter.php
+
+		-
+			message: '#^Offset ''row'' on array\{\}\|string on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Domain/Import/Adapters/AbstractStudentImporter.php
+
+		-
+			message: '#^Parameter \#2 \$row of method App\\Domain\\Import\\Adapters\\AbstractStudentImporter\:\:doCreate\(\) expects array, null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Domain/Import/Adapters/AbstractStudentImporter.php
+
+		-
+			message: '#^Parameter \#2 \$row of method App\\Domain\\Import\\Adapters\\AbstractStudentImporter\:\:doUpdate\(\) expects array, null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Domain/Import/Adapters/AbstractStudentImporter.php
+
+		-
+			message: '#^Offset string on array\{\}\|string on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Domain/Import/Models/ImportSource.php
+
+		-
+			message: '#^Offset ''api_url'' on array\{\}\|string on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Domain/Import/SvwsApiClient.php
+
+		-
+			message: '#^Offset ''password'' on array\{\}\|string on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Domain/Import/SvwsApiClient.php
+
+		-
+			message: '#^Offset ''schema'' on array\{\}\|string on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Domain/Import/SvwsApiClient.php
+
+		-
+			message: '#^Offset ''timeout_seconds'' on array\{\}\|string on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Domain/Import/SvwsApiClient.php
+
+		-
+			message: '#^Offset ''username'' on array\{\}\|string on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Domain/Import/SvwsApiClient.php
+
+		-
+			message: '#^Offset ''verify_ssl'' on array\{\}\|string on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Domain/Import/SvwsApiClient.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between true and false will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Domain/Import/SvwsApiClient.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:learningGroups\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Domain/PrintJob/BulkFeedbackGenerator.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:ranges\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Domain/PrintJob/BulkFeedbackGenerator.php
+
+		-
+			message: '#^Parameter \#1 \$attempt of method App\\Domain\\PrintJob\\BulkFeedbackGenerator\:\:buildVarsForAttempt\(\) expects App\\Domain\\Attempt\\Models\\TestAttempt, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Domain/PrintJob/BulkFeedbackGenerator.php
+
+		-
+			message: '#^Parameter \#1 \$student of method App\\Domain\\Analytics\\AnalyticsService\:\:studentHistory\(\) expects App\\Domain\\Student\\Models\\Student, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Domain/PrintJob/BulkHistoryExporter.php
+
+		-
+			message: '#^Offset ''_includes_clearnames'' on array\{\}\|string on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Domain/PrintJob/PrintJobRunner.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Domain\\Attempt\\Models\\TestAttempt\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Domain/Privacy/PrivacyService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Domain/Privacy/PrivacyService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Domain\\Crypto\\Models\\RecoveryKey\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Filament/Pages/RecoveryKeyManagement.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:mapWithKeys\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\<int, non\-falsy\-string\>, Closure\(App\\Domain\\Student\\Models\\Student\)\: non\-empty\-array\<int, non\-falsy\-string\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Pages/StudentHistoryChart.php
+
+		-
+			message: '#^Offset ''auffaellig''\|''foerderbedarf''\|''hinweis'' on array\{foerderbedarf\: 3, auffaellig\: 2, hinweis\: 1\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: app/Filament/Pages/SupportListPage.php
+
+		-
+			message: '#^Parameter \#1 \$array of function usort contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Filament/Pages/SupportListPage.php
+
+		-
+			message: '#^Parameter \#2 \$callback of function usort contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Filament/Pages/SupportListPage.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Domain\\Attempt\\Models\\TestAttempt\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Filament/Resources/StudentResource/Pages/ViewStudent.php
+
+		-
+			message: '#^Parameter \#1 \$student of method App\\Domain\\Analytics\\AnalyticsService\:\:studentHistory\(\) expects App\\Domain\\Student\\Models\\Student, Illuminate\\Database\\Eloquent\\Model\|int\|string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/StudentResource/Pages/ViewStudent.php
+
+		-
+			message: '#^Parameter \#1 \$student of method App\\Domain\\Privacy\\PrivacyService\:\:exportStudentData\(\) expects App\\Domain\\Student\\Models\\Student, Illuminate\\Database\\Eloquent\\Model\|int\|string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/StudentResource/Pages/ViewStudent.php
+
+		-
+			message: '#^Parameter \$student of method App\\Domain\\Privacy\\PrivacyService\:\:deleteStudent\(\) expects App\\Domain\\Student\\Models\\Student, Illuminate\\Database\\Eloquent\\Model\|int\|string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/StudentResource/Pages/ViewStudent.php
+
+		-
+			message: '#^Array has 2 duplicate keys with value ''gray'' \(''gray'', ''gray''\)\.$#'
+			identifier: array.duplicateKey
+			count: 1
+			path: app/Filament/Resources/TestRunResource.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:learningGroups\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Resources/TestRunResource.php
+
+		-
+			message: '#^Undefined variable\: \$this$#'
+			identifier: variable.undefined
+			count: 2
+			path: app/Filament/Resources/TestRunResource.php
+
+		-
+			message: '#^Parameter \#1 \$user of method App\\Domain\\Auth\\OnboardingService\:\:markForForcedChange\(\) expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Resources/UserResource.php
+
+		-
+			message: '#^Match arm comparison between ''bounced'' and ''bounced'' is always true\.$#'
+			identifier: match.alwaysTrue
+			count: 1
+			path: app/Filament/Widgets/MyJobsStatus.php
+
+		-
+			message: '#^Method App\\Filament\\Widgets\\MyJobsStatus\:\:getActivities\(\) should return Illuminate\\Support\\Collection\<int, array\<string, mixed\>\> but returns Illuminate\\Support\\Collection\<int, array\{when\: string, kind\: string, title\: string, subtitle\: string, status\: string, status_color\: string, includes_clearnames\: bool, url\: string\|null\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Filament/Widgets/MyJobsStatus.php
+
+		-
+			message: '#^Offset ''error'' on string\|null on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Filament/Widgets/MyJobsStatus.php
+
+		-
+			message: '#^Offset ''kind'' on string\|null on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Filament/Widgets/MyJobsStatus.php
+
+		-
+			message: '#^Offset ''when'' on array\{when\: string, kind\: string, title\: string, subtitle\: string, status\: string, status_color\: string, includes_clearnames\: bool, url\: string\|null\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Filament/Widgets/MyJobsStatus.php

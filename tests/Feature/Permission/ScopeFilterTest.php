@@ -7,6 +7,7 @@ namespace Tests\Feature\Permission;
 use App\Domain\Crypto\CryptoService;
 use App\Domain\Permission\Models\UserGroup;
 use App\Domain\Permission\Models\UserScopeAssignment;
+use App\Domain\Permission\PermissionResolver;
 use App\Domain\Permission\ScopeFilter;
 use App\Domain\School\Models\LearningGroup;
 use App\Domain\School\Models\SchoolYear;
@@ -24,10 +25,15 @@ class ScopeFilterTest extends TestCase
     use RefreshDatabase;
 
     private User $teacher;
+
     private SchoolYear $sy;
+
     private LearningGroup $g1;
+
     private LearningGroup $g2;
+
     private Student $studentA;
+
     private Student $studentB;
 
     protected function setUp(): void
@@ -97,8 +103,8 @@ class ScopeFilterTest extends TestCase
             'learning_group_id' => $this->g1->id,
         ]);
 
-        $filter = new \App\Domain\Permission\ScopeFilter(
-            new \App\Domain\Permission\PermissionResolver(useCache: false),
+        $filter = new ScopeFilter(
+            new PermissionResolver(useCache: false),
         );
         $students = $filter->applyToStudents(Student::query(), $this->teacher)->get();
 

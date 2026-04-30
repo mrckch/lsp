@@ -23,6 +23,7 @@ class PrivacyServiceTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private Student $student;
 
     protected function setUp(): void

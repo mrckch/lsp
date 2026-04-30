@@ -24,7 +24,7 @@ final class BulkHistoryExporter
 
     /**
      * @param  array<int>  $studentIds
-     * @param  User|null   $forUser  wenn gesetzt, Scope-Filter applizieren
+     * @param  User|null  $forUser  wenn gesetzt, Scope-Filter applizieren
      * @return array{zip:string, count:int, skipped:int, errors:list<string>}
      */
     public function exportFor(array $studentIds, ?User $forUser = null, string $templateKey = 'verlaufsdiagramm'): array
@@ -53,6 +53,7 @@ final class BulkHistoryExporter
                 $history = $this->analytics->studentHistory($student);
                 if ($history->isEmpty()) {
                     $skipped++;
+
                     continue;
                 }
 

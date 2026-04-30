@@ -27,8 +27,11 @@ class AuthorizationTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $teacher;
+
     private User $secretariat;
+
     private SchoolYear $sy;
 
     protected function setUp(): void

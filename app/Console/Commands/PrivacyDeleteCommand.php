@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Domain\Privacy\PrivacyService;
-use App\Domain\Student\Models\Student;
 use App\Models\User;
 use Illuminate\Console\Command;
 
@@ -19,6 +18,7 @@ use Illuminate\Console\Command;
 class PrivacyDeleteCommand extends Command
 {
     protected $signature = 'privacy:delete {--min-age-days=1825} {--user-id=}';
+
     protected $description = 'Listet/löscht archivierte Schüler älter als X Tage (Art. 17 DSGVO).';
 
     public function handle(PrivacyService $service): int

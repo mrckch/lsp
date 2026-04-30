@@ -7,6 +7,7 @@ namespace App\Filament\Resources;
 use App\Domain\PrintJob\Models\GeneratedDocument;
 use App\Filament\Concerns\AuthorizedResource;
 use App\Filament\Resources\GeneratedDocumentResource\Pages;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\DeleteAction;
@@ -15,6 +16,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -25,24 +27,36 @@ class GeneratedDocumentResource extends Resource
 {
     use AuthorizedResource;
 
-    protected static function viewPermission(): ?string { return 'print.download'; }
-    protected static function deletePermission(): ?string { return 'print.templates.manage'; }
+    protected static function viewPermission(): ?string
+    {
+        return 'print.download';
+    }
+
+    protected static function deletePermission(): ?string
+    {
+        return 'print.templates.manage';
+    }
 
     public static function canCreate(): bool
     {
         return false;
     }
 
-    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function canEdit(Model $record): bool
     {
         return false;
     }
 
     protected static ?string $model = GeneratedDocument::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-folder';
+
     protected static ?string $navigationGroup = 'Drucksachen';
+
     protected static ?int $navigationSort = 20;
+
     protected static ?string $modelLabel = 'Erzeugtes Dokument';
+
     protected static ?string $pluralModelLabel = 'Erzeugte Dokumente';
 
     public static function table(Table $table): Table
@@ -72,7 +86,7 @@ class GeneratedDocumentResource extends Resource
                     ->color('info')
                     ->action(function (GeneratedDocument $record) {
                         if (! Storage::disk('local')->exists($record->file_path)) {
-                            \Filament\Notifications\Notification::make()->danger()
+                            Notification::make()->danger()
                                 ->title('Datei nicht mehr vorhanden')->send();
 
                             return null;

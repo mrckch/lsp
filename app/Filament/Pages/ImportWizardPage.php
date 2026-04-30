@@ -22,7 +22,6 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * Geführter SchiLD-CSV-Importassistent.
@@ -38,16 +37,25 @@ class ImportWizardPage extends Page implements HasForms
     use AuthorizedPage;
     use InteractsWithForms;
 
-    protected static function requiredPermission(): ?string { return 'import.run'; }
+    protected static function requiredPermission(): ?string
+    {
+        return 'import.run';
+    }
 
     protected static ?string $navigationIcon = 'heroicon-o-arrow-up-tray';
+
     protected static ?string $navigationGroup = 'Stammdaten';
+
     protected static ?int $navigationSort = 5;
+
     protected static ?string $title = 'Schüler-Import';
+
     protected static ?string $navigationLabel = 'Import-Assistent';
+
     protected static string $view = 'filament.pages.import-wizard';
 
     public ?array $data = [];
+
     public ?int $jobId = null;
 
     public function mount(): void

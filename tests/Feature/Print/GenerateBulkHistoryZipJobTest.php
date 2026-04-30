@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Print;
 
-use App\Domain\Analytics\AnalyticsService;
 use App\Domain\Attempt\Models\TestAttempt;
 use App\Domain\Crypto\CryptoService;
 use App\Domain\PrintJob\BulkHistoryExporter;
@@ -32,6 +31,7 @@ class GenerateBulkHistoryZipJobTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private array $studentIds = [];
 
     protected function setUp(): void

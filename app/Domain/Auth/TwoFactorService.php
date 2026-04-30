@@ -6,8 +6,8 @@ namespace App\Domain\Auth;
 
 use App\Domain\Auth\Models\TwoFactorSecret;
 use App\Models\User;
-use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
+use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
 use BaconQrCode\Writer;
 use PragmaRX\Google2FA\Google2FA;
@@ -131,7 +131,7 @@ final class TwoFactorService
     {
         $renderer = new ImageRenderer(
             new RendererStyle(220),
-            new SvgImageBackEnd(),
+            new SvgImageBackEnd,
         );
 
         return (new Writer($renderer))->writeString($uri);

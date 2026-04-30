@@ -6,6 +6,7 @@ namespace App\Filament\Pages;
 
 use App\Domain\Audit\Models\AuditLog;
 use App\Filament\Concerns\AuthorizedPage;
+use Filament\Forms\Components\TextInput;
 use Filament\Pages\Page;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\IconColumn;
@@ -22,13 +23,21 @@ class AuditLogPage extends Page implements HasTable
     use AuthorizedPage;
     use InteractsWithTable;
 
-    protected static function requiredPermission(): ?string { return 'system.audit.view'; }
+    protected static function requiredPermission(): ?string
+    {
+        return 'system.audit.view';
+    }
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
+
     protected static ?string $navigationGroup = 'System';
+
     protected static ?int $navigationSort = 50;
+
     protected static ?string $title = 'Audit-Log';
+
     protected static ?string $navigationLabel = 'Audit-Log';
+
     protected static string $view = 'filament.pages.audit-log';
 
     public function table(Table $table): Table
@@ -54,9 +63,8 @@ class AuditLogPage extends Page implements HasTable
                     'user' => 'User', 'system' => 'System', 'student' => 'Student', 'external' => 'Extern',
                 ]),
                 Filter::make('action')->form([
-                    \Filament\Forms\Components\TextInput::make('action')->label('Aktion enthält'),
-                ])->query(fn (Builder $q, array $data) =>
-                    isset($data['action']) && $data['action'] !== ''
+                    TextInput::make('action')->label('Aktion enthält'),
+                ])->query(fn (Builder $q, array $data) => isset($data['action']) && $data['action'] !== ''
                         ? $q->where('action', 'like', '%'.$data['action'].'%')
                         : $q),
                 Filter::make('clearnames')->label('Nur Klarname-Aktionen')

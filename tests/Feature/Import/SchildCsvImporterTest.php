@@ -24,8 +24,11 @@ class SchildCsvImporterTest extends TestCase
     use RefreshDatabase;
 
     private SchildCsvImporter $importer;
+
     private CryptoService $crypto;
+
     private User $admin;
+
     private SchoolYear $schoolYear;
 
     protected function setUp(): void

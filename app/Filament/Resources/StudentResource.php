@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Domain\Permission\ScopeFilter;
-use App\Domain\PrintJob\BulkHistoryExporter;
 use App\Domain\Student\Models\Student;
-use App\Jobs\GenerateBulkHistoryZipJob;
 use App\Filament\Concerns\AuthorizedResource;
 use App\Filament\Concerns\HandlesPrintErrors;
 use App\Filament\Resources\StudentResource\Pages;
+use App\Jobs\GenerateBulkHistoryZipJob;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
@@ -33,16 +32,36 @@ class StudentResource extends Resource
     use AuthorizedResource;
     use HandlesPrintErrors;
 
-    protected static function viewPermission(): ?string { return 'students.view'; }
-    protected static function createPermission(): ?string { return 'students.manage'; }
-    protected static function editPermission(): ?string { return 'students.manage'; }
-    protected static function deletePermission(): ?string { return 'students.delete'; }
+    protected static function viewPermission(): ?string
+    {
+        return 'students.view';
+    }
+
+    protected static function createPermission(): ?string
+    {
+        return 'students.manage';
+    }
+
+    protected static function editPermission(): ?string
+    {
+        return 'students.manage';
+    }
+
+    protected static function deletePermission(): ?string
+    {
+        return 'students.delete';
+    }
 
     protected static ?string $model = Student::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
+
     protected static ?string $navigationGroup = 'Stammdaten';
+
     protected static ?int $navigationSort = 30;
+
     protected static ?string $modelLabel = 'Schüler/in';
+
     protected static ?string $pluralModelLabel = 'Schüler';
 
     public static function form(Form $form): Form

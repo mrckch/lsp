@@ -26,6 +26,7 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 class TeacherStats extends StatsOverviewWidget
 {
     protected static ?int $sort = 60;
+
     protected static ?string $pollingInterval = null;
 
     public static function canView(): bool

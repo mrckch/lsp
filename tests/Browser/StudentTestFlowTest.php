@@ -129,7 +129,7 @@ class StudentTestFlowTest extends DuskTestCase
             // 2. Hinweise-Seite
             $browser->waitForText('Hinweise zum Test')
                 ->assertSee('Hinweise zum Test')
-                ->assertSee($this->timeLimitSeconds . ' Sekunden')
+                ->assertSee($this->timeLimitSeconds.' Sekunden')
                 ->press('Test starten');
 
             // 3. Aufgaben-Seite mit Timer
@@ -179,7 +179,7 @@ class StudentTestFlowTest extends DuskTestCase
     public function code_per_query_parameter_wird_vorausgefuellt(): void
     {
         $this->browse(function (Browser $browser) {
-            $browser->visit('/t?code=' . $this->loginCode)
+            $browser->visit('/t?code='.$this->loginCode)
                 ->assertInputValue('login_code', $this->loginCode);
         });
     }

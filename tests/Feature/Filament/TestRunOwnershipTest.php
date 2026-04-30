@@ -28,11 +28,17 @@ class TestRunOwnershipTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $teacher;
+
     private LearningGroup $g1;
+
     private LearningGroup $g2;
+
     private TestRun $ownRun;
+
     private TestRun $foreignRun;
+
     private TestRun $foreignRunOutOfScope;
 
     protected function setUp(): void
@@ -155,7 +161,7 @@ class TestRunOwnershipTest extends TestCase
     }
 
     #[Test]
-    public function delete_requires_both_delete_permission_and_canEdit(): void
+    public function delete_requires_both_delete_permission_and_can_edit(): void
     {
         $this->actingAs($this->teacher);
         // Lehrer hat KEIN test_runs.delete (Default-Klasse) → false

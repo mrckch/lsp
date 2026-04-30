@@ -8,8 +8,8 @@ use App\Domain\NoticeText\Models\NoticeText;
 use App\Filament\Concerns\AuthorizedResource;
 use App\Filament\Resources\NoticeTextResource\Pages;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -24,16 +24,36 @@ class NoticeTextResource extends Resource
 {
     use AuthorizedResource;
 
-    protected static function viewPermission(): ?string { return 'notice_texts.view'; }
-    protected static function createPermission(): ?string { return 'notice_texts.manage'; }
-    protected static function editPermission(): ?string { return 'notice_texts.manage'; }
-    protected static function deletePermission(): ?string { return 'notice_texts.manage'; }
+    protected static function viewPermission(): ?string
+    {
+        return 'notice_texts.view';
+    }
+
+    protected static function createPermission(): ?string
+    {
+        return 'notice_texts.manage';
+    }
+
+    protected static function editPermission(): ?string
+    {
+        return 'notice_texts.manage';
+    }
+
+    protected static function deletePermission(): ?string
+    {
+        return 'notice_texts.manage';
+    }
 
     protected static ?string $model = NoticeText::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-information-circle';
+
     protected static ?string $navigationGroup = 'Test-Konfiguration';
+
     protected static ?int $navigationSort = 50;
+
     protected static ?string $modelLabel = 'Hinweistext';
+
     protected static ?string $pluralModelLabel = 'Hinweistexte';
 
     public static function form(Form $form): Form

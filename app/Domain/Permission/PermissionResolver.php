@@ -26,7 +26,7 @@ final class PermissionResolver
     /**
      * Liefert die effektiven Permission-Keys eines Users.
      *
-     * @return array<string, true>  Map (Lookup ist O(1))
+     * @return array<string, true> Map (Lookup ist O(1))
      */
     public function effectivePermissions(User $user): array
     {
@@ -76,7 +76,7 @@ final class PermissionResolver
     }
 
     /**
-     * @return array<int>|null  null = ungescoped (sieht alles), Array = nur diese learning_group_ids
+     * @return array<int>|null null = ungescoped (sieht alles), Array = nur diese learning_group_ids
      */
     public function scopeLearningGroupIds(User $user): ?array
     {

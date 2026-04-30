@@ -20,13 +20,21 @@ class ClearnamePasswordChange extends Page implements HasForms
     use AuthorizedPage;
     use InteractsWithForms;
 
-    protected static function requiredPermission(): ?string { return 'clearname.password.change'; }
+    protected static function requiredPermission(): ?string
+    {
+        return 'clearname.password.change';
+    }
 
     protected static ?string $navigationIcon = 'heroicon-o-key';
+
     protected static ?string $navigationGroup = 'Klarnamen';
+
     protected static ?int $navigationSort = 20;
+
     protected static ?string $title = 'Klarnamen-Passwort ändern';
+
     protected static ?string $navigationLabel = 'Passwort ändern';
+
     protected static string $view = 'filament.pages.clearname-password-change';
 
     public ?array $data = [];

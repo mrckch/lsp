@@ -19,14 +19,21 @@ class TwoFactorSetup extends Page implements HasForms
     use InteractsWithForms;
 
     protected static ?string $navigationIcon = 'heroicon-o-shield-check';
+
     protected static ?string $navigationGroup = 'Mein Konto';
+
     protected static ?int $navigationSort = 90;
+
     protected static ?string $title = '2-Faktor-Authentifizierung';
+
     protected static ?string $navigationLabel = '2FA';
+
     protected static string $view = 'filament.pages.two-factor-setup';
 
     public ?array $data = [];
+
     public ?string $qrSvg = null;
+
     public ?string $secret = null;
 
     public function mount(): void

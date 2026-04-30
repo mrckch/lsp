@@ -10,8 +10,8 @@ use App\Filament\Resources\FeedbackSetResource\Pages;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -26,16 +26,36 @@ class FeedbackSetResource extends Resource
 {
     use AuthorizedResource;
 
-    protected static function viewPermission(): ?string { return 'feedback_sets.view'; }
-    protected static function createPermission(): ?string { return 'feedback_sets.manage'; }
-    protected static function editPermission(): ?string { return 'feedback_sets.manage'; }
-    protected static function deletePermission(): ?string { return 'feedback_sets.manage'; }
+    protected static function viewPermission(): ?string
+    {
+        return 'feedback_sets.view';
+    }
+
+    protected static function createPermission(): ?string
+    {
+        return 'feedback_sets.manage';
+    }
+
+    protected static function editPermission(): ?string
+    {
+        return 'feedback_sets.manage';
+    }
+
+    protected static function deletePermission(): ?string
+    {
+        return 'feedback_sets.manage';
+    }
 
     protected static ?string $model = FeedbackSet::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-chat-bubble-left-right';
+
     protected static ?string $navigationGroup = 'Test-Konfiguration';
+
     protected static ?int $navigationSort = 30;
+
     protected static ?string $modelLabel = 'Rückmeldeset';
+
     protected static ?string $pluralModelLabel = 'Rückmeldesets';
 
     public static function form(Form $form): Form

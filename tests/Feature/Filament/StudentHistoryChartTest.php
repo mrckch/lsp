@@ -28,7 +28,9 @@ class StudentHistoryChartTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $teacherWithoutPerm;
+
     private Student $student;
 
     protected function setUp(): void

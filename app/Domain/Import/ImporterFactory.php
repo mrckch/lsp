@@ -15,7 +15,6 @@ use App\Domain\Import\Contracts\StudentImporter;
  */
 final class ImporterFactory
 {
-    /** @return StudentImporter */
     public function make(string $sourceKey): StudentImporter
     {
         return match ($sourceKey) {

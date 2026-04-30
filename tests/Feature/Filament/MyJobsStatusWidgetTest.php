@@ -21,6 +21,7 @@ class MyJobsStatusWidgetTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $other;
 
     protected function setUp(): void
