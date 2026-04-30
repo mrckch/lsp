@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Domain\Audit\AuditLogger;
+use App\Domain\NormTable\LqRecalculationService;
 use App\Domain\NormTable\Models\NormTable;
 use App\Domain\NormTable\Models\NormTableRow;
 use App\Filament\Concerns\AuthorizedResource;
@@ -113,6 +115,31 @@ class NormTableResource extends Resource
                         $count = self::importRowsCsv($record, $path);
                         Notification::make()->success()
                             ->title("$count Norm-Zeilen importiert")->send();
+                    }),
+                Action::make('recalculateLqs')
+                    ->label('Alle LQs neu berechnen')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->visible(fn () => auth()->user()?->hasPermission('attempts.recalculate_lq') ?? false)
+                    ->requiresConfirmation()
+                    ->modalDescription('Berechnet die LQs aller Versuche, die mit dieser Normtabelle '.
+                        'verknüpft sind, neu. Der ursprüngliche LQ (lq_at_submission) bleibt erhalten, '.
+                        'nur der lq_current wird aktualisiert. Die Änderungen werden in attempt_lq_history '.
+                        'protokolliert.')
+                    ->action(function (NormTable $record) {
+                        $count = app(LqRecalculationService::class)
+                            ->recalculateForNormTable($record, auth()->user(), 'norm_table_recalc_ui');
+
+                        app(AuditLogger::class)->logUser(
+                            auth()->user(),
+                            'attempts.recalculate_lq',
+                            entityType: 'norm_table', entityId: $record->id,
+                            context: ['recalculated' => $count],
+                        );
+
+                        Notification::make()->success()
+                            ->title("$count Versuche neu berechnet")
+                            ->send();
                     }),
                 DeleteAction::make(),
             ]);
