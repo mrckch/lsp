@@ -1,0 +1,18 @@
+[
+  {
+    "id": 1,
+    "idSchuljahresabschnitt": 1,
+    "kuerzel": "05a",
+    "idJahrgang": 1,
+    "parallelitaet": "A",
+    "sortierung": 1
+  },
+  {
+    "id": 2,
+    "idSchuljahresabschnitt": 1,
+    "kuerzel": "05b",
+    "idJahrgang": 1,
+    "parallelitaet": "B",
+    "sortierung": 2
+  }
+]

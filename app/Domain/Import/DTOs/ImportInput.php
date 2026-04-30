@@ -14,5 +14,8 @@ final class ImportInput
         public readonly string $filename,
         public readonly bool $ignoreFirstRow = true,
         public readonly string $delimiter = ';',
+        // Für API-basierte Importer (SVWS): Verweis auf eine konfigurierte ImportSource.
+        // CSV-Importer ignorieren das Feld.
+        public readonly ?int $sourceId = null,
     ) {}
 }

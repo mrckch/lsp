@@ -1,0 +1,68 @@
+[
+  {
+    "id": 3213,
+    "nachname": "Mustermann",
+    "vorname": "Max",
+    "geschlecht": "m",
+    "geburtsdatum": "2014-12-12",
+    "idKlasse": 1,
+    "idJahrgang": 1,
+    "jahrgang": "05",
+    "epJahre": null,
+    "abiturjahrgang": null,
+    "schulgliederung": "***",
+    "status": 2,
+    "istDuplikat": false,
+    "externeSchulNr": null,
+    "idSchuljahresabschnitt": 1,
+    "idSchuljahresabschnittSchueler": 1,
+    "kurse": [
+      4101,
+      4108
+    ]
+  },
+  {
+    "id": 3192,
+    "nachname": "Beispiel",
+    "vorname": "Anna",
+    "geschlecht": "w",
+    "geburtsdatum": "2015-06-26",
+    "idKlasse": 1,
+    "idJahrgang": 1,
+    "jahrgang": "05",
+    "epJahre": null,
+    "abiturjahrgang": null,
+    "schulgliederung": "***",
+    "status": 2,
+    "istDuplikat": false,
+    "externeSchulNr": null,
+    "idSchuljahresabschnitt": 1,
+    "idSchuljahresabschnittSchueler": 1,
+    "kurse": [
+      4101,
+      4108
+    ]
+  },
+  {
+    "id": 3180,
+    "nachname": "Test",
+    "vorname": "Jamie",
+    "geschlecht": "d",
+    "geburtsdatum": "2015-04-09",
+    "idKlasse": 2,
+    "idJahrgang": 1,
+    "jahrgang": "05",
+    "epJahre": null,
+    "abiturjahrgang": null,
+    "schulgliederung": "***",
+    "status": 2,
+    "istDuplikat": false,
+    "externeSchulNr": null,
+    "idSchuljahresabschnitt": 1,
+    "idSchuljahresabschnittSchueler": 1,
+    "kurse": [
+      4104,
+      4108
+    ]
+  }
+]

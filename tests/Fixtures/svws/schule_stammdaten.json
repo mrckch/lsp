@@ -1,0 +1,13 @@
+{
+  "schulNr": 161720,
+  "bezeichnung1": "Realschule St. Ursula Dorsten",
+  "idSchuljahresabschnitt": 1,
+  "schuleAbschnitte": {
+    "anzahlAbschnitte": 2,
+    "abschnittBez": "Halbjahr",
+    "bezAbschnitte": [
+      "1. Hj.",
+      "2. Hj."
+    ]
+  }
+}

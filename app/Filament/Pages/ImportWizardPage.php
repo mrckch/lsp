@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Domain\Crypto\CryptoService;
-use App\Domain\Import\Adapters\SchildCsvImporter;
 use App\Domain\Import\DTOs\ImportInput;
+use App\Domain\Import\ImporterFactory;
 use App\Domain\Import\Models\ImportDiffEntry;
 use App\Domain\Import\Models\ImportJob;
+use App\Domain\Import\Models\ImportSource;
 use App\Domain\School\Models\SchoolYear;
 use App\Filament\Concerns\AuthorizedPage;
 use Filament\Actions\Action;
@@ -60,24 +61,40 @@ class ImportWizardPage extends Page implements HasForms
 
     public function form(Form $form): Form
     {
+        $svwsSources = ImportSource::query()
+            ->where('type', 'svws_api')
+            ->where('is_active', true)
+            ->pluck('name', 'id');
+
         return $form->schema([
             Section::make('1. Quelle & Datei')->columns(2)->schema([
                 Select::make('source_key')->label('Importquelle')->required()
+                    ->live()
                     ->options([
                         'schild_csv' => 'SchiLD-CSV (NRW)',
-                        'svws_api' => 'SVWS-NRW-API (noch nicht aktiv)',
+                        'svws_api' => $svwsSources->isEmpty()
+                            ? 'SVWS-NRW-API (keine Quelle konfiguriert)'
+                            : 'SVWS-NRW-API',
                     ])
                     ->default('schild_csv')
-                    ->disableOptionWhen(fn (string $value) => $value === 'svws_api'),
+                    ->disableOptionWhen(fn (string $value) => $value === 'svws_api' && $svwsSources->isEmpty()),
                 Select::make('school_year_id')->label('Schuljahr')->required()
                     ->options(SchoolYear::orderByDesc('start_date')->pluck('label', 'id'))
                     ->searchable(),
                 Select::make('group_type')->label('Gruppentyp')->required()
                     ->options(['klasse' => 'Klassen', 'kurs' => 'Kurse']),
-                Toggle::make('ignore_first_row')->label('Erste Zeile überspringen (Header)')->default(true),
-                FileUpload::make('csv_file')->label('CSV-Datei')->required()
+                Toggle::make('ignore_first_row')->label('Erste Zeile überspringen (Header)')->default(true)
+                    ->visible(fn (callable $get) => $get('source_key') === 'schild_csv'),
+                FileUpload::make('csv_file')->label('CSV-Datei')
+                    ->required(fn (callable $get) => $get('source_key') === 'schild_csv')
+                    ->visible(fn (callable $get) => $get('source_key') === 'schild_csv')
                     ->acceptedFileTypes(['text/csv', 'text/plain', 'application/vnd.ms-excel'])
                     ->disk('local')->directory('lsp/imports')->visibility('private')
+                    ->columnSpanFull(),
+                Select::make('svws_source_id')->label('SVWS-Quelle')
+                    ->options($svwsSources)
+                    ->required(fn (callable $get) => $get('source_key') === 'svws_api')
+                    ->visible(fn (callable $get) => $get('source_key') === 'svws_api')
                     ->columnSpanFull(),
             ]),
         ])->statePath('data');
@@ -103,21 +120,45 @@ class ImportWizardPage extends Page implements HasForms
             return;
         }
 
-        $path = storage_path('app/'.$data['csv_file']);
-        if (! is_file($path)) {
-            Notification::make()->danger()->title('Datei nicht gefunden')->send();
+        $sourceKey = (string) ($data['source_key'] ?? 'schild_csv');
+
+        if ($sourceKey === 'schild_csv') {
+            $path = storage_path('app/'.$data['csv_file']);
+            if (! is_file($path)) {
+                Notification::make()->danger()->title('Datei nicht gefunden')->send();
+
+                return;
+            }
+            $input = new ImportInput(
+                filePath: $path,
+                filename: basename($data['csv_file']),
+                ignoreFirstRow: (bool) ($data['ignore_first_row'] ?? true),
+            );
+        } else { // svws_api
+            $sourceId = (int) ($data['svws_source_id'] ?? 0);
+            if ($sourceId === 0) {
+                Notification::make()->danger()->title('Keine SVWS-Quelle gewählt')->send();
+
+                return;
+            }
+            $input = new ImportInput(
+                filePath: '',
+                filename: 'svws_api',
+                sourceId: $sourceId,
+            );
+        }
+
+        try {
+            $importer = app(ImporterFactory::class)->make($sourceKey);
+            $diff = $importer->diff($input, (int) $data['school_year_id'], $data['group_type']);
+        } catch (\Throwable $e) {
+            Notification::make()->danger()
+                ->title('Analyse fehlgeschlagen')
+                ->body($e->getMessage())
+                ->send();
 
             return;
         }
-
-        $importer = app(SchildCsvImporter::class);
-        $input = new ImportInput(
-            filePath: $path,
-            filename: basename($data['csv_file']),
-            ignoreFirstRow: (bool) ($data['ignore_first_row'] ?? true),
-        );
-
-        $diff = $importer->diff($input, (int) $data['school_year_id'], $data['group_type']);
         $this->jobId = $diff->importJobId;
 
         Notification::make()->success()
@@ -177,7 +218,10 @@ class ImportWizardPage extends Page implements HasForms
             $decisions[$e->id] = $e->admin_decision;
         }
 
-        $result = app(SchildCsvImporter::class)->commit($this->jobId, $decisions);
+        $job = ImportJob::query()->find($this->jobId);
+        $sourceKey = $job?->import_source_id ? 'svws_api' : 'schild_csv';
+        $result = app(ImporterFactory::class)->make($sourceKey)
+            ->commit($this->jobId, $decisions);
 
         Notification::make()->success()
             ->title('Import abgeschlossen')
