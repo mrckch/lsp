@@ -1,0 +1,19 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Filament\Resources\UserGroupResource\Pages;
+
+use App\Filament\Resources\UserGroupResource;
+use Filament\Actions\DeleteAction;
+use Filament\Resources\Pages\EditRecord;
+
+class EditUserGroup extends EditRecord
+{
+    protected static string $resource = UserGroupResource::class;
+
+    protected function getHeaderActions(): array
+    {
+        return [DeleteAction::make()->visible(fn () => ! $this->record->is_system)];
+    }
+}
