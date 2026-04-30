@@ -217,6 +217,23 @@ class TestRunResource extends Resource
                         Notification::make()->success()
                             ->title("$count neue Login-Codes erzeugt")->send();
                     }),
+                Action::make('regenerateCodes')
+                    ->label('Aktive Codes neu rotieren')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->visible(fn () => auth()->user()?->hasPermission('test_runs.security.regenerate') ?? false)
+                    ->requiresConfirmation()
+                    ->modalDescription('Alle aktiven (noch nicht verwendeten) Login-Codes dieses '.
+                        'Testdurchlaufs werden auf neue Codes rotiert. Codes mit laufendem oder '.
+                        'abgeschlossenem Versuch bleiben unangetastet. Sinnvoll wenn Codes '.
+                        'verloren oder geleakt wurden.')
+                    ->action(function (TestRun $record) {
+                        $count = app(TestEngine::class)->regenerateActiveLoginCodes($record);
+                        Notification::make()->success()
+                            ->title("$count Login-Codes rotiert")
+                            ->body('Bitte die neuen Codes druckbar an die Schüler verteilen.')
+                            ->send();
+                    }),
                 Action::make('bulkPdf')
                     ->label('Rückmeldungen-ZIP erzeugen (Hintergrund)')
                     ->icon('heroicon-o-document-arrow-down')

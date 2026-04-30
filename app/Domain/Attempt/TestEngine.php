@@ -239,4 +239,39 @@ final class TestEngine
 
         return $count;
     }
+
+    /**
+     * Rotiert alle aktiven Login-Codes eines TestRuns auf neue Codes.
+     *
+     * Anwendungsfall: Codes wurden vor dem Test verloren / weitergegeben /
+     * geleakt — Admin will einen sauberen Neustart, ohne den TestRun
+     * komplett neu anlegen zu müssen.
+     *
+     * Bestehende Versuche bleiben erhalten; Codes mit Status 'in_bearbeitung'
+     * oder 'verbraucht' werden NICHT angetastet (laufende/abgeschlossene
+     * Tests).
+     *
+     * @return int Anzahl rotierter Codes
+     */
+    public function regenerateActiveLoginCodes(TestRun $run): int
+    {
+        $count = 0;
+        DB::transaction(function () use ($run, &$count) {
+            $codes = StudentLoginCode::query()
+                ->where('test_run_id', $run->id)
+                ->where('status', 'aktiv')
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($codes as $code) {
+                $code->update([
+                    'login_code' => StudentLoginCode::generateUniqueCode(),
+                    'issued_at' => now(),
+                ]);
+                $count++;
+            }
+        });
+
+        return $count;
+    }
 }
