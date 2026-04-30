@@ -4,7 +4,24 @@
 
 **Lizenz:** [EUPL 1.2](LICENSE)
 **Sprache:** Deutsch
-**Status:** in Entwicklung – Phase 0 (Fundament)
+**Status:** funktionsfähig (alle Phasen 0–5 abgeschlossen) · 271 Unit-/Feature-Tests + 10 E2E-Browser-Tests grün · `composer lint` (Pint + PHPStan Level 5) sauber
+
+---
+
+## Auf einen Blick
+
+- ✅ Setup-Wizard mit Klarnamen-Verschlüsselung (Envelope-Encryption, Argon2id + AES-256-GCM)
+- ✅ Granulares Permission-Modell mit Klassen, Scopes und User-Overrides
+- ✅ Optionales 2FA (TOTP) mit Klassen-erzwingbarer Pflicht
+- ✅ Schüler-Test mit Code-basierter Anmeldung (10-stelliger One-Shot-Code), JS-Timer, Auto-Submit
+- ✅ Längsschnitt-Beobachtung pro Schüler über mehrere Schuljahre
+- ✅ Förderbedarfs-Liste mit konfigurierbaren Schwellen
+- ✅ PDF-Generierung via Gotenberg (Bulk-Rückmeldungen, Verlaufsdiagramme)
+- ✅ Audit-Log mit Soft-Archivierung (Cron) + Hard-Delete-Cron für DSGVO-Lifecycle
+- ✅ Backup mit AES-256-GCM-Verschlüsselung, JSON-Dump (DB) + Storage-Files; Restore inkl. Pre-Snapshot
+- ✅ Import-Adapter: SchiLD-CSV + SVWS-NRW-API (live verifiziert)
+- ✅ Welcome-Mail-Onboarding mit Force-Password-Change
+- ✅ Recovery-Key-Verwaltung im UI (Regenerate, Status-Übersicht)
 
 ---
 
@@ -18,6 +35,12 @@ Die vollständige Spezifikation liegt im [`docs/`](docs/)-Verzeichnis:
 - [04 – API-Spec (OpenAPI 3.1)](docs/04-api-spec.yaml)
 - [05 – Stack & Architektur](docs/05-stack-architektur.md)
 - [06 – Roadmap](docs/06-roadmap.md)
+- [SESSION-HANDOFF](docs/SESSION-HANDOFF.md) – aktueller Stand für Iterations-Übergabe
+- [ADR (Architecture Decision Records)](docs/adr/) – große Architektur-Entscheidungen
+
+Operativ:
+- [DEPLOYMENT.md](DEPLOYMENT.md) – Production-Deployment
+- [CONTRIBUTING.md](CONTRIBUTING.md) – Entwicklungs-Setup, Beitrag-Prozess
 
 ---
 
@@ -77,12 +100,10 @@ Im Setup-Wizard:
 
 ## Beitragen
 
-Beiträge willkommen. Bitte ein Issue eröffnen, bevor größere Änderungen vorgenommen werden.
-
-Code-Standards:
-- PHP: PSR-12, geprüft via Pint
-- Statische Analyse: PHPStan Level 6+
-- Tests: PHPUnit + Pest, neue Features brauchen Tests
+Details siehe [CONTRIBUTING.md](CONTRIBUTING.md). Kurzform:
+- Issue eröffnen vor größeren Änderungen
+- `composer lint` muss grün durchlaufen (Pint + PHPStan Level 5 mit Baseline)
+- Neue Features brauchen Tests; lokal: `php -d extension=pdo_sqlite -d extension=sqlite3 -d extension=sodium vendor/bin/phpunit --no-coverage`
 
 ---
 
