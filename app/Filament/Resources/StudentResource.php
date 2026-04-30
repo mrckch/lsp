@@ -5,14 +5,19 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Domain\Permission\ScopeFilter;
+use App\Domain\PrintJob\BulkHistoryExporter;
 use App\Domain\Student\Models\Student;
 use App\Filament\Concerns\AuthorizedResource;
+use App\Filament\Concerns\HandlesPrintErrors;
 use App\Filament\Resources\StudentResource\Pages;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables\Actions\Action;
+use Filament\Tables\Actions\BulkAction;
+use Filament\Tables\Actions\BulkActionGroup;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\ViewAction;
 use Filament\Tables\Columns\BadgeColumn;
@@ -20,10 +25,12 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 
 class StudentResource extends Resource
 {
     use AuthorizedResource;
+    use HandlesPrintErrors;
 
     protected static function viewPermission(): ?string { return 'students.view'; }
     protected static function createPermission(): ?string { return 'students.manage'; }
@@ -82,6 +89,46 @@ class StudentResource extends Resource
                     ->label('Reaktivieren')->icon('heroicon-o-arrow-uturn-left')
                     ->visible(fn (Student $r) => $r->status === 'archiviert')
                     ->action(fn (Student $r) => $r->unarchive()),
+            ])
+            ->bulkActions([
+                BulkActionGroup::make([
+                    BulkAction::make('bulkHistoryExport')
+                        ->label('Verlaufsdiagramme als ZIP')
+                        ->icon('heroicon-o-document-arrow-down')
+                        ->color('info')
+                        ->visible(fn () => auth()->user()?->hasPermission('print.generate_with_clearname') ?? false)
+                        ->action(function (Collection $records) {
+                            return self::runPrintAction(function () use ($records) {
+                                $ids = $records->pluck('id')->all();
+                                $result = app(BulkHistoryExporter::class)
+                                    ->exportFor($ids, forUser: auth()->user());
+
+                                if ($result['count'] === 0) {
+                                    Notification::make()->warning()
+                                        ->title('Keine Verlaufs-PDFs erzeugt')
+                                        ->body("0 erzeugt, {$result['skipped']} ohne Versuche übersprungen.")
+                                        ->send();
+
+                                    return null;
+                                }
+
+                                $bytes = file_get_contents($result['zip']);
+                                @unlink($result['zip']);
+
+                                $msg = "{$result['count']} PDFs erzeugt";
+                                if ($result['skipped']) {
+                                    $msg .= ", {$result['skipped']} ohne Versuche übersprungen";
+                                }
+                                Notification::make()->success()->title($msg)->send();
+
+                                return response()->streamDownload(
+                                    fn () => print ($bytes),
+                                    'verlaeufe_'.now()->format('Ymd_His').'.zip',
+                                    ['Content-Type' => 'application/zip'],
+                                );
+                            }, 'Bulk-Verlaufs-Export');
+                        }),
+                ]),
             ]);
     }
 
