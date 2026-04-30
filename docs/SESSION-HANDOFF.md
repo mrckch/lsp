@@ -12,7 +12,7 @@ Dieses Dokument fasst den Stand des Projekts so zusammen, dass eine neue Session
 - **Lizenz:** EUPL 1.2
 - **Sprache der Doku & UI:** Deutsch
 - **Stack:** Laravel 12 · Filament 3 · MariaDB · Redis · Gotenberg · Docker Compose · Caddy
-- **Aktueller Stand:** Tag **`v1.42.0`** · **274 PHPUnit-Tests / 953 Assertions** + **10 Dusk-E2E-Tests / 36 Assertions** durchgehend grün · `composer lint` (Pint + PHPStan Level 5) sauber
+- **Aktueller Stand:** Tag **`v1.43.0`** · **274 PHPUnit-Tests / 953 Assertions** + **10 Dusk-E2E-Tests / 36 Assertions** durchgehend grün · `composer lint` (Pint + PHPStan Level 5) sauber · CI-Pipeline (GitHub Actions) auf jeden Push gegen `main`
 
 ---
 
@@ -155,7 +155,8 @@ infra/                – Dockerfile, Caddyfile, docker-compose.yml
 | v1.39.0 | Code-Quality-Pass: Pint auto-fix (~93 Files) + PHPStan Level 5 sauber (Baseline) |
 | v1.40.0 | Sicherheit: CSP/X-Frame-Headers + Rate-Limit auf Schüler-Test-Routes |
 | v1.41.0 | OSS-Doku: README aktualisiert + DEPLOYMENT + CONTRIBUTING + 5 ADRs |
-| **v1.42.0** | **Bulk-Reset-Login-Codes (rotiert aktive Codes eines TestRuns)** |
+| v1.42.0 | Bulk-Reset-Login-Codes (rotiert aktive Codes eines TestRuns) |
+| **v1.43.0** | **CI-Pipeline (GitHub Actions): Lint + PHPUnit auf Push/PR gegen main** |
 
 ---
 

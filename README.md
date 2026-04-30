@@ -4,7 +4,9 @@
 
 **Lizenz:** [EUPL 1.2](LICENSE)
 **Sprache:** Deutsch
-**Status:** funktionsfähig (alle Phasen 0–5 abgeschlossen) · 271 Unit-/Feature-Tests + 10 E2E-Browser-Tests grün · `composer lint` (Pint + PHPStan Level 5) sauber
+**Status:** funktionsfähig (alle Phasen 0–5 abgeschlossen) · 274 Unit-/Feature-Tests + 10 E2E-Browser-Tests grün · `composer lint` (Pint + PHPStan Level 5) sauber
+
+CI-Pipeline läuft auf jeden Push/PR gegen `main` (Pint + PHPStan + PHPUnit) — siehe `.github/workflows/ci.yml`.
 
 ---
 
