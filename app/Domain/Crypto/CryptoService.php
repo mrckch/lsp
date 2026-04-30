@@ -308,6 +308,54 @@ final class CryptoService
     }
 
     /**
+     * Erzeugt einen neuen Recovery-Key (Klartext einmalig zurückgegeben).
+     *
+     * Voraussetzung: Session ist entsperrt (DEK liegt vor).
+     * Ablauf:
+     *  - Alle alten Recovery-Wraps der aktiven DEK werden gelöscht
+     *  - Alle nicht-revoked RecoveryKey-Einträge werden mit revoked_at markiert
+     *    (Audit-Trail: alter Fingerprint bleibt sichtbar)
+     *  - Neuer Wrap + RecoveryKey-Eintrag werden erzeugt
+     *
+     * @return string Klartext-Recovery-Key (sicher anzeigen, dann verwerfen)
+     */
+    public function regenerateRecoveryKey(string $label = 'Erneuerter Recovery-Key'): string
+    {
+        $dek = $this->dekFromSession();
+        $activeKey = EncryptionKey::query()->where('is_active', true)->first();
+        if ($activeKey === null) {
+            throw new CryptoException('Keine aktive DEK.');
+        }
+
+        DB::transaction(function () use ($activeKey) {
+            KeyWrap::query()
+                ->where('encryption_key_id', $activeKey->id)
+                ->where('wrap_type', 'recovery_key')
+                ->delete();
+
+            RecoveryKey::query()
+                ->where('encryption_key_id', $activeKey->id)
+                ->whereNull('revoked_at')
+                ->update(['revoked_at' => now()]);
+        });
+
+        $newKey = $this->createRecoveryWrap($activeKey, $dek);
+
+        // Letzten erstellten RecoveryKey-Eintrag mit Label versehen
+        RecoveryKey::query()
+            ->where('encryption_key_id', $activeKey->id)
+            ->whereNull('revoked_at')
+            ->whereNull('used_at')
+            ->latest('id')
+            ->limit(1)
+            ->update(['label' => $label]);
+
+        \sodium_memzero($dek);
+
+        return $newKey;
+    }
+
+    /**
      * Admin-Workflow: Klarnamen-Zugang eines Users entziehen.
      *
      * Löscht alle aktiven user_password-Wraps des Ziel-Users für die aktive DEK.
