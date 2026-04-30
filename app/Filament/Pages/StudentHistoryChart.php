@@ -11,6 +11,7 @@ use App\Domain\PrintJob\PrintJobRunner;
 use App\Domain\PrintTemplate\Models\PrintTemplate;
 use App\Domain\Student\Models\Student;
 use App\Filament\Concerns\AuthorizedPage;
+use App\Filament\Concerns\HandlesPrintErrors;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -29,6 +30,7 @@ use Filament\Pages\Page;
 class StudentHistoryChart extends Page implements HasForms
 {
     use AuthorizedPage;
+    use HandlesPrintErrors;
     use InteractsWithForms;
 
     protected static function requiredPermission(): ?string
@@ -147,7 +149,7 @@ class StudentHistoryChart extends Page implements HasForms
                     ])->all(),
                 ];
 
-                try {
+                return self::runPrintAction(function () use ($version, $vars, $student) {
                     $runner = new PrintJobRunner(app(GotenbergClient::class));
                     $html = $runner->renderTemplate($version->html_content, $vars);
                     $pdf = app(GotenbergClient::class)->htmlToPdf($html, $version->css_content);
@@ -157,13 +159,7 @@ class StudentHistoryChart extends Page implements HasForms
                         'verlauf_'.$student->student_code.'.pdf',
                         ['Content-Type' => 'application/pdf'],
                     );
-                } catch (\Throwable $e) {
-                    Notification::make()->danger()
-                        ->title('PDF-Export fehlgeschlagen')
-                        ->body($e->getMessage())->send();
-
-                    return null;
-                }
+                }, 'PDF-Export');
             });
     }
 }

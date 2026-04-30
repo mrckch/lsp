@@ -8,6 +8,7 @@ use App\Domain\PrintJob\GotenbergClient;
 use App\Domain\PrintJob\PrintJobRunner;
 use App\Domain\PrintTemplate\Models\PrintTemplateVersion;
 use App\Domain\PrintTemplate\TemplateCatalog;
+use App\Filament\Concerns\HandlesPrintErrors;
 use App\Filament\Resources\PrintTemplateResource;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -16,6 +17,8 @@ use Filament\Resources\Pages\EditRecord;
 
 class EditPrintTemplate extends EditRecord
 {
+    use HandlesPrintErrors;
+
     protected static string $resource = PrintTemplateResource::class;
 
     protected $html;
@@ -34,7 +37,7 @@ class EditPrintTemplate extends EditRecord
                     $css = $data['css_content'] ?? '';
                     $sample = TemplateCatalog::for($this->record->type)['sample'] ?? [];
 
-                    try {
+                    return self::runPrintAction(function () use ($html, $css, $sample) {
                         $runner = new PrintJobRunner(app(GotenbergClient::class));
                         $rendered = $runner->renderTemplate($html, $sample);
                         $pdf = app(GotenbergClient::class)->htmlToPdf($rendered, $css);
@@ -44,13 +47,7 @@ class EditPrintTemplate extends EditRecord
                             'preview_'.$this->record->key.'.pdf',
                             ['Content-Type' => 'application/pdf'],
                         );
-                    } catch (\Throwable $e) {
-                        Notification::make()->danger()
-                            ->title('Vorschau fehlgeschlagen')
-                            ->body($e->getMessage())->send();
-
-                        return null;
-                    }
+                    }, 'Live-Vorschau');
                 }),
             DeleteAction::make()->visible(fn () => ! $this->record->is_system),
         ];

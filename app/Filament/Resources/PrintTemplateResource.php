@@ -9,6 +9,7 @@ use App\Domain\PrintJob\PrintJobRunner;
 use App\Domain\PrintTemplate\Models\PrintTemplate;
 use App\Domain\PrintTemplate\TemplateCatalog;
 use App\Filament\Concerns\AuthorizedResource;
+use App\Filament\Concerns\HandlesPrintErrors;
 use App\Filament\Resources\PrintTemplateResource\Pages;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\RichEditor;
@@ -32,6 +33,7 @@ use Illuminate\Support\HtmlString;
 class PrintTemplateResource extends Resource
 {
     use AuthorizedResource;
+    use HandlesPrintErrors;
 
     protected static function viewPermission(): ?string { return 'print.templates.view'; }
     protected static function createPermission(): ?string { return 'print.templates.manage'; }
@@ -153,32 +155,22 @@ class PrintTemplateResource extends Resource
 
                             return null;
                         }
-                        $sample = TemplateCatalog::for($record->type)['sample'] ?? [];
-                        try {
+
+                        return self::runPrintAction(function () use ($record, $version) {
+                            $sample = TemplateCatalog::for($record->type)['sample'] ?? [];
                             $runner = new PrintJobRunner(app(GotenbergClient::class));
                             $html = $runner->renderTemplate($version->html_content, $sample);
                             $pdf = app(GotenbergClient::class)->htmlToPdf($html, $version->css_content);
 
                             $name = 'preview_'.$record->key.'_'.now()->format('His').'.pdf';
-                            $path = 'lsp/previews/'.$name;
-                            Storage::disk('local')->put($path, $pdf);
-
-                            Notification::make()->success()
-                                ->title('Vorschau erzeugt')
-                                ->body("Datei: $path")->send();
+                            Storage::disk('local')->put('lsp/previews/'.$name, $pdf);
 
                             return response()->streamDownload(
                                 fn () => print ($pdf),
                                 $name,
                                 ['Content-Type' => 'application/pdf'],
                             );
-                        } catch (\Throwable $e) {
-                            Notification::make()->danger()
-                                ->title('Vorschau fehlgeschlagen')
-                                ->body($e->getMessage())->send();
-
-                            return null;
-                        }
+                        }, 'PDF-Vorschau');
                     }),
                 Action::make('versionHistory')
                     ->label('Versionen')->icon('heroicon-o-clock')

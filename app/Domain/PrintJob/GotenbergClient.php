@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\PrintJob;
 
+use App\Domain\PrintJob\Exceptions\PdfServiceUnavailableException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 
@@ -11,6 +13,9 @@ use Illuminate\Support\Facades\Http;
  * Schlanker HTTP-Client für den Gotenberg-PDF-Service.
  *
  * Spec: https://gotenberg.dev/docs/routes#convert-html-into-pdf-route
+ *
+ * Connection-Probleme werden in PdfServiceUnavailableException umgewandelt,
+ * damit die UI sie freundlich darstellen kann (statt 500 / unhandled).
  */
 class GotenbergClient
 {
@@ -18,6 +23,8 @@ class GotenbergClient
 
     /**
      * Konvertiert HTML+CSS zu PDF-Bytes.
+     *
+     * @throws PdfServiceUnavailableException
      */
     public function htmlToPdf(string $html, ?string $css = null, array $options = []): string
     {
@@ -34,13 +41,37 @@ class GotenbergClient
             $request = $request->attach($key, (string) $value);
         }
 
-        $response = $request->post($url);
+        try {
+            $response = $request->post($url);
+        } catch (ConnectionException $e) {
+            throw PdfServiceUnavailableException::notReachable($this->baseUrl, $e->getMessage());
+        }
 
         if (! $response->successful()) {
-            throw new \RuntimeException("Gotenberg-Fehler {$response->status()}: ".$response->body());
+            throw PdfServiceUnavailableException::badResponse($response->status(), $response->body());
         }
 
         return $response->body();
+    }
+
+    /**
+     * Schneller Health-Check (Gotenberg /health endpoint).
+     * Liefert true bei Erreichbarkeit, false sonst (wirft nicht).
+     */
+    public function ping(): bool
+    {
+        try {
+            $response = Http::timeout(5)->get(rtrim($this->baseUrl, '/').'/health');
+
+            return $response->successful();
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    public function baseUrl(): string
+    {
+        return $this->baseUrl;
     }
 
     private function client(): PendingRequest

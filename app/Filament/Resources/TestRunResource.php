@@ -18,6 +18,7 @@ use App\Domain\School\Models\SchoolYear;
 use App\Domain\TestRun\Models\AssessmentType;
 use App\Domain\TestRun\Models\TestRun;
 use App\Filament\Concerns\AuthorizedResource;
+use App\Filament\Concerns\HandlesPrintErrors;
 use App\Filament\Resources\TestRunResource\Pages;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Section;
@@ -39,6 +40,7 @@ use Filament\Tables\Table;
 class TestRunResource extends Resource
 {
     use AuthorizedResource;
+    use HandlesPrintErrors;
 
     protected static function viewPermission(): ?string { return 'test_runs.view'; }
     protected static function createPermission(): ?string { return 'test_runs.create'; }
@@ -200,7 +202,7 @@ class TestRunResource extends Resource
                     ->color('info')
                     ->visible(fn () => auth()->user()?->hasPermission('print.generate_with_clearname') ?? false)
                     ->action(function (TestRun $record) {
-                        try {
+                        return self::runPrintAction(function () use ($record) {
                             $result = app(BulkFeedbackGenerator::class)
                                 ->generateForRun($record, forUser: auth()->user());
                             if ($result['count'] === 0) {
@@ -217,13 +219,7 @@ class TestRunResource extends Resource
                                 'rueckmeldungen_'.$record->short_code.'.zip',
                                 ['Content-Type' => 'application/zip'],
                             );
-                        } catch (\Throwable $e) {
-                            Notification::make()->danger()
-                                ->title('Bulk-PDF fehlgeschlagen')
-                                ->body($e->getMessage())->send();
-
-                            return null;
-                        }
+                        }, 'Bulk-PDF');
                     }),
                 Action::make('bulkMail')
                     ->label('Rückmeldungen per Mail')
@@ -259,14 +255,14 @@ class TestRunResource extends Resource
                         }
                     })
                     ->action(function (TestRun $record, array $data) {
-                        try {
+                        self::runPrintAction(function () use ($record, $data) {
                             $result = app(BulkFeedbackGenerator::class)
                                 ->generateForRun($record, forUser: auth()->user());
                             if ($result['count'] === 0) {
                                 Notification::make()->warning()
                                     ->title('Keine abgegebenen Versuche im Scope')->send();
 
-                                return;
+                                return null;
                             }
 
                             $msg = app(MailService::class)->sendWithRawAttachment(
@@ -290,11 +286,9 @@ class TestRunResource extends Resource
                                     ->title('Mailversand fehlgeschlagen')
                                     ->body($msg->error_message ?? '')->send();
                             }
-                        } catch (\Throwable $e) {
-                            Notification::make()->danger()
-                                ->title('Bulk-Mail fehlgeschlagen')
-                                ->body($e->getMessage())->send();
-                        }
+
+                            return null;
+                        }, 'Bulk-Mail');
                     }),
                 DeleteAction::make(),
             ]);
