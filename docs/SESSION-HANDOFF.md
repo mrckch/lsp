@@ -12,7 +12,7 @@ Dieses Dokument fasst den Stand des Projekts so zusammen, dass eine neue Session
 - **Lizenz:** EUPL 1.2
 - **Sprache der Doku & UI:** Deutsch
 - **Stack:** Laravel 12 · Filament 3 · MariaDB · Redis · Gotenberg · Docker Compose · Caddy
-- **Aktueller Stand:** Tag **`v1.33.0`** · **258 PHPUnit-Tests / 850 Assertions** + **7 Dusk-E2E-Tests / 30 Assertions** durchgehend grün
+- **Aktueller Stand:** Tag **`v1.34.0`** · **258 PHPUnit-Tests / 850 Assertions** + **7 Dusk-E2E-Tests / 30 Assertions** durchgehend grün
 
 ---
 
@@ -146,7 +146,8 @@ infra/                – Dockerfile, Caddyfile, docker-compose.yml
 | v1.30.0 | 2FA-Pflicht pro Klasse erzwingen + sendWelcome-Permission-Konsistenz |
 | v1.31.0 | Backup-Restore mit echter DB-Wiederherstellung (CLI mit Dry-Run + Confirmation) |
 | v1.32.0 | Recovery-Key-Verwaltung im UI (Status-Übersicht + Regenerate) |
-| **v1.33.0** | **3 Folgepunkte: Wrap-Audit-Log, Audit-Hard-Delete-Cron, SVWS-SekI-Filter** |
+| v1.33.0 | 3 Folgepunkte: Wrap-Audit-Log, Audit-Hard-Delete-Cron, SVWS-SekI-Filter |
+| **v1.34.0** | **Importer-Refactor: AbstractStudentImporter (gemeinsame Diff/Commit-Logik)** |
 
 ---
 
@@ -155,9 +156,8 @@ infra/                – Dockerfile, Caddyfile, docker-compose.yml
 Vom User explizit als „später" markiert oder am Ende der letzten Session vorgeschlagen, aber nicht angegangen:
 
 1. **E2E-Browser-Test für Bulk-Job-Flow** (Filament-Admin-UI mit Dusk) – Schüler-Test-Flow ist in v1.25.0 abgedeckt, der Filament-Teil (Login + Livewire-Interaktion + Job-Trigger) steht noch aus
-2. **Importer-Refactor: gemeinsame Basisklasse für SchildCsv + SvwsApi** — die Diff/Commit-Logik ist heute in beiden Klassen 1:1 dupliziert (bewusst, um SchildCsv-Tests nicht zu brechen). Nächster Schritt: `AbstractStudentImporter` mit gemeinsamer Diff/Commit-Logik, `fetchAndNormalize()` als abstract.
-3. **Backup-Storage-Files mit ins Backup nehmen** — `storage/app/lsp/`-Dateien (Imports, Exports, Print-Jobs) sind im Pflichtenheft als Backup-Inhalt erwähnt, aber im Code nicht enthalten. Wäre für DR-Szenarien sinnvoll.
-4. **Backup-Restore: Pre-Restore-Auto-Snapshot** — vor dem zerstörerischen TRUNCATE einen Notfall-Backup machen, damit bei verpfuschtem Restore zurückgespielt werden kann. Optional via `--snapshot-before`-Flag.
+2. **Backup-Storage-Files mit ins Backup nehmen** — `storage/app/lsp/`-Dateien (Imports, Exports, Print-Jobs) sind im Pflichtenheft als Backup-Inhalt erwähnt, aber im Code nicht enthalten. Wäre für DR-Szenarien sinnvoll.
+3. **Backup-Restore: Pre-Restore-Auto-Snapshot** — vor dem zerstörerischen TRUNCATE einen Notfall-Backup machen, damit bei verpfuschtem Restore zurückgespielt werden kann. Optional via `--snapshot-before`-Flag.
 
 ---
 
