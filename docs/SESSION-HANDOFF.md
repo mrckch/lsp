@@ -12,7 +12,7 @@ Dieses Dokument fasst den Stand des Projekts so zusammen, dass eine neue Session
 - **Lizenz:** EUPL 1.2
 - **Sprache der Doku & UI:** Deutsch
 - **Stack:** Laravel 12 · Filament 3 · MariaDB · Redis · Gotenberg · Docker Compose · Caddy
-- **Aktueller Stand:** Tag **`v1.36.0`** · **261 PHPUnit-Tests / 860 Assertions** + **10 Dusk-E2E-Tests / 36 Assertions** durchgehend grün
+- **Aktueller Stand:** Tag **`v1.37.0`** · **264 PHPUnit-Tests / 869 Assertions** + **10 Dusk-E2E-Tests / 36 Assertions** durchgehend grün
 
 ---
 
@@ -149,7 +149,8 @@ infra/                – Dockerfile, Caddyfile, docker-compose.yml
 | v1.33.0 | 3 Folgepunkte: Wrap-Audit-Log, Audit-Hard-Delete-Cron, SVWS-SekI-Filter |
 | v1.34.0 | Importer-Refactor: AbstractStudentImporter (gemeinsame Diff/Commit-Logik) |
 | v1.35.0 | Backup inkludiert Storage-Files (Imports/Print-Jobs/Exports), Restore schreibt sie zurück |
-| **v1.36.0** | **E2E-Smoke-Test für Filament-Admin (Login + List + Auth-Redirect)** |
+| v1.36.0 | E2E-Smoke-Test für Filament-Admin (Login + List + Auth-Redirect) |
+| **v1.37.0** | **Backup-Restore Pre-Snapshot (`--snapshot-before` Belt-and-Braces)** |
 
 ---
 
@@ -157,8 +158,7 @@ infra/                – Dockerfile, Caddyfile, docker-compose.yml
 
 Vom User explizit als „später" markiert oder am Ende der letzten Session vorgeschlagen, aber nicht angegangen:
 
-1. **Backup-Restore: Pre-Restore-Auto-Snapshot** — vor dem zerstörerischen TRUNCATE einen Notfall-Backup machen, damit bei verpfuschtem Restore zurückgespielt werden kann. Optional via `--snapshot-before`-Flag.
-2. **Dusk-Test für Bulk-Action-Modal-Flow** — der eigentliche Bulk-Action-Klick (Multi-Row-Auswahl + Modal-Confirmation) ist in v1.36.0 bewusst weggelassen worden, weil Dusk + Livewire-Modals fragil. Wenn das gewünscht ist, müsste man Page-Objects in Filament-Style aufbauen.
+1. **Dusk-Test für Bulk-Action-Modal-Flow** — der eigentliche Bulk-Action-Klick (Multi-Row-Auswahl + Modal-Confirmation) ist in v1.36.0 bewusst weggelassen worden, weil Dusk + Livewire-Modals fragil. Wenn das gewünscht ist, müsste man Page-Objects in Filament-Style aufbauen.
 
 ---
 

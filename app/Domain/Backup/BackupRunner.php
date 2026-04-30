@@ -67,6 +67,37 @@ final class BackupRunner
     }
 
     /**
+     * Erzeugt einen Standalone-Snapshot ohne BackupTarget — z. B. als Pre-Restore-
+     * Notfall-Snapshot. Schreibt unverschlüsselt (NOENC) ins lokale Backup-Verzeichnis,
+     * weil die DEK aus dem Backup-Target-Passwort hier nicht verfügbar wäre.
+     *
+     * @return array{path:string, size:int, sha256:string}
+     */
+    public function createStandaloneSnapshot(string $reason = 'snapshot'): array
+    {
+        $manifest = $this->collect();
+        $manifest['standalone_snapshot'] = true;
+        $manifest['reason'] = $reason;
+
+        $bundle = $this->bundle($manifest);
+        $encrypted = $this->encrypt($bundle, ''); // NOENC: lokal, kein Passwort
+
+        $disk = Storage::disk('local');
+        $name = sprintf('lsp_snapshot_%s_%s.bin',
+            preg_replace('/[^a-z0-9_-]/i', '_', $reason),
+            now()->format('Ymd_His'),
+        );
+        $path = 'lsp/backups/'.$name;
+        $disk->put($path, $encrypted);
+
+        return [
+            'path' => $path,
+            'size' => strlen($encrypted),
+            'sha256' => hash('sha256', $encrypted),
+        ];
+    }
+
+    /**
      * Sammelt die zu sichernden Inhalte: DB-Tabellen + Storage-Files (Whitelist).
      */
     private function collect(): array

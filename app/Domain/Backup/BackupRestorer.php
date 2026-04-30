@@ -45,6 +45,7 @@ final class BackupRestorer
      *   files_total: int,
      *   files_restored: int,
      *   files_skipped: int,
+     *   pre_snapshot_path: ?string,
      *   dry_run: bool,
      *   sha256: string,
      * }
@@ -55,6 +56,7 @@ final class BackupRestorer
         bool $dryRun = false,
         bool $allowVersionMismatch = false,
         ?int $actorUserId = null,
+        bool $snapshotBefore = false,
     ): array {
         if (! is_file($absoluteFilePath)) {
             throw new \RuntimeException("Backup-Datei nicht gefunden: $absoluteFilePath");
@@ -111,8 +113,17 @@ final class BackupRestorer
         $restored = [];
         $filesRestored = 0;
         $filesSkipped = 0;
+        $preSnapshotPath = null;
 
         if (! $dryRun) {
+            // Optional: Vor dem zerstörerischen TRUNCATE einen Notfall-Snapshot
+            // (NOENC, lokal) erstellen, damit fehlgeschlagene Restores rückgängig
+            // gemacht werden können. Snapshot-Pfad wird ins Audit + Result aufgenommen.
+            if ($snapshotBefore) {
+                $snap = $this->runner->createStandaloneSnapshot('pre_restore');
+                $preSnapshotPath = $snap['path'];
+            }
+
             $this->withForeignKeysDisabled(function () use ($backupTables, $planned, &$restored) {
                 foreach ($planned as $name) {
                     $rows = (array) ($backupTables[$name] ?? []);
@@ -138,6 +149,7 @@ final class BackupRestorer
                     'tables_skipped' => array_keys($skipped),
                     'files_restored' => $filesRestored,
                     'files_skipped' => $filesSkipped,
+                    'pre_snapshot_path' => $preSnapshotPath,
                 ],
                 'includes_clearnames' => true,
             ]);
@@ -153,6 +165,7 @@ final class BackupRestorer
             'files_total' => $filesTotal,
             'files_restored' => $filesRestored,
             'files_skipped' => $filesSkipped,
+            'pre_snapshot_path' => $preSnapshotPath,
             'dry_run' => $dryRun,
             'sha256' => $sha256,
         ];

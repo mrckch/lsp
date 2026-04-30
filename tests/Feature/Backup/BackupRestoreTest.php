@@ -291,6 +291,98 @@ class BackupRestoreTest extends TestCase
     }
 
     #[Test]
+    public function snapshot_before_creates_local_snapshot_with_pre_restore_state(): void
+    {
+        // Pre-Restore-Daten anlegen
+        $userBefore = User::create([
+            'username' => 'pre-restore', 'display_name' => 'Vor-Restore',
+            'password' => Hash::make('pw'), 'is_active' => true,
+        ]);
+
+        // Backup ohne diesen User
+        $target = $this->makeBackupTarget('pw-12345');
+        $run = app(BackupRunner::class)->run($target);
+
+        // User existiert vor Restore nicht im Backup, würde durch Restore weg sein.
+        // Mit snapshotBefore=true wird vor TRUNCATE der Pre-Restore-Stand
+        // (inklusive userBefore) lokal als NOENC-Snapshot abgelegt.
+        $userBefore = User::create([
+            'username' => 'survives-only-via-snapshot', 'display_name' => 'X',
+            'password' => Hash::make('pw'), 'is_active' => true,
+        ]);
+
+        $result = app(BackupRestorer::class)->restore(
+            absoluteFilePath: $this->backupAbsolutePath($run->file_name),
+            password: 'pw-12345',
+            dryRun: false,
+            snapshotBefore: true,
+        );
+
+        $this->assertNotNull($result['pre_snapshot_path']);
+        $this->assertStringStartsWith('lsp/backups/lsp_snapshot_pre_restore_', $result['pre_snapshot_path']);
+        Storage::disk('local')->assertExists($result['pre_snapshot_path']);
+
+        // Pre-Restore-User ist nach Restore weg (Backup hatte ihn nicht)
+        $this->assertNull(User::query()->where('username', 'survives-only-via-snapshot')->first());
+
+        // Aber im Snapshot ist er enthalten — das beweisen wir, indem wir den
+        // Snapshot zurückspielen und prüfen, dass der User wieder da ist.
+        $snapshotPath = Storage::disk('local')->path($result['pre_snapshot_path']);
+        $restored = app(BackupRestorer::class)->restore(
+            absoluteFilePath: $snapshotPath,
+            password: '', // NOENC
+            dryRun: false,
+        );
+        $this->assertNotNull(User::query()->where('username', 'survives-only-via-snapshot')->first());
+
+        // Cleanup
+        Storage::disk('local')->delete($result['pre_snapshot_path']);
+    }
+
+    #[Test]
+    public function snapshot_before_path_appears_in_audit_context(): void
+    {
+        $actor = User::create([
+            'username' => 'actor', 'display_name' => 'A',
+            'password' => Hash::make('pw'), 'is_active' => true,
+        ]);
+        $target = $this->makeBackupTarget('pw-12345');
+        $run = app(BackupRunner::class)->run($target);
+
+        app(BackupRestorer::class)->restore(
+            absoluteFilePath: $this->backupAbsolutePath($run->file_name),
+            password: 'pw-12345',
+            dryRun: false,
+            actorUserId: $actor->id,
+            snapshotBefore: true,
+        );
+
+        $audit = \App\Domain\Audit\Models\AuditLog::query()
+            ->where('action', 'system.backup.restored')->first();
+        $this->assertNotNull($audit->context['pre_snapshot_path']);
+        $this->assertStringStartsWith('lsp/backups/', $audit->context['pre_snapshot_path']);
+
+        // Cleanup
+        Storage::disk('local')->delete($audit->context['pre_snapshot_path']);
+    }
+
+    #[Test]
+    public function snapshot_before_command_flag_creates_snapshot(): void
+    {
+        $target = $this->makeBackupTarget('pw-12345');
+        $run = app(BackupRunner::class)->run($target);
+
+        $this->artisan('backup:restore', [
+            'file' => $run->file_name,
+            '--password' => 'pw-12345',
+            '--force' => true,
+            '--snapshot-before' => true,
+        ])
+            ->expectsOutputToContain('Pre-Restore-Snapshot: lsp/backups/lsp_snapshot_pre_restore_')
+            ->assertSuccessful();
+    }
+
+    #[Test]
     public function backup_includes_storage_files_and_restore_writes_them_back(): void
     {
         // Datei in einem konfigurierten Backup-Pfad anlegen

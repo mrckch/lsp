@@ -20,7 +20,8 @@ class BackupRestoreCommand extends Command
                             {--password= : Backup-Passwort (sonst Prompt)}
                             {--dry-run : Nur prüfen + Plan zeigen, keine DB-Änderung}
                             {--force : Confirmation-Prompt überspringen}
-                            {--allow-version-mismatch : Restore auch bei abweichender app_version}';
+                            {--allow-version-mismatch : Restore auch bei abweichender app_version}
+                            {--snapshot-before : Vor dem TRUNCATE einen lokalen Notfall-Snapshot anlegen}';
 
     protected $description = 'Stellt ein Backup wieder her (zerstörerisch!). Default: Dry-Run-Plan und Bestätigungsabfrage.';
 
@@ -43,6 +44,7 @@ class BackupRestoreCommand extends Command
         $dryRun = (bool) $this->option('dry-run');
         $allowVersionMismatch = (bool) $this->option('allow-version-mismatch');
         $force = (bool) $this->option('force');
+        $snapshotBefore = (bool) $this->option('snapshot-before');
 
         // Erst immer Plan ermitteln (Dry-Run-Logik im Restorer)
         try {
@@ -98,6 +100,7 @@ class BackupRestoreCommand extends Command
                 password: $password,
                 dryRun: false,
                 allowVersionMismatch: $allowVersionMismatch,
+                snapshotBefore: $snapshotBefore,
             );
         } catch (\Throwable $e) {
             $this->error('Restore fehlgeschlagen: '.$e->getMessage());
@@ -105,6 +108,9 @@ class BackupRestoreCommand extends Command
             return self::FAILURE;
         }
 
+        if ($result['pre_snapshot_path'] !== null) {
+            $this->info('Pre-Restore-Snapshot: '.$result['pre_snapshot_path']);
+        }
         $totalRows = array_sum($result['restored']);
         $this->info(sprintf(
             'Restore abgeschlossen: %d Tabelle(n), %d Zeile(n), %d Datei(en) (%d übersprungen).',
