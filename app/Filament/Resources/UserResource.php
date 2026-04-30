@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Domain\Auth\OnboardingService;
 use App\Domain\Permission\Models\UserGroup;
 use App\Domain\Permission\PermissionResolver;
 use App\Filament\Concerns\AuthorizedResource;
 use App\Filament\Resources\UserResource\Pages;
+use App\Jobs\SendWelcomeMailJob;
 use App\Models\User;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -93,6 +95,26 @@ class UserResource extends Resource
                         ]);
                         app(PermissionResolver::class)->flush($record);
                         Notification::make()->success()->title('Passwort gesetzt')->send();
+                    }),
+                Action::make('sendWelcome')
+                    ->label('Welcome-Mail senden')
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('info')
+                    ->visible(fn (User $r) => $r->email !== null)
+                    ->requiresConfirmation()
+                    ->modalDescription('Erzeugt ein neues Initial-Passwort, markiert den User für '.
+                        'Pflicht-Passwortwechsel beim nächsten Login und versendet eine Welcome-Mail.')
+                    ->action(function (User $record) {
+                        $onboarding = app(OnboardingService::class);
+                        $plain = $onboarding->generateInitialPassword();
+                        $onboarding->markForForcedChange($record, Hash::make($plain));
+
+                        SendWelcomeMailJob::dispatch($record->id, $plain, auth()->id());
+
+                        Notification::make()->success()
+                            ->title('Welcome-Mail in der Queue')
+                            ->body('User muss beim nächsten Login das Passwort ändern.')
+                            ->send();
                     }),
                 DeleteAction::make(),
             ]);

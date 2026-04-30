@@ -10,6 +10,7 @@ use App\Domain\Permission\Models\UserPermissionOverride;
 use App\Domain\Permission\Models\UserScopeAssignment;
 use App\Domain\Permission\PermissionResolver;
 use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasName;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -19,7 +20,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-class User extends Authenticatable implements FilamentUser
+class User extends Authenticatable implements FilamentUser, HasName
 {
     use HasApiTokens;
     use HasFactory;
@@ -33,6 +34,7 @@ class User extends Authenticatable implements FilamentUser
         'password',
         'is_active',
         'two_factor_enabled',
+        'must_change_password',
     ];
 
     protected $hidden = [
@@ -46,6 +48,7 @@ class User extends Authenticatable implements FilamentUser
             'password' => 'hashed',
             'is_active' => 'boolean',
             'two_factor_enabled' => 'boolean',
+            'must_change_password' => 'boolean',
             'last_login_at' => 'datetime',
             'last_2fa_at' => 'datetime',
             'password_changed_at' => 'datetime',
@@ -55,6 +58,11 @@ class User extends Authenticatable implements FilamentUser
     public function canAccessPanel(Panel $panel): bool
     {
         return $this->is_active;
+    }
+
+    public function getFilamentName(): string
+    {
+        return (string) ($this->display_name ?? $this->username ?? '');
     }
 
     public function userGroups(): BelongsToMany
