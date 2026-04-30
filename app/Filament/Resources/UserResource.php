@@ -19,11 +19,14 @@ use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables\Actions\Action;
+use Filament\Tables\Actions\BulkAction;
+use Filament\Tables\Actions\BulkActionGroup;
 use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Hash;
 
 class UserResource extends Resource
@@ -117,6 +120,50 @@ class UserResource extends Resource
                             ->send();
                     }),
                 DeleteAction::make(),
+            ])
+            ->bulkActions([
+                BulkActionGroup::make([
+                    BulkAction::make('sendWelcomeBulk')
+                        ->label('Welcome-Mails senden')
+                        ->icon('heroicon-o-paper-airplane')
+                        ->color('info')
+                        ->visible(fn () => app(PermissionResolver::class)
+                            ->can(auth()->user(), 'users.manage'))
+                        ->requiresConfirmation()
+                        ->modalDescription('Erzeugt für jeden ausgewählten User mit E-Mail-Adresse '.
+                            'ein neues Initial-Passwort, markiert ihn für Pflicht-Passwortwechsel '.
+                            'und versendet eine Welcome-Mail. Nutzer ohne E-Mail werden übersprungen.')
+                        ->deselectRecordsAfterCompletion()
+                        ->action(function (Collection $records) {
+                            $onboarding = app(OnboardingService::class);
+                            $sent = 0;
+                            $skipped = 0;
+                            $issuedBy = auth()->id();
+
+                            foreach ($records as $user) {
+                                if ($user->email === null) {
+                                    $skipped++;
+                                    continue;
+                                }
+
+                                $plain = $onboarding->generateInitialPassword();
+                                $onboarding->markForForcedChange($user, Hash::make($plain));
+                                SendWelcomeMailJob::dispatch($user->id, $plain, $issuedBy);
+                                $sent++;
+                            }
+
+                            $body = $sent.' Welcome-Mail(s) in der Queue.';
+                            if ($skipped > 0) {
+                                $body .= ' '.$skipped.' Nutzer ohne E-Mail übersprungen.';
+                            }
+
+                            Notification::make()
+                                ->success()
+                                ->title('Bulk-Welcome ausgeführt')
+                                ->body($body)
+                                ->send();
+                        }),
+                ]),
             ]);
     }
 
