@@ -7,10 +7,13 @@ namespace App\Filament\Resources\StudentResource\Pages;
 use App\Domain\Analytics\AnalyticsService;
 use App\Domain\Attempt\Models\TestAttempt;
 use App\Domain\Permission\PermissionResolver;
+use App\Domain\Privacy\PrivacyService;
 use App\Domain\Student\Models\Student;
 use App\Filament\Resources\StudentResource;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 
@@ -114,6 +117,86 @@ class ViewStudent extends ViewRecord
                 ->action(function () {
                     $this->record->unarchive();
                     Notification::make()->success()->title('Reaktiviert')->send();
+                }),
+            Action::make('exportPrivacyJson')
+                ->label('DSGVO-Auskunft (JSON)')
+                ->icon('heroicon-o-shield-check')
+                ->color('gray')
+                ->visible(fn () => $resolver->can($user, 'students.view'))
+                ->action(function () {
+                    $data = app(PrivacyService::class)->exportStudentData($this->record);
+                    $json = json_encode(
+                        $data,
+                        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT,
+                    );
+
+                    return response()->streamDownload(
+                        fn () => print ($json),
+                        'auskunft_'.$this->record->student_code.'.json',
+                        ['Content-Type' => 'application/json'],
+                    );
+                }),
+            Action::make('deleteStudent')
+                ->label('Endgültig löschen')
+                ->icon('heroicon-o-trash')
+                ->color('danger')
+                ->visible(fn () => $resolver->can($user, 'students.delete'))
+                ->form([
+                    TextInput::make('reason')
+                        ->label('Begründung (für Audit-Log)')
+                        ->required()
+                        ->maxLength(255)
+                        ->placeholder('z. B. DSGVO-Auskunfts- und Löschanfrage Eltern vom 15.04.2026'),
+                    TextInput::make('confirm_code')
+                        ->label('Zur Bestätigung den Schülercode '.$this->record->student_code.' eintippen')
+                        ->required()
+                        ->in([$this->record->student_code])
+                        ->validationMessages(['in' => 'Code stimmt nicht überein.']),
+                    Checkbox::make('confirm_irreversible')
+                        ->label('Mir ist bewusst: diese Löschung ist endgültig und nicht rückgängig zu machen.')
+                        ->required()
+                        ->accepted(),
+                ])
+                ->before(function () {
+                    // 2FA-Re-Auth-Check (students.delete ist mit requires_two_factor markiert)
+                    $u = auth()->user();
+                    if ($u === null || ! $u->two_factor_enabled) {
+                        Notification::make()->danger()
+                            ->title('2FA erforderlich')
+                            ->body('Aktivieren Sie 2FA, bevor Sie Schülerdaten endgültig löschen.')
+                            ->persistent()->send();
+                        $this->halt();
+                    }
+                    $ttl = (int) config('lsp.two_factor.reauth_ttl_minutes', 15);
+                    if ($u->last_2fa_at === null || $u->last_2fa_at->lt(now()->subMinutes($ttl))) {
+                        Notification::make()->warning()
+                            ->title('2FA-Bestätigung zu alt')
+                            ->body("Bitte 2FA innerhalb der letzten $ttl Minuten erneut bestätigen.")
+                            ->persistent()->send();
+                        $this->halt();
+                    }
+                })
+                ->action(function (array $data) {
+                    $studentCode = $this->record->student_code;
+                    $deleted = app(PrivacyService::class)->deleteStudent(
+                        student: $this->record,
+                        byUser: auth()->user(),
+                        reason: $data['reason'],
+                        confirmed: true,
+                    );
+
+                    if (! $deleted) {
+                        Notification::make()->danger()->title('Löschung abgelehnt')->send();
+
+                        return;
+                    }
+
+                    Notification::make()->success()
+                        ->title("Schüler $studentCode endgültig gelöscht")
+                        ->body('Im Audit-Log dokumentiert. Daten sind nicht wiederherstellbar.')
+                        ->send();
+
+                    $this->redirect(StudentResource::getUrl('index'));
                 }),
         ];
     }
