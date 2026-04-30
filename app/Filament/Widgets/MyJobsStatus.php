@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Widgets;
 
+use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Mail\Models\MailMessage;
 use App\Domain\PrintJob\Models\GeneratedDocument;
 use Carbon\Carbon;
@@ -75,10 +76,37 @@ class MyJobsStatus extends Widget
                 'url' => null,
             ]);
 
-        return $docs->concat($mails)
+        $failures = AuditLog::query()
+            ->where('action', 'job.failed')
+            ->where('actor_user_id', $userId)
+            ->orderByDesc('created_at')
+            ->limit($limit)
+            ->get()
+            ->map(fn (AuditLog $a) => [
+                'when' => $a->created_at,
+                'kind' => 'failure',
+                'title' => $this->failureTitle($a->context['kind'] ?? null),
+                'subtitle' => $a->context['error'] ?? '',
+                'status' => 'fehlgeschlagen',
+                'status_color' => '#dc2626',
+                'includes_clearnames' => false,
+                'url' => null,
+            ]);
+
+        return $docs->concat($mails)->concat($failures)
             ->sortByDesc(fn ($r) => $r['when'] ?? Carbon::createFromTimestamp(0))
             ->values()
             ->take($limit);
+    }
+
+    private function failureTitle(?string $kind): string
+    {
+        return match ($kind) {
+            'bulk_feedback_zip' => 'Bulk-Rückmeldungs-ZIP',
+            'bulk_feedback_mail' => 'Bulk-Rückmeldungs-Mail',
+            'bulk_history_zip' => 'Bulk-Verlaufs-ZIP',
+            default => 'Hintergrund-Job',
+        };
     }
 
     private function stringifyTo(?string $json): string

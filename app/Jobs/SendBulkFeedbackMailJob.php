@@ -7,6 +7,7 @@ namespace App\Jobs;
 use App\Domain\Mail\MailService;
 use App\Domain\PrintJob\BulkFeedbackGenerator;
 use App\Domain\TestRun\Models\TestRun;
+use App\Jobs\Concerns\LogsFailureToAudit;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -23,10 +24,16 @@ class SendBulkFeedbackMailJob implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
+    use LogsFailureToAudit;
     use Queueable;
     use SerializesModels;
 
     public int $timeout = 600;
+
+    protected function failureContext(): array
+    {
+        return ['test_run_id' => $this->testRunId, 'recipient' => $this->recipient, 'kind' => 'bulk_feedback_mail'];
+    }
 
     public function __construct(
         public readonly int $testRunId,

@@ -6,6 +6,7 @@ namespace App\Jobs;
 
 use App\Domain\PrintJob\BulkHistoryExporter;
 use App\Domain\PrintJob\Models\GeneratedDocument;
+use App\Jobs\Concerns\LogsFailureToAudit;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -22,10 +23,16 @@ class GenerateBulkHistoryZipJob implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
+    use LogsFailureToAudit;
     use Queueable;
     use SerializesModels;
 
     public int $timeout = 600;
+
+    protected function failureContext(): array
+    {
+        return ['student_count' => count($this->studentIds), 'kind' => 'bulk_history_zip'];
+    }
 
     /**
      * @param  array<int>  $studentIds

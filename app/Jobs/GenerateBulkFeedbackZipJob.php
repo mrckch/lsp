@@ -7,6 +7,7 @@ namespace App\Jobs;
 use App\Domain\PrintJob\BulkFeedbackGenerator;
 use App\Domain\PrintJob\Models\GeneratedDocument;
 use App\Domain\TestRun\Models\TestRun;
+use App\Jobs\Concerns\LogsFailureToAudit;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -23,8 +24,14 @@ class GenerateBulkFeedbackZipJob implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
+    use LogsFailureToAudit;
     use Queueable;
     use SerializesModels;
+
+    protected function failureContext(): array
+    {
+        return ['test_run_id' => $this->testRunId, 'kind' => 'bulk_feedback_zip'];
+    }
 
     public int $timeout = 600; // 10 min
 

@@ -28,8 +28,10 @@
                             <td style="padding:0.4rem;">
                                 @if($a['kind'] === 'document')
                                     <span style="background:#dbeafe;color:#1e40af;padding:0.15rem 0.6rem;border-radius:9999px;font-size:0.8rem;">PDF/ZIP</span>
-                                @else
+                                @elseif($a['kind'] === 'mail')
                                     <span style="background:#f3e8ff;color:#6b21a8;padding:0.15rem 0.6rem;border-radius:9999px;font-size:0.8rem;">Mail</span>
+                                @else
+                                    <span style="background:#fee2e2;color:#7f1d1d;padding:0.15rem 0.6rem;border-radius:9999px;font-size:0.8rem;">⚠ Fehler</span>
                                 @endif
                             </td>
                             <td style="padding:0.4rem;">{{ $a['title'] }}</td>
