@@ -67,17 +67,58 @@ final class BackupRunner
     }
 
     /**
-     * Sammelt die zu sichernden Inhalte (kompakte Variante).
+     * Sammelt die zu sichernden Inhalte: DB-Tabellen + Storage-Files (Whitelist).
      */
     private function collect(): array
     {
-        $manifest = [
+        return [
             'created_at' => now()->toIso8601String(),
             'app_version' => config('app.version', '0.5.0-dev'),
             'tables' => $this->dumpTables(),
+            'files' => $this->dumpFiles(),
         ];
+    }
 
-        return $manifest;
+    /**
+     * Sammelt Storage-Dateien aus den in config('lsp.backup.include_paths') konfigurierten
+     * Verzeichnissen. Jede Datei wird als base64-Content im Manifest abgelegt.
+     *
+     * @return array<string, array{content_b64:string, size:int, mtime:int}>
+     */
+    private function dumpFiles(): array
+    {
+        $disk = Storage::disk('local');
+        $maxBytes = (int) config('lsp.backup.max_file_size_bytes', 50 * 1024 * 1024);
+        $paths = (array) config('lsp.backup.include_paths', []);
+
+        $files = [];
+        foreach ($paths as $base) {
+            $base = trim($base, '/');
+            if ($base === '' || ! $disk->exists($base)) {
+                continue;
+            }
+            foreach ($disk->allFiles($base) as $relPath) {
+                $size = $disk->size($relPath);
+                if ($size > $maxBytes) {
+                    // Riesen-Datei → nur Pfad/Größe vermerken, aber kein Content
+                    $files[$relPath] = [
+                        'content_b64' => null,
+                        'size' => $size,
+                        'mtime' => $disk->lastModified($relPath),
+                        'skipped_reason' => 'datei_zu_gross',
+                    ];
+
+                    continue;
+                }
+                $files[$relPath] = [
+                    'content_b64' => base64_encode((string) $disk->get($relPath)),
+                    'size' => $size,
+                    'mtime' => $disk->lastModified($relPath),
+                ];
+            }
+        }
+
+        return $files;
     }
 
     private function dumpTables(): array

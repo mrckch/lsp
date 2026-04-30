@@ -8,6 +8,7 @@ use App\Domain\Audit\Models\AuditLog;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Filesystem\FilesystemAdapter;
 
 /**
  * Stellt ein verschlüsseltes Backup wieder her.
@@ -41,6 +42,9 @@ final class BackupRestorer
      *   tables_missing_in_db: list<string>,
      *   tables_extra_in_db: list<string>,
      *   restored: array<string, int>,
+     *   files_total: int,
+     *   files_restored: int,
+     *   files_skipped: int,
      *   dry_run: bool,
      *   sha256: string,
      * }
@@ -101,7 +105,13 @@ final class BackupRestorer
         }
         $extraInDb = array_values(array_diff($currentTables, array_keys($backupTables), self::SKIP_TABLES));
 
+        $files = (array) ($manifest['files'] ?? []);
+        $filesTotal = count($files);
+
         $restored = [];
+        $filesRestored = 0;
+        $filesSkipped = 0;
+
         if (! $dryRun) {
             $this->withForeignKeysDisabled(function () use ($backupTables, $planned, &$restored) {
                 foreach ($planned as $name) {
@@ -111,6 +121,8 @@ final class BackupRestorer
                     $restored[$name] = $count;
                 }
             });
+
+            [$filesRestored, $filesSkipped] = $this->restoreFiles($files);
 
             AuditLog::create([
                 'actor_type' => $actorUserId ? 'user' : 'system',
@@ -124,6 +136,8 @@ final class BackupRestorer
                     'tables_restored' => count($restored),
                     'rows_restored_total' => array_sum($restored),
                     'tables_skipped' => array_keys($skipped),
+                    'files_restored' => $filesRestored,
+                    'files_skipped' => $filesSkipped,
                 ],
                 'includes_clearnames' => true,
             ]);
@@ -136,9 +150,42 @@ final class BackupRestorer
             'tables_missing_in_db' => $missingInDb,
             'tables_extra_in_db' => $extraInDb,
             'restored' => $restored,
+            'files_total' => $filesTotal,
+            'files_restored' => $filesRestored,
+            'files_skipped' => $filesSkipped,
             'dry_run' => $dryRun,
             'sha256' => $sha256,
         ];
+    }
+
+    /**
+     * Schreibt die Storage-Dateien aus dem Manifest auf die 'local'-Disk zurück.
+     * Dateien mit content_b64=null (zu groß beim Backup) werden übersprungen.
+     *
+     * @param  array<string, array{content_b64:?string, size:int, mtime?:int, skipped_reason?:string}>  $files
+     * @return array{0:int,1:int}  [restored, skipped]
+     */
+    private function restoreFiles(array $files): array
+    {
+        if ($files === []) {
+            return [0, 0];
+        }
+        /** @var FilesystemAdapter $disk */
+        $disk = Storage::disk('local');
+        $restored = 0;
+        $skipped = 0;
+        foreach ($files as $relPath => $meta) {
+            $b64 = $meta['content_b64'] ?? null;
+            if ($b64 === null) {
+                $skipped++;
+
+                continue;
+            }
+            $disk->put($relPath, base64_decode($b64));
+            $restored++;
+        }
+
+        return [$restored, $skipped];
     }
 
     /** @return list<string> */

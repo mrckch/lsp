@@ -63,6 +63,7 @@ class BackupRestoreCommand extends Command
         $this->line('  app-version (aktuell): '.config('app.version', '?'));
         $this->line('  sha256: '.$plan['sha256']);
         $this->line('  tabellen zu restore: '.count($plan['tables_planned']));
+        $this->line('  storage-files im Backup: '.($plan['files_total'] ?? 0));
         if ($plan['tables_planned']) {
             $this->line('    '.implode(', ', $plan['tables_planned']));
         }
@@ -106,9 +107,11 @@ class BackupRestoreCommand extends Command
 
         $totalRows = array_sum($result['restored']);
         $this->info(sprintf(
-            'Restore abgeschlossen: %d Tabelle(n), %d Zeile(n).',
+            'Restore abgeschlossen: %d Tabelle(n), %d Zeile(n), %d Datei(en) (%d übersprungen).',
             count($result['restored']),
             $totalRows,
+            $result['files_restored'] ?? 0,
+            $result['files_skipped'] ?? 0,
         ));
         foreach ($result['restored'] as $table => $count) {
             $this->line("  $table: $count");

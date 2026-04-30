@@ -291,6 +291,90 @@ class BackupRestoreTest extends TestCase
     }
 
     #[Test]
+    public function backup_includes_storage_files_and_restore_writes_them_back(): void
+    {
+        // Datei in einem konfigurierten Backup-Pfad anlegen
+        Storage::disk('local')->put('lsp/imports/sample.csv', "vorher;daten\n");
+
+        $target = $this->makeBackupTarget('pw-12345');
+        $run = app(BackupRunner::class)->run($target);
+
+        // Datei nach Backup verändern und löschen
+        Storage::disk('local')->put('lsp/imports/sample.csv', 'manipuliert');
+        Storage::disk('local')->delete('lsp/imports/sample.csv');
+        $this->assertFalse(Storage::disk('local')->exists('lsp/imports/sample.csv'));
+
+        $result = app(BackupRestorer::class)->restore(
+            absoluteFilePath: $this->backupAbsolutePath($run->file_name),
+            password: 'pw-12345',
+            dryRun: false,
+        );
+
+        $this->assertEquals(1, $result['files_restored']);
+        $this->assertEquals(0, $result['files_skipped']);
+        $this->assertTrue(Storage::disk('local')->exists('lsp/imports/sample.csv'));
+        $this->assertEquals(
+            "vorher;daten\n",
+            Storage::disk('local')->get('lsp/imports/sample.csv'),
+        );
+
+        // Cleanup für nachfolgende Tests
+        Storage::disk('local')->delete('lsp/imports/sample.csv');
+    }
+
+    #[Test]
+    public function backup_excludes_backups_directory_itself(): void
+    {
+        // Sentinel: eine "Backup-Datei" anlegen, dann ein Backup ziehen
+        Storage::disk('local')->put('lsp/backups/old-marker.bin', 'pseudo-backup');
+        // Auch im inkludierten Pfad eine Datei, damit das Manifest sicher 'files' enthält
+        Storage::disk('local')->put('lsp/imports/sentinel.csv', 'a;b');
+
+        $target = $this->makeBackupTarget('pw-12345');
+        $run = app(BackupRunner::class)->run($target);
+
+        $blob = file_get_contents($this->backupAbsolutePath($run->file_name));
+        $payload = app(BackupRunner::class)->decrypt($blob, 'pw-12345');
+        $manifest = json_decode($payload, true);
+
+        $this->assertNotEmpty($manifest['files']);
+        $hasBackupPath = false;
+        foreach (array_keys($manifest['files']) as $path) {
+            if (str_contains($path, 'lsp/backups/')) {
+                $hasBackupPath = true;
+            }
+        }
+        $this->assertFalse($hasBackupPath, 'Backup-Verzeichnis darf nicht im Manifest sein.');
+
+        // Cleanup
+        Storage::disk('local')->delete('lsp/backups/old-marker.bin');
+        Storage::disk('local')->delete('lsp/imports/sentinel.csv');
+    }
+
+    #[Test]
+    public function backup_skips_files_larger_than_max_size(): void
+    {
+        config()->set('lsp.backup.max_file_size_bytes', 100); // 100 Bytes
+        Storage::disk('local')->put('lsp/imports/big.bin', str_repeat('X', 500));
+        Storage::disk('local')->put('lsp/imports/small.bin', 'klein');
+
+        $target = $this->makeBackupTarget('pw-12345');
+        $run = app(BackupRunner::class)->run($target);
+
+        $blob = file_get_contents($this->backupAbsolutePath($run->file_name));
+        $payload = app(BackupRunner::class)->decrypt($blob, 'pw-12345');
+        $manifest = json_decode($payload, true);
+
+        $this->assertNull($manifest['files']['lsp/imports/big.bin']['content_b64']);
+        $this->assertEquals('datei_zu_gross', $manifest['files']['lsp/imports/big.bin']['skipped_reason']);
+        $this->assertNotNull($manifest['files']['lsp/imports/small.bin']['content_b64']);
+
+        // Cleanup
+        Storage::disk('local')->delete('lsp/imports/big.bin');
+        Storage::disk('local')->delete('lsp/imports/small.bin');
+    }
+
+    #[Test]
     public function command_force_skips_confirmation_and_restores(): void
     {
         $target = $this->makeBackupTarget('pw-12345');

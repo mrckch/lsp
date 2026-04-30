@@ -33,6 +33,16 @@ return [
             'weekly' => 4,
             'monthly' => 12,
         ],
+        // Storage-Verzeichnisse (relativ zur 'local'-Disk), die mit ins Backup gehen.
+        // 'lsp/backups' ist bewusst NICHT enthalten (Backup würde sich selbst einschließen).
+        'include_paths' => [
+            'lsp/imports',
+            'lsp/print-jobs',
+            'lsp/exports',
+        ],
+        // Größenlimit pro einzelner Datei in Bytes; größere Dateien werden mit Hinweis übersprungen.
+        // Schützt vor Riesen-Backups (z. B. 200MB-PDFs).
+        'max_file_size_bytes' => 50 * 1024 * 1024,
     ],
 
     'audit' => [
