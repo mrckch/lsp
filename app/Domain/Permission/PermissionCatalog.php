@@ -121,6 +121,7 @@ final class PermissionCatalog
             ['key' => 'system.backup.run',                       'area' => 'system',     'description' => 'Backup manuell ausführen',                            'is_scopeable' => false, 'requires_two_factor' => true],
             ['key' => 'system.backup.targets.manage',            'area' => 'system',     'description' => 'Backup-Ziele konfigurieren',                          'is_scopeable' => false, 'requires_two_factor' => true],
             ['key' => 'system.backup.download',                  'area' => 'system',     'description' => 'Backup herunterladen',                                'is_scopeable' => false, 'requires_two_factor' => true],
+            ['key' => 'system.backup.restore',                   'area' => 'system',     'description' => 'Backup zurückspielen (zerstörerisch)',                'is_scopeable' => false, 'requires_two_factor' => true],
             ['key' => 'system.audit.view',                       'area' => 'system',     'description' => 'Audit-Log einsehen',                                  'is_scopeable' => false, 'requires_two_factor' => false],
             ['key' => 'system.audit.export',                     'area' => 'system',     'description' => 'Audit-Log exportieren',                               'is_scopeable' => false, 'requires_two_factor' => true],
             ['key' => 'system.health.view',                      'area' => 'system',     'description' => 'Health/Status-Dashboard',                             'is_scopeable' => false, 'requires_two_factor' => false],

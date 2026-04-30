@@ -4,65 +4,115 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Domain\Backup\BackupRunner;
+use App\Domain\Backup\BackupRestorer;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * CLI-Restore eines Backups.
+ * CLI-Restore eines Backups (zerstörerisch!).
  *
  * Bewusst nur als CLI verfügbar, um versehentlichen Restore aus dem UI zu verhindern.
  */
 class BackupRestoreCommand extends Command
 {
-    protected $signature = 'backup:restore {file : Pfad oder Dateiname (relativ zum local-Disk)} {--password= : Backup-Passwort}';
-    protected $description = 'Stellt ein Backup wieder her (zerstörerisch!). Erwartet manuelle Bestätigung.';
+    protected $signature = 'backup:restore
+                            {file : Pfad oder Dateiname (relativ zum local-Disk)}
+                            {--password= : Backup-Passwort (sonst Prompt)}
+                            {--dry-run : Nur prüfen + Plan zeigen, keine DB-Änderung}
+                            {--force : Confirmation-Prompt überspringen}
+                            {--allow-version-mismatch : Restore auch bei abweichender app_version}';
 
-    public function handle(BackupRunner $runner): int
+    protected $description = 'Stellt ein Backup wieder her (zerstörerisch!). Default: Dry-Run-Plan und Bestätigungsabfrage.';
+
+    public function handle(BackupRestorer $restorer): int
     {
-        $file = $this->argument('file');
-        if (! str_starts_with($file, 'lsp/backups/')) {
+        $file = (string) $this->argument('file');
+        if (! str_starts_with($file, 'lsp/backups/') && ! is_file($file)) {
             $file = 'lsp/backups/'.$file;
         }
+
         $disk = Storage::disk('local');
-        if (! $disk->exists($file)) {
-            $this->error("Datei nicht gefunden: $file");
+        $absolutePath = is_file($file) ? $file : $disk->path($file);
+        if (! is_file($absolutePath)) {
+            $this->error("Datei nicht gefunden: $absolutePath");
 
             return self::FAILURE;
         }
 
-        if (! $this->confirm("⚠ Restore aus '$file' überschreibt vorhandene Daten. Fortfahren?", false)) {
-            $this->warn('Abgebrochen.');
+        $password = (string) ($this->option('password') ?? $this->secret('Backup-Passwort (leer für unverschlüsselte Backups)'));
+        $dryRun = (bool) $this->option('dry-run');
+        $allowVersionMismatch = (bool) $this->option('allow-version-mismatch');
+        $force = (bool) $this->option('force');
+
+        // Erst immer Plan ermitteln (Dry-Run-Logik im Restorer)
+        try {
+            $plan = $restorer->restore(
+                absoluteFilePath: $absolutePath,
+                password: $password,
+                dryRun: true,
+                allowVersionMismatch: $allowVersionMismatch,
+            );
+        } catch (\Throwable $e) {
+            $this->error('Restore-Plan fehlgeschlagen: '.$e->getMessage());
 
             return self::FAILURE;
         }
 
-        $password = $this->option('password') ?? $this->secret('Backup-Passwort');
+        $this->info('Backup-Plan:');
+        $this->line('  app-version (Backup): '.($plan['manifest_version'] ?? '?'));
+        $this->line('  app-version (aktuell): '.config('app.version', '?'));
+        $this->line('  sha256: '.$plan['sha256']);
+        $this->line('  tabellen zu restore: '.count($plan['tables_planned']));
+        if ($plan['tables_planned']) {
+            $this->line('    '.implode(', ', $plan['tables_planned']));
+        }
+        if ($plan['tables_skipped']) {
+            $this->warn('  übersprungen: '.count($plan['tables_skipped']));
+            foreach ($plan['tables_skipped'] as $name => $reason) {
+                $this->line("    $name — $reason");
+            }
+        }
+        if ($plan['tables_extra_in_db']) {
+            $this->warn('  in DB, aber nicht im Backup (bleibt unangetastet): '.implode(', ', $plan['tables_extra_in_db']));
+        }
+
+        if ($dryRun) {
+            $this->info('Dry-Run – DB wurde NICHT verändert.');
+
+            return self::SUCCESS;
+        }
+
+        if (! $force) {
+            $this->warn('⚠ Restore TRUNCATEt alle aufgeführten Tabellen und ersetzt sie durch Backup-Daten.');
+            if (! $this->confirm('Wirklich fortfahren?', false)) {
+                $this->warn('Abgebrochen.');
+
+                return self::FAILURE;
+            }
+        }
 
         try {
-            $payload = $runner->decrypt($disk->get($file), (string) $password);
+            $result = $restorer->restore(
+                absoluteFilePath: $absolutePath,
+                password: $password,
+                dryRun: false,
+                allowVersionMismatch: $allowVersionMismatch,
+            );
         } catch (\Throwable $e) {
-            $this->error('Decrypt fehlgeschlagen: '.$e->getMessage());
+            $this->error('Restore fehlgeschlagen: '.$e->getMessage());
 
             return self::FAILURE;
         }
 
-        try {
-            $manifest = json_decode($payload, true, flags: JSON_THROW_ON_ERROR);
-        } catch (\Throwable $e) {
-            $this->error('Backup-Inhalt ungültig: '.$e->getMessage());
-
-            return self::FAILURE;
+        $totalRows = array_sum($result['restored']);
+        $this->info(sprintf(
+            'Restore abgeschlossen: %d Tabelle(n), %d Zeile(n).',
+            count($result['restored']),
+            $totalRows,
+        ));
+        foreach ($result['restored'] as $table => $count) {
+            $this->line("  $table: $count");
         }
-
-        $this->info('Backup-Manifest:');
-        $this->line('  erstellt am: '.($manifest['created_at'] ?? '?'));
-        $this->line('  app-version: '.($manifest['app_version'] ?? '?'));
-        $this->line('  tabellen:    '.count($manifest['tables'] ?? []));
-
-        $this->warn('Hinweis: Echte Restore-Logik (DB-Truncate + Insert) ist als TODO markiert –');
-        $this->warn('für die spätere Produktivnutzung implementiert. Diese CLI verifiziert aktuell');
-        $this->warn('das Backup-Format und gibt das Manifest aus.');
 
         return self::SUCCESS;
     }
