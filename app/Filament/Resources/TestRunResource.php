@@ -12,6 +12,7 @@ use App\Domain\Permission\PermissionResolver;
 use App\Domain\Permission\ScopeFilter;
 use App\Domain\NoticeText\Models\NoticeText;
 use App\Domain\PrintJob\BulkFeedbackGenerator;
+use App\Jobs\GenerateBulkFeedbackZipJob;
 use App\Domain\Questionnaire\Models\Questionnaire;
 use App\Domain\School\Models\LearningGroup;
 use App\Domain\School\Models\SchoolYear;
@@ -197,29 +198,19 @@ class TestRunResource extends Resource
                             ->title("$count neue Login-Codes erzeugt")->send();
                     }),
                 Action::make('bulkPdf')
-                    ->label('Rückmeldungen als ZIP')
+                    ->label('Rückmeldungen-ZIP erzeugen (Hintergrund)')
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('info')
                     ->visible(fn () => auth()->user()?->hasPermission('print.generate_with_clearname') ?? false)
+                    ->requiresConfirmation()
+                    ->modalDescription('Der Job läuft im Hintergrund. Sobald das ZIP fertig ist, erscheint es unter '.
+                        '"Drucksachen > Erzeugte Dokumente" zum Download.')
                     ->action(function (TestRun $record) {
-                        return self::runPrintAction(function () use ($record) {
-                            $result = app(BulkFeedbackGenerator::class)
-                                ->generateForRun($record, forUser: auth()->user());
-                            if ($result['count'] === 0) {
-                                Notification::make()->warning()
-                                    ->title('Keine abgegebenen Versuche im Scope gefunden')->send();
-
-                                return null;
-                            }
-                            $bytes = file_get_contents($result['zip']);
-                            @unlink($result['zip']);
-
-                            return response()->streamDownload(
-                                fn () => print ($bytes),
-                                'rueckmeldungen_'.$record->short_code.'.zip',
-                                ['Content-Type' => 'application/zip'],
-                            );
-                        }, 'Bulk-PDF');
+                        GenerateBulkFeedbackZipJob::dispatch($record->id, auth()->id());
+                        Notification::make()->success()
+                            ->title('Bulk-PDF-Job gestartet')
+                            ->body('Das fertige ZIP findest du unter "Drucksachen > Erzeugte Dokumente".')
+                            ->send();
                     }),
                 Action::make('bulkMail')
                     ->label('Rückmeldungen per Mail')
