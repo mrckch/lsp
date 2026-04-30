@@ -34,4 +34,11 @@ return [
             'monthly' => 12,
         ],
     ],
+
+    'audit' => [
+        // Audit-Einträge älter als X Tage werden vom Cron 'audit:archive' soft-archiviert
+        // (archived_at gesetzt, kein Hard-Delete). DSGVO-Lifecycle: Daten bleiben erhalten,
+        // tauchen aber per Default nicht mehr in der Filament-Liste auf.
+        'archive_after_days' => env('LSP_AUDIT_ARCHIVE_AFTER_DAYS', 90),
+    ],
 ];

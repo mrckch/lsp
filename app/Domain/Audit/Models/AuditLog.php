@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Audit\Models;
 
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -22,6 +23,7 @@ class AuditLog extends Model
         'includes_clearnames',
         'ip_address',
         'user_agent',
+        'archived_at',
     ];
 
     protected function casts(): array
@@ -30,11 +32,24 @@ class AuditLog extends Model
             'context' => 'array',
             'includes_clearnames' => 'boolean',
             'created_at' => 'datetime',
+            'archived_at' => 'datetime',
         ];
     }
 
     public function actor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'actor_user_id');
+    }
+
+    /** Nicht archivierte Einträge. */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->whereNull('archived_at');
+    }
+
+    /** Nur archivierte Einträge. */
+    public function scopeArchived(Builder $query): Builder
+    {
+        return $query->whereNotNull('archived_at');
     }
 }

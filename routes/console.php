@@ -15,3 +15,9 @@ Schedule::command('documents:cleanup')
     ->dailyAt('03:15')
     ->onOneServer()
     ->runInBackground();
+
+// Täglich Audit-Einträge älter als config('lsp.audit.archive_after_days') soft-archivieren.
+Schedule::command('audit:archive')
+    ->dailyAt('03:30')
+    ->onOneServer()
+    ->runInBackground();
