@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Domain\Audit\AuditLogger;
 use App\Domain\Auth\OnboardingService;
 use App\Domain\Crypto\CryptoService;
 use App\Domain\Crypto\Exceptions\CryptoException;
@@ -147,6 +148,14 @@ class UserResource extends Resource
                             return;
                         }
 
+                        app(AuditLogger::class)->logUser(
+                            auth()->user(),
+                            'clearname.password.provisioned',
+                            entityType: 'user',
+                            entityId: $record->id,
+                            context: ['target_username' => $record->username],
+                        );
+
                         Notification::make()->success()
                             ->title('Klarnamen-Zugang eingerichtet')
                             ->body('Teile dem User das Initial-Passwort sicher mit. '.
@@ -166,6 +175,15 @@ class UserResource extends Resource
                         'einrichten.')
                     ->action(function (User $record) {
                         $count = app(CryptoService::class)->revokeWrapForUser($record);
+
+                        app(AuditLogger::class)->logUser(
+                            auth()->user(),
+                            'clearname.password.revoked',
+                            entityType: 'user',
+                            entityId: $record->id,
+                            context: ['target_username' => $record->username, 'wraps_removed' => $count],
+                        );
+
                         Notification::make()->success()
                             ->title('Klarnamen-Zugang entzogen')
                             ->body($count.' Wrap(s) entfernt.')->send();

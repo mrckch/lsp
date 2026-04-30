@@ -96,6 +96,12 @@ class ImportWizardPage extends Page implements HasForms
                     ->required(fn (callable $get) => $get('source_key') === 'svws_api')
                     ->visible(fn (callable $get) => $get('source_key') === 'svws_api')
                     ->columnSpanFull(),
+                Toggle::make('svws_only_sek_i')
+                    ->label('Nur SekI-Klassen 5–10 importieren')
+                    ->default(true)
+                    ->helperText('Empfohlen für LSP. Schüler in höheren Stufen werden ignoriert (weder angelegt noch archiviert).')
+                    ->visible(fn (callable $get) => $get('source_key') === 'svws_api')
+                    ->columnSpanFull(),
             ]),
         ])->statePath('data');
     }
@@ -141,10 +147,12 @@ class ImportWizardPage extends Page implements HasForms
 
                 return;
             }
+            $onlySekI = (bool) ($data['svws_only_sek_i'] ?? true);
             $input = new ImportInput(
                 filePath: '',
                 filename: 'svws_api',
                 sourceId: $sourceId,
+                gradeFilter: $onlySekI ? ImportInput::SEK_I_GRADES : null,
             );
         }
 

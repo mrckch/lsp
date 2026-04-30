@@ -157,16 +157,23 @@ final class SvwsApiImporter implements StudentImporter
             }
         }
 
-        // Archivkandidaten: aktive SuS mit Enrollment im Schuljahr, die NICHT im Import sind
+        // Archivkandidaten: aktive SuS mit Enrollment im Schuljahr, die NICHT im Import sind.
+        // Bei aktivem Stufenfilter: nur SuS mit Enrollment-grade_level im Filter werden
+        // berücksichtigt — SuS außerhalb der Filterstufe (z. B. SekII bei SekI-Import)
+        // bleiben unangetastet.
+        $gradeFilter = $input->gradeFilter;
         $archiveCandidates = Student::query()
             ->where('students.status', 'aktiv')
             ->where('students.external_id_source', 'svws')
             ->whereNotIn('students.external_student_id', array_filter($importedExternalIds))
-            ->whereExists(function ($q) use ($schoolYearId) {
+            ->whereExists(function ($q) use ($schoolYearId, $gradeFilter) {
                 $q->select(DB::raw(1))
                     ->from('student_enrollments')
                     ->whereColumn('student_enrollments.student_id', 'students.id')
                     ->where('student_enrollments.school_year_id', $schoolYearId);
+                if ($gradeFilter !== null && $gradeFilter !== []) {
+                    $q->whereIn('student_enrollments.grade_level', $gradeFilter);
+                }
             })
             ->get();
 
@@ -324,12 +331,19 @@ final class SvwsApiImporter implements StudentImporter
             $classById[(int) $c['id']] = (string) ($c['kuerzel'] ?? '');
         }
 
+        $gradeFilter = $input->gradeFilter; // null = keine Filterung
         $rows = [];
         foreach ($students as $i => $s) {
             // Status 2 = aktiver Schüler (SVWS-Konvention). 8/10 = abgemeldet/Externer
             // Wir importieren nur aktive – inaktive sollen archiviert werden, was über
             // den fehlenden Match in der Diff-Phase passiert.
             if ((int) ($s['status'] ?? 0) !== 2) {
+                continue;
+            }
+            $jahrgang = (string) ($s['jahrgang'] ?? '');
+            // Stufenfilter (z. B. SekI 05–10) — wirkt VOR Diff: Schüler außerhalb des
+            // Filters werden nicht berücksichtigt, weder als create noch als archive.
+            if ($gradeFilter !== null && $gradeFilter !== [] && ! in_array($jahrgang, $gradeFilter, true)) {
                 continue;
             }
             $rows[] = [
@@ -339,7 +353,7 @@ final class SvwsApiImporter implements StudentImporter
                 'first_name' => trim((string) ($s['vorname'] ?? '')),
                 'gender' => $this->mapGender((string) ($s['geschlecht'] ?? '')),
                 'group_name' => $classById[(int) ($s['idKlasse'] ?? 0)] ?? '',
-                'jahrgang' => (string) ($s['jahrgang'] ?? ''),
+                'jahrgang' => $jahrgang,
             ];
         }
 

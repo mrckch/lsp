@@ -281,6 +281,75 @@ class SvwsApiImporterTest extends TestCase
     }
 
     #[Test]
+    public function grade_filter_excludes_students_outside_filter(): void
+    {
+        // Custom-Fixture: einen Schüler in jahrgang '11' hinzufügen
+        Http::fake([
+            'svws.test/db/svwsdb/schule/stammdaten' => Http::response(
+                json_decode(file_get_contents(base_path('tests/Fixtures/svws/schule_stammdaten.json')), true),
+                200,
+            ),
+            'svws.test/db/svwsdb/schueler/abschnitt/*' => Http::response([
+                ['id' => 100, 'nachname' => 'Sek1', 'vorname' => 'A', 'geschlecht' => 'm',
+                 'idKlasse' => 1, 'jahrgang' => '05', 'status' => 2, 'idSchuljahresabschnitt' => 1],
+                ['id' => 101, 'nachname' => 'Sek2', 'vorname' => 'B', 'geschlecht' => 'w',
+                 'idKlasse' => 1, 'jahrgang' => '11', 'status' => 2, 'idSchuljahresabschnitt' => 1],
+            ], 200),
+            'svws.test/db/svwsdb/klassen/abschnitt/*' => Http::response(
+                json_decode(file_get_contents(base_path('tests/Fixtures/svws/klassen_abschnitt_1.json')), true),
+                200,
+            ),
+        ]);
+
+        $importer = app(SvwsApiImporter::class);
+        $input = new ImportInput(
+            filePath: '', filename: 'svws_api',
+            sourceId: $this->source->id,
+            gradeFilter: ImportInput::SEK_I_GRADES,
+        );
+
+        $result = $importer->validate($input);
+
+        // Nur SekI-Schüler ist enthalten
+        $this->assertEquals(1, $result->totalRows);
+        $this->assertEquals('05', $result->rows[0]['jahrgang']);
+    }
+
+    #[Test]
+    public function grade_filter_does_not_archive_students_outside_filter(): void
+    {
+        $this->fakeApi();
+
+        // Bestehender SekII-Schüler (jahrgang 11) — muss vom SekI-Import unangetastet bleiben
+        $sekIIStudent = new Student;
+        $sekIIStudent->external_student_id = '5555';
+        $sekIIStudent->external_id_source = 'svws';
+        $sekIIStudent->student_code = Student::generateUniqueCode('TEST');
+        $sekIIStudent->first_name_encrypted = 'SekII';
+        $sekIIStudent->last_name_encrypted = 'Bleibt';
+        $sekIIStudent->gender = 'm';
+        $sekIIStudent->status = 'aktiv';
+        $sekIIStudent->save();
+        $sekIIStudent->enrollments()->create([
+            'school_year_id' => $this->year->id,
+            'grade_level' => '11',
+            'enrolled_at' => now()->toDateString(),
+        ]);
+
+        $importer = app(SvwsApiImporter::class);
+        $input = new ImportInput(
+            filePath: '', filename: 'svws_api',
+            sourceId: $this->source->id,
+            gradeFilter: ImportInput::SEK_I_GRADES,
+        );
+
+        $diff = $importer->diff($input, $this->year->id, 'klasse');
+
+        // Keine Archivkandidaten (SekII bleibt unangetastet)
+        $this->assertEquals(0, $diff->archiveCount);
+    }
+
+    #[Test]
     public function importer_factory_returns_correct_adapter(): void
     {
         $factory = app(\App\Domain\Import\ImporterFactory::class);

@@ -40,5 +40,9 @@ return [
         // (archived_at gesetzt, kein Hard-Delete). DSGVO-Lifecycle: Daten bleiben erhalten,
         // tauchen aber per Default nicht mehr in der Filament-Liste auf.
         'archive_after_days' => env('LSP_AUDIT_ARCHIVE_AFTER_DAYS', 90),
+        // Hard-Delete-Phase: archivierte Einträge älter als Y Tage werden vom Cron
+        // 'audit:purge' endgültig gelöscht. Default 730 Tage (2 Jahre nach Archivierung).
+        // Auf 0 setzen, um Hard-Delete zu deaktivieren.
+        'purge_after_days' => env('LSP_AUDIT_PURGE_AFTER_DAYS', 730),
     ],
 ];

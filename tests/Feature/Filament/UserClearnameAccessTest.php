@@ -62,6 +62,14 @@ class UserClearnameAccessTest extends TestCase
             ->assertHasNoTableActionErrors();
 
         $this->assertTrue($this->crypto->hasActiveWrap($this->teacher));
+
+        // Audit-Log: provision wird mit Target-Username + Actor erfasst
+        $audit = \App\Domain\Audit\Models\AuditLog::query()
+            ->where('action', 'clearname.password.provisioned')->first();
+        $this->assertNotNull($audit);
+        $this->assertEquals($this->admin->id, $audit->actor_user_id);
+        $this->assertEquals($this->teacher->id, $audit->entity_id);
+        $this->assertEquals('lehrer', $audit->context['target_username']);
     }
 
     #[Test]
@@ -98,6 +106,14 @@ class UserClearnameAccessTest extends TestCase
             ->assertHasNoTableActionErrors();
 
         $this->assertFalse($this->crypto->hasActiveWrap($this->teacher));
+
+        // Audit-Log: revoke mit Wrap-Count
+        $audit = \App\Domain\Audit\Models\AuditLog::query()
+            ->where('action', 'clearname.password.revoked')->first();
+        $this->assertNotNull($audit);
+        $this->assertEquals($this->admin->id, $audit->actor_user_id);
+        $this->assertEquals($this->teacher->id, $audit->entity_id);
+        $this->assertEquals(1, $audit->context['wraps_removed']);
     }
 
     #[Test]

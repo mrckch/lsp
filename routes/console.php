@@ -21,3 +21,9 @@ Schedule::command('audit:archive')
     ->dailyAt('03:30')
     ->onOneServer()
     ->runInBackground();
+
+// Wöchentlich (Sonntags) archivierte Einträge älter als config('lsp.audit.purge_after_days') hard-deleten.
+Schedule::command('audit:purge')
+    ->weeklyOn(0, '03:45')
+    ->onOneServer()
+    ->runInBackground();
