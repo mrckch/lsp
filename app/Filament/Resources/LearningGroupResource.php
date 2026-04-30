@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Domain\Permission\ScopeFilter;
 use App\Domain\School\Models\LearningGroup;
 use App\Domain\School\Models\SchoolYear;
 use App\Filament\Concerns\AuthorizedResource;
@@ -55,6 +56,8 @@ class LearningGroupResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (\Illuminate\Database\Eloquent\Builder $q) =>
+                app(ScopeFilter::class)->applyToLearningGroups($q, auth()->user()))
             ->columns([
                 TextColumn::make('schoolYear.label')->label('Schuljahr')->sortable(),
                 TextColumn::make('name')->sortable()->searchable(),

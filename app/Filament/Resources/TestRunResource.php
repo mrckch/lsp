@@ -8,6 +8,8 @@ use App\Domain\Attempt\TestEngine;
 use App\Domain\FeedbackSet\Models\FeedbackSet;
 use App\Domain\Mail\MailService;
 use App\Domain\NormTable\Models\NormTable;
+use App\Domain\Permission\PermissionResolver;
+use App\Domain\Permission\ScopeFilter;
 use App\Domain\NoticeText\Models\NoticeText;
 use App\Domain\PrintJob\BulkFeedbackGenerator;
 use App\Domain\Questionnaire\Models\Questionnaire;
@@ -42,6 +44,55 @@ class TestRunResource extends Resource
     protected static function createPermission(): ?string { return 'test_runs.create'; }
     protected static function editPermission(): ?string { return 'test_runs.manage_own'; }
     protected static function deletePermission(): ?string { return 'test_runs.delete'; }
+
+    /**
+     * Per-Record-Authorisierung:
+     *  - eigener Run (owner_user_id === user.id) → 'test_runs.manage_own'
+     *  - fremder Run                              → 'test_runs.manage_all'
+     *  - immer zusätzlich: Scope-Check auf die verknüpften Lerngruppen
+     */
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return self::authorizeForOwnership($record, ownPermission: 'test_runs.manage_own', allPermission: 'test_runs.manage_all');
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return self::authorizeForOwnership($record, ownPermission: 'test_runs.delete', allPermission: 'test_runs.delete')
+            && self::canEdit($record);
+    }
+
+    private static function authorizeForOwnership(
+        \Illuminate\Database\Eloquent\Model $record,
+        string $ownPermission,
+        string $allPermission,
+    ): bool {
+        $user = auth()->user();
+        if ($user === null) {
+            return false;
+        }
+
+        $resolver = app(PermissionResolver::class);
+        $isOwner = isset($record->owner_user_id) && (int) $record->owner_user_id === (int) $user->id;
+        $key = $isOwner ? $ownPermission : $allPermission;
+
+        if (! $resolver->can($user, $key)) {
+            return false;
+        }
+
+        // Scope: Run muss mit mindestens einer scope-Lerngruppe verknüpft sein
+        $scopes = app(ScopeFilter::class)->scopesFor($user);
+        if ($scopes === null) {
+            return true;
+        }
+        if (empty($scopes)) {
+            return false;
+        }
+
+        return $record->learningGroups()
+            ->whereIn('learning_groups.id', $scopes)
+            ->exists();
+    }
 
     protected static ?string $model = TestRun::class;
     protected static ?string $navigationIcon = 'heroicon-o-play-circle';
@@ -105,6 +156,8 @@ class TestRunResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (\Illuminate\Database\Eloquent\Builder $q) =>
+                app(ScopeFilter::class)->applyToTestRuns($q, auth()->user()))
             ->columns([
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('short_code')->label('Code')->badge(),
@@ -145,12 +198,14 @@ class TestRunResource extends Resource
                     ->label('Rückmeldungen als ZIP')
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('info')
+                    ->visible(fn () => auth()->user()?->hasPermission('print.generate_with_clearname') ?? false)
                     ->action(function (TestRun $record) {
                         try {
-                            $result = app(BulkFeedbackGenerator::class)->generateForRun($record);
+                            $result = app(BulkFeedbackGenerator::class)
+                                ->generateForRun($record, forUser: auth()->user());
                             if ($result['count'] === 0) {
                                 Notification::make()->warning()
-                                    ->title('Keine abgegebenen Versuche gefunden')->send();
+                                    ->title('Keine abgegebenen Versuche im Scope gefunden')->send();
 
                                 return null;
                             }
@@ -174,6 +229,7 @@ class TestRunResource extends Resource
                     ->label('Rückmeldungen per Mail')
                     ->icon('heroicon-o-envelope')
                     ->color('info')
+                    ->visible(fn () => auth()->user()?->hasPermission('mail.send_with_clearname') ?? false)
                     ->form([
                         TextInput::make('recipient')->label('Empfänger-E-Mail')
                             ->email()->required()
@@ -183,11 +239,32 @@ class TestRunResource extends Resource
                         Textarea::make('body')->label('Nachricht')->rows(4)
                             ->default('Anbei die Rückmeldungs-PDFs der Lese-Screening-Erhebung.'),
                     ])
+                    ->before(function () {
+                        // 2FA-Re-Auth-Schwelle für Klarnamen-Versand
+                        $user = auth()->user();
+                        if ($user === null || ! $user->two_factor_enabled) {
+                            Notification::make()->danger()
+                                ->title('2FA erforderlich')
+                                ->body('Aktivieren Sie 2FA in Ihrem Konto, bevor Sie Rückmeldungen mit Klarnamen versenden.')
+                                ->persistent()->send();
+                            $this->halt();
+                        }
+                        $ttl = (int) config('lsp.two_factor.reauth_ttl_minutes', 15);
+                        if ($user->last_2fa_at === null || $user->last_2fa_at->lt(now()->subMinutes($ttl))) {
+                            Notification::make()->warning()
+                                ->title('2FA-Bestätigung zu alt')
+                                ->body("Bitte 2FA innerhalb der letzten $ttl Minuten erneut bestätigen.")
+                                ->persistent()->send();
+                            $this->halt();
+                        }
+                    })
                     ->action(function (TestRun $record, array $data) {
                         try {
-                            $result = app(BulkFeedbackGenerator::class)->generateForRun($record);
+                            $result = app(BulkFeedbackGenerator::class)
+                                ->generateForRun($record, forUser: auth()->user());
                             if ($result['count'] === 0) {
-                                Notification::make()->warning()->title('Keine abgegebenen Versuche')->send();
+                                Notification::make()->warning()
+                                    ->title('Keine abgegebenen Versuche im Scope')->send();
 
                                 return;
                             }

@@ -6,9 +6,11 @@ namespace App\Domain\PrintJob;
 
 use App\Domain\Attempt\Models\TestAttempt;
 use App\Domain\FeedbackSet\Models\FeedbackSetRange;
+use App\Domain\Permission\ScopeFilter;
 use App\Domain\PrintTemplate\Models\PrintTemplate;
 use App\Domain\TestRun\Models\TestRun;
 use App\Models\AppSetting;
+use App\Models\User;
 use Illuminate\Support\Collection;
 
 /**
@@ -21,10 +23,16 @@ final class BulkFeedbackGenerator
 
     /**
      * @param  array<int>|null  $attemptIds  null = alle abgegebenen
+     * @param  User|null  $forUser  wenn gesetzt, nur Versuche von SuS in den
+     *                              Lerngruppen-Scopes dieses Users (sonst alle)
      * @return array{zip:string, count:int, errors:list<string>}
      */
-    public function generateForRun(TestRun $run, string $templateKey = 'rueckmeldung', ?array $attemptIds = null): array
-    {
+    public function generateForRun(
+        TestRun $run,
+        string $templateKey = 'rueckmeldung',
+        ?array $attemptIds = null,
+        ?User $forUser = null,
+    ): array {
         $template = PrintTemplate::query()->where('key', $templateKey)->first();
         if (! $template?->currentVersion) {
             throw new \RuntimeException("Druckvorlage '$templateKey' ist nicht vorhanden oder hat keine Version.");
@@ -37,6 +45,9 @@ final class BulkFeedbackGenerator
             ->whereIn('status', ['abgegeben', 'zeit_abgelaufen']);
         if ($attemptIds !== null) {
             $attemptsQ->whereIn('id', $attemptIds);
+        }
+        if ($forUser !== null) {
+            $attemptsQ = app(ScopeFilter::class)->applyToAttempts($attemptsQ, $forUser);
         }
         $attempts = $attemptsQ->get();
 
