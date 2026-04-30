@@ -87,6 +87,57 @@ final class MailService
         return $message->refresh();
     }
 
+    /**
+     * Sendet eine Mail mit einem rohen Anhang (z. B. ein gerade erzeugtes ZIP),
+     * ohne diesen vorab als generated_document zu persistieren.
+     */
+    public function sendWithRawAttachment(
+        array $to,
+        string $subject,
+        string $bodyHtml,
+        string $attachmentName,
+        string $attachmentMime,
+        string $attachmentBytes,
+        bool $includesClearnames = false,
+        ?int $userId = null,
+    ): MailMessage {
+        $message = MailMessage::create([
+            'to_addresses' => json_encode($to),
+            'subject' => $subject,
+            'body_html' => $bodyHtml,
+            'status' => 'queued',
+            'includes_clearnames' => $includesClearnames,
+            'sent_by_user_id' => $userId,
+            'created_at' => now(),
+        ]);
+
+        MailAttachment::create([
+            'mail_message_id' => $message->id,
+            'file_name' => $attachmentName,
+            'mime_type' => $attachmentMime,
+            'size_bytes' => strlen($attachmentBytes),
+        ]);
+
+        try {
+            $this->configureMailer();
+            Mail::send([], [], function ($mail) use ($to, $subject, $bodyHtml, $attachmentName, $attachmentMime, $attachmentBytes) {
+                $mail->to($to);
+                $mail->subject($subject);
+                $mail->html($bodyHtml);
+                $mail->attachData($attachmentBytes, $attachmentName, ['mime' => $attachmentMime]);
+            });
+
+            $message->update(['status' => 'sent', 'sent_at' => now()]);
+        } catch (\Throwable $e) {
+            $message->update([
+                'status' => 'failed',
+                'error_message' => mb_substr($e->getMessage(), 0, 1000),
+            ]);
+        }
+
+        return $message->refresh();
+    }
+
     private function configureMailer(): void
     {
         $settings = MailSettings::singleton();

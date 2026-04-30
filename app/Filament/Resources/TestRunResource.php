@@ -6,8 +6,10 @@ namespace App\Filament\Resources;
 
 use App\Domain\Attempt\TestEngine;
 use App\Domain\FeedbackSet\Models\FeedbackSet;
+use App\Domain\Mail\MailService;
 use App\Domain\NormTable\Models\NormTable;
 use App\Domain\NoticeText\Models\NoticeText;
+use App\Domain\PrintJob\BulkFeedbackGenerator;
 use App\Domain\Questionnaire\Models\Questionnaire;
 use App\Domain\School\Models\LearningGroup;
 use App\Domain\School\Models\SchoolYear;
@@ -18,6 +20,7 @@ use App\Filament\Resources\TestRunResource\Pages;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
@@ -137,6 +140,84 @@ class TestRunResource extends Resource
                         $count = app(TestEngine::class)->issueLoginCodes($record);
                         Notification::make()->success()
                             ->title("$count neue Login-Codes erzeugt")->send();
+                    }),
+                Action::make('bulkPdf')
+                    ->label('Rückmeldungen als ZIP')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('info')
+                    ->action(function (TestRun $record) {
+                        try {
+                            $result = app(BulkFeedbackGenerator::class)->generateForRun($record);
+                            if ($result['count'] === 0) {
+                                Notification::make()->warning()
+                                    ->title('Keine abgegebenen Versuche gefunden')->send();
+
+                                return null;
+                            }
+                            $bytes = file_get_contents($result['zip']);
+                            @unlink($result['zip']);
+
+                            return response()->streamDownload(
+                                fn () => print ($bytes),
+                                'rueckmeldungen_'.$record->short_code.'.zip',
+                                ['Content-Type' => 'application/zip'],
+                            );
+                        } catch (\Throwable $e) {
+                            Notification::make()->danger()
+                                ->title('Bulk-PDF fehlgeschlagen')
+                                ->body($e->getMessage())->send();
+
+                            return null;
+                        }
+                    }),
+                Action::make('bulkMail')
+                    ->label('Rückmeldungen per Mail')
+                    ->icon('heroicon-o-envelope')
+                    ->color('info')
+                    ->form([
+                        TextInput::make('recipient')->label('Empfänger-E-Mail')
+                            ->email()->required()
+                            ->helperText('Z. B. die Klassenlehrkraft. Alle Rückmeldungs-PDFs werden als ZIP angehängt.'),
+                        TextInput::make('subject')->label('Betreff')->required()
+                            ->default(fn (TestRun $record) => 'Rückmeldungen Lese-Screening: '.$record->name),
+                        Textarea::make('body')->label('Nachricht')->rows(4)
+                            ->default('Anbei die Rückmeldungs-PDFs der Lese-Screening-Erhebung.'),
+                    ])
+                    ->action(function (TestRun $record, array $data) {
+                        try {
+                            $result = app(BulkFeedbackGenerator::class)->generateForRun($record);
+                            if ($result['count'] === 0) {
+                                Notification::make()->warning()->title('Keine abgegebenen Versuche')->send();
+
+                                return;
+                            }
+
+                            $msg = app(MailService::class)->sendWithRawAttachment(
+                                to: [$data['recipient']],
+                                subject: $data['subject'],
+                                bodyHtml: nl2br(e($data['body'])),
+                                attachmentName: 'rueckmeldungen_'.$record->short_code.'.zip',
+                                attachmentMime: 'application/zip',
+                                attachmentBytes: file_get_contents($result['zip']),
+                                includesClearnames: true,
+                                userId: auth()->id(),
+                            );
+                            @unlink($result['zip']);
+
+                            if ($msg->status === 'sent') {
+                                Notification::make()->success()
+                                    ->title("Mail mit {$result['count']} PDFs versendet")
+                                    ->body($data['recipient'])->send();
+                            } else {
+                                Notification::make()->danger()
+                                    ->title('Mailversand fehlgeschlagen')
+                                    ->body($msg->error_message ?? '')->send();
+                            }
+                        } catch (\Throwable $e) {
+                            Notification::make()->danger()
+                                ->title('Bulk-Mail fehlgeschlagen')
+                                ->body($e->getMessage())->send();
+                        }
                     }),
                 DeleteAction::make(),
             ]);
