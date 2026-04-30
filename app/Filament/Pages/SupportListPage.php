@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Domain\Analytics\SupportListCsvExporter;
 use App\Domain\Permission\ScopeFilter;
 use App\Domain\PrintJob\GotenbergClient;
 use App\Domain\PrintJob\PrintJobRunner;
@@ -185,6 +186,31 @@ class SupportListPage extends Page implements HasForms
                         ['Content-Type' => 'application/pdf'],
                     );
                 }, 'PDF-Export');
+            });
+    }
+
+    public function exportCsvAction(): Action
+    {
+        return Action::make('exportCsv')
+            ->label('Liste als CSV')
+            ->icon('heroicon-o-table-cells')
+            ->color('gray')
+            ->visible(fn () => auth()->user()?->hasPermission('analytics.support_list') ?? false)
+            ->action(function () {
+                $rows = $this->getRows();
+                if (empty($rows)) {
+                    Notification::make()->warning()->title('Keine Treffer für Export')->send();
+
+                    return null;
+                }
+
+                $csv = app(SupportListCsvExporter::class)->toCsv($rows);
+
+                return response()->streamDownload(
+                    fn () => print ($csv),
+                    'foerderbedarf_'.now()->format('Ymd_His').'.csv',
+                    ['Content-Type' => 'text/csv; charset=UTF-8'],
+                );
             });
     }
 

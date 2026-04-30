@@ -10,6 +10,7 @@
         <x-slot name="heading">{{ count($rows) }} Treffer</x-slot>
         <x-slot name="headerEnd">
             <div style="display:flex; gap:0.5rem;">
+                {{ $this->exportCsvAction }}
                 {{ $this->exportPdfAction }}
                 {{ $this->mailListAction }}
             </div>
