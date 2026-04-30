@@ -50,6 +50,13 @@ class StudentHistoryChart extends Page implements HasForms
 
     public function mount(): void
     {
+        $preselect = (int) request()->query('student', 0);
+        if ($preselect > 0 && Student::query()->where('id', $preselect)->exists()) {
+            $this->studentId = $preselect;
+            $this->form->fill(['student_id' => $preselect]);
+
+            return;
+        }
         $this->form->fill();
     }
 

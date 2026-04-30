@@ -14,6 +14,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\EditAction;
+use Filament\Tables\Actions\ViewAction;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -68,7 +69,9 @@ class StudentResource extends Resource
                 SelectFilter::make('status')->options(['aktiv' => 'Aktiv', 'archiviert' => 'Archiviert'])->default('aktiv'),
                 SelectFilter::make('gender')->options(['m' => 'männlich', 'w' => 'weiblich', 'd' => 'divers']),
             ])
+            ->recordUrl(fn (Student $r) => Pages\ViewStudent::getUrl(['record' => $r->id]))
             ->actions([
+                ViewAction::make()->url(fn (Student $r) => Pages\ViewStudent::getUrl(['record' => $r->id])),
                 EditAction::make(),
                 Action::make('archive')
                     ->label('Archivieren')->icon('heroicon-o-archive-box')
@@ -86,6 +89,7 @@ class StudentResource extends Resource
     {
         return [
             'index' => Pages\ListStudents::route('/'),
+            'view' => Pages\ViewStudent::route('/{record}'),
             'edit' => Pages\EditStudent::route('/{record}/edit'),
         ];
     }
