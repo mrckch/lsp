@@ -24,5 +24,9 @@ parameters:
         # Eloquent::orderByDesc gibt verschiedene Builder-Returns zurück, die
         # Larastan nicht durchgängig auflöst — meist falsche positive.
         - identifier: method.nonObject
+        # Match-Statements mit Default-Klausel (defensiver Stil) werden als
+        # 'always true' gewarnt, wenn alle Enum-Werte explizit aufgezählt sind.
+        # Default bleibt als Schutz vor zukünftigen Enum-Erweiterungen.
+        - identifier: match.alwaysTrue
     excludePaths:
         - app/Console/Kernel.php (?)
