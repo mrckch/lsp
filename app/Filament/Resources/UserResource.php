@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Domain\Auth\OnboardingService;
+use App\Domain\Crypto\CryptoService;
+use App\Domain\Crypto\Exceptions\CryptoException;
 use App\Domain\Permission\Models\UserGroup;
 use App\Domain\Permission\PermissionResolver;
 use App\Filament\Concerns\AuthorizedResource;
@@ -81,6 +83,13 @@ class UserResource extends Resource
                 TextColumn::make('userGroups.name')->label('Klassen')->badge()->limit(50),
                 IconColumn::make('two_factor_enabled')->label('2FA')->boolean(),
                 IconColumn::make('is_active')->label('Aktiv')->boolean(),
+                IconColumn::make('clearname_access')
+                    ->label('Klarnamen')
+                    ->boolean()
+                    ->getStateUsing(fn (User $r) => app(CryptoService::class)->hasActiveWrap($r))
+                    ->tooltip(fn (User $r) => app(CryptoService::class)->hasActiveWrap($r)
+                        ? 'User kann Klarnamen mit eigenem Passwort entsperren'
+                        : 'Kein Klarnamen-Zugang – Admin muss diesen einrichten'),
                 TextColumn::make('last_login_at')->label('Letzter Login')->dateTime('d.m.Y H:i'),
             ])
             ->actions([
@@ -98,6 +107,68 @@ class UserResource extends Resource
                         ]);
                         app(PermissionResolver::class)->flush($record);
                         Notification::make()->success()->title('Passwort gesetzt')->send();
+                    }),
+                Action::make('provisionClearname')
+                    ->label('Klarnamen-Zugang einrichten')
+                    ->icon('heroicon-o-lock-open')
+                    ->color('warning')
+                    ->visible(fn (User $r) => app(PermissionResolver::class)
+                            ->can(auth()->user(), 'clearname.password.provision')
+                        && ! app(CryptoService::class)->hasActiveWrap($r))
+                    ->form([
+                        TextInput::make('initial_password')
+                            ->label('Initial-Klarnamen-Passwort')
+                            ->password()->revealable()->required()->minLength(12)
+                            ->helperText('Wird dem User mitgeteilt; er muss es beim ersten '.
+                                'Entsperren wechseln (rotation_required ist gesetzt).'),
+                    ])
+                    ->modalDescription('Erzeugt einen Klarnamen-Wrap für diesen User mit der '.
+                        'aktuell entsperrten DEK Ihrer Session. Voraussetzung: Sie haben Klarnamen '.
+                        'gerade entsperrt.')
+                    ->action(function (User $record, array $data) {
+                        $crypto = app(CryptoService::class);
+                        if (! $crypto->isUnlocked()) {
+                            Notification::make()->danger()
+                                ->title('Session nicht entsperrt')
+                                ->body('Bitte entsperren Sie zuerst die Klarnamen, '.
+                                    'damit die DEK aus Ihrer Session genommen werden kann.')
+                                ->send();
+
+                            return;
+                        }
+
+                        try {
+                            $crypto->provisionWrapForUser($record, $data['initial_password']);
+                        } catch (CryptoException $e) {
+                            Notification::make()->danger()
+                                ->title('Anlage fehlgeschlagen')
+                                ->body($e->getMessage())->send();
+
+                            return;
+                        }
+
+                        Notification::make()->success()
+                            ->title('Klarnamen-Zugang eingerichtet')
+                            ->body('Teile dem User das Initial-Passwort sicher mit. '.
+                                'Er muss es beim ersten Entsperren ändern.')
+                            ->send();
+                    }),
+                Action::make('revokeClearname')
+                    ->label('Klarnamen-Zugang entziehen')
+                    ->icon('heroicon-o-lock-closed')
+                    ->color('danger')
+                    ->visible(fn (User $r) => app(PermissionResolver::class)
+                            ->can(auth()->user(), 'clearname.password.revoke')
+                        && app(CryptoService::class)->hasActiveWrap($r))
+                    ->requiresConfirmation()
+                    ->modalDescription('Der User kann anschließend keine Klarnamen mehr entsperren. '.
+                        'Die Daten bleiben erhalten; ein Admin kann später erneut einen Zugang '.
+                        'einrichten.')
+                    ->action(function (User $record) {
+                        $count = app(CryptoService::class)->revokeWrapForUser($record);
+                        Notification::make()->success()
+                            ->title('Klarnamen-Zugang entzogen')
+                            ->body($count.' Wrap(s) entfernt.')->send();
                     }),
                 Action::make('sendWelcome')
                     ->label('Welcome-Mail senden')

@@ -12,7 +12,7 @@ Dieses Dokument fasst den Stand des Projekts so zusammen, dass eine neue Session
 - **Lizenz:** EUPL 1.2
 - **Sprache der Doku & UI:** Deutsch
 - **Stack:** Laravel 12 · Filament 3 · MariaDB · Redis · Gotenberg · Docker Compose · Caddy
-- **Aktueller Stand:** Tag **`v1.26.0`** · **186 PHPUnit-Tests / 612 Assertions** + **7 Dusk-E2E-Tests / 30 Assertions** durchgehend grün
+- **Aktueller Stand:** Tag **`v1.27.0`** · **201 PHPUnit-Tests / 662 Assertions** + **7 Dusk-E2E-Tests / 30 Assertions** durchgehend grün
 
 ---
 
@@ -139,7 +139,8 @@ infra/                – Dockerfile, Caddyfile, docker-compose.yml
 | v1.16–v1.20 | Failed-Jobs, Cleanup-Cron, Mail-Action-Förder, Audit-Stats, CSV-Export |
 | v1.21–v1.24 | Onboarding, TeacherStats, Re-Calc-UI, Demo-Data |
 | v1.25.0 | E2E-Browser-Tests mit Laravel Dusk (Schüler-Test-Flow) |
-| **v1.26.0** | **Bulk-Welcome-Mail-Action für User (mit Permission-Gate)** |
+| v1.26.0 | Bulk-Welcome-Mail-Action für User (mit Permission-Gate) |
+| **v1.27.0** | **Klarnamen-Zugang für andere User: Admin-Provisioning + Revoke + UI** |
 
 ---
 
@@ -148,12 +149,13 @@ infra/                – Dockerfile, Caddyfile, docker-compose.yml
 Vom User explizit als „später" markiert oder am Ende der letzten Session vorgeschlagen, aber nicht angegangen:
 
 1. **E2E-Browser-Test für Bulk-Job-Flow** (Filament-Admin-UI mit Dusk) – Schüler-Test-Flow ist in v1.25.0 abgedeckt, der Filament-Teil (Login + Livewire-Interaktion + Job-Trigger) steht noch aus
-2. **Mehrere parallele Klarnamen-Passwörter pro Schule** voll im UI verwaltbar (technisch durch Envelope-Encryption schon möglich – braucht UI-Workflow)
-3. **Audit-Log nach X Tagen automatisch archivieren** (Konzept im Pflichtenheft, keine Implementation)
-4. **SVWS-API-Adapter** aktiv implementieren (aktuell Stub mit Fehler-Throw)
-5. **Backup-Restore mit echter DB-Wiederherstellung** (CLI verifiziert aktuell nur das Manifest)
-6. **2FA-Pflicht pro Klasse erzwingen** (`force_two_factor`-Spalte gibt es, Login-Hook fehlt)
-7. **Permission-Gate für Single-Action `sendWelcome`**: in v1.26.0 hat die neue Bulk-Action explizit `users.manage`, die bestehende Single-Action prüft nur `users.view` (implizit über Resource-Zugriff). Konsistent machen.
+2. **Audit-Log nach X Tagen automatisch archivieren** (Konzept im Pflichtenheft, keine Implementation)
+3. **SVWS-API-Adapter** aktiv implementieren (aktuell Stub mit Fehler-Throw)
+4. **Backup-Restore mit echter DB-Wiederherstellung** (CLI verifiziert aktuell nur das Manifest)
+5. **2FA-Pflicht pro Klasse erzwingen** (`force_two_factor`-Spalte gibt es, Login-Hook fehlt)
+6. **Permission-Gate für Single-Action `sendWelcome`**: in v1.26.0 hat die neue Bulk-Action explizit `users.manage`, die bestehende Single-Action prüft nur `users.view` (implizit über Resource-Zugriff). Konsistent machen.
+7. **Recovery-Key-Verwaltung im UI** (Regeneration, Anzeige Fingerprint/Status). Aktuell nur über Setup-Flow oder CLI/Tinker.
+8. **Audit-Logging für Wrap-Provisioning/Revoke**: aktuell wird die Aktion nur via Notification gemeldet, kein AuditLog-Eintrag. Wäre für Compliance sinnvoll.
 
 ---
 

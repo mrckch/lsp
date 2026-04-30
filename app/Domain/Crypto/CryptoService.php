@@ -277,6 +277,58 @@ final class CryptoService
         return $wrap !== null && $wrap->rotation_required_at !== null;
     }
 
+    /**
+     * Admin-Workflow: Initialen Klarnamen-Wrap für einen anderen User anlegen.
+     *
+     * Voraussetzung: Die Session des Aufrufers ist entsperrt – die DEK wird daraus
+     * entnommen und mit dem neuen Passwort des Ziel-Users gewrappt. Der Ziel-User
+     * sollte sein Passwort beim ersten Login wechseln (rotation_required_at gesetzt).
+     *
+     * @throws CryptoException wenn Session nicht entsperrt oder bereits ein Wrap existiert
+     */
+    public function provisionWrapForUser(User $targetUser, string $initialPassword): KeyWrap
+    {
+        if ($this->hasActiveWrap($targetUser)) {
+            throw new CryptoException('Für diesen User existiert bereits ein Klarnamen-Wrap.');
+        }
+
+        $activeKey = EncryptionKey::query()->where('is_active', true)->first();
+        if ($activeKey === null) {
+            throw new CryptoException('Keine aktive DEK gefunden.');
+        }
+
+        $dek = $this->dekFromSession();
+        $wrap = $this->createWrapForUser($activeKey, $targetUser, $initialPassword, $dek);
+        // Beim ersten Login muss der User sein Klarnamen-Passwort wechseln
+        $wrap->update(['rotation_required_at' => now()]);
+
+        \sodium_memzero($dek);
+
+        return $wrap;
+    }
+
+    /**
+     * Admin-Workflow: Klarnamen-Zugang eines Users entziehen.
+     *
+     * Löscht alle aktiven user_password-Wraps des Ziel-Users für die aktive DEK.
+     * Die Daten bleiben erhalten – der User kann nur nicht mehr selbst entsperren.
+     *
+     * @return int Anzahl gelöschter Wraps
+     */
+    public function revokeWrapForUser(User $targetUser): int
+    {
+        $activeKey = EncryptionKey::query()->where('is_active', true)->first();
+        if ($activeKey === null) {
+            return 0;
+        }
+
+        return KeyWrap::query()
+            ->where('encryption_key_id', $activeKey->id)
+            ->where('wrap_type', 'user_password')
+            ->where('user_id', $targetUser->id)
+            ->delete();
+    }
+
     // ── private ──────────────────────────────────────────────────────────────
 
     private function createWrapForUser(EncryptionKey $key, User $user, string $password, string $dek): KeyWrap

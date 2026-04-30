@@ -102,6 +102,8 @@ final class PermissionCatalog
             ['key' => 'clearname.password.rotate_all',           'area' => 'clearname',  'description' => 'Schulweite Rotation erzwingen',                       'is_scopeable' => false, 'requires_two_factor' => true],
             ['key' => 'clearname.recovery.use',                  'area' => 'clearname',  'description' => 'Mit Recovery-Key Zugang wiederherstellen',            'is_scopeable' => false, 'requires_two_factor' => true],
             ['key' => 'clearname.recovery.regenerate',           'area' => 'clearname',  'description' => 'Recovery-Key neu erzeugen',                           'is_scopeable' => false, 'requires_two_factor' => true],
+            ['key' => 'clearname.password.provision',            'area' => 'clearname',  'description' => 'Initialen Klarnamen-Zugang für anderen User anlegen', 'is_scopeable' => false, 'requires_two_factor' => true],
+            ['key' => 'clearname.password.revoke',               'area' => 'clearname',  'description' => 'Klarnamen-Zugang eines Users entziehen',              'is_scopeable' => false, 'requires_two_factor' => true],
 
             // User management
             ['key' => 'users.view',                              'area' => 'users',      'description' => 'Benutzerliste ansehen',                               'is_scopeable' => false, 'requires_two_factor' => false],
