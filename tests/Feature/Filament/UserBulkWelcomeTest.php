@@ -145,4 +145,22 @@ class UserBulkWelcomeTest extends TestCase
         // Hier verifizieren wir dies durch das Fehlen des Permissions: keine Mail.
         Bus::assertNotDispatched(SendWelcomeMailJob::class);
     }
+
+    #[Test]
+    public function single_send_welcome_action_hidden_for_user_without_manage_permission(): void
+    {
+        // Schulleitung darf User sehen (users.view), aber NICHT verwalten (kein users.manage).
+        // Vorher konnte sie damit Welcome-Mails verschicken — Konsistenz-Fix.
+        $sl = User::create([
+            'username' => 'sl', 'display_name' => 'SL',
+            'password' => Hash::make('pw-1234567890'), 'is_active' => true,
+        ]);
+        $sl->userGroups()->attach(UserGroup::where('name', 'Schulleitung')->first()->id);
+        $this->actingAs($sl);
+
+        $target = $this->makeUser('target', 't@example.com');
+
+        \Livewire\Livewire::test(ListUsers::class)
+            ->assertTableActionHidden('sendWelcome', $target);
+    }
 }

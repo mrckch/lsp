@@ -12,7 +12,7 @@ Dieses Dokument fasst den Stand des Projekts so zusammen, dass eine neue Session
 - **Lizenz:** EUPL 1.2
 - **Sprache der Doku & UI:** Deutsch
 - **Stack:** Laravel 12 · Filament 3 · MariaDB · Redis · Gotenberg · Docker Compose · Caddy
-- **Aktueller Stand:** Tag **`v1.29.0`** · **218 PHPUnit-Tests / 718 Assertions** + **7 Dusk-E2E-Tests / 30 Assertions** durchgehend grün
+- **Aktueller Stand:** Tag **`v1.30.0`** · **226 PHPUnit-Tests / 731 Assertions** + **7 Dusk-E2E-Tests / 30 Assertions** durchgehend grün
 
 ---
 
@@ -142,7 +142,8 @@ infra/                – Dockerfile, Caddyfile, docker-compose.yml
 | v1.26.0 | Bulk-Welcome-Mail-Action für User (mit Permission-Gate) |
 | v1.27.0 | Klarnamen-Zugang für andere User: Admin-Provisioning + Revoke + UI |
 | v1.28.0 | Audit-Log Soft-Archivierung (Cron + Filter, Default 90 Tage) |
-| **v1.29.0** | **SVWS-NRW-API-Importer aktiv (mit ImportSource-UI, Live gegen echte Instanz verifiziert)** |
+| v1.29.0 | SVWS-NRW-API-Importer aktiv (mit ImportSource-UI, Live gegen echte Instanz verifiziert) |
+| **v1.30.0** | **2FA-Pflicht pro Klasse erzwingen + sendWelcome-Permission-Konsistenz** |
 
 ---
 
@@ -152,13 +153,11 @@ Vom User explizit als „später" markiert oder am Ende der letzten Session vorg
 
 1. **E2E-Browser-Test für Bulk-Job-Flow** (Filament-Admin-UI mit Dusk) – Schüler-Test-Flow ist in v1.25.0 abgedeckt, der Filament-Teil (Login + Livewire-Interaktion + Job-Trigger) steht noch aus
 2. **Backup-Restore mit echter DB-Wiederherstellung** (CLI verifiziert aktuell nur das Manifest)
-3. **2FA-Pflicht pro Klasse erzwingen** (`force_two_factor`-Spalte gibt es, Login-Hook fehlt)
-4. **Permission-Gate für Single-Action `sendWelcome`**: in v1.26.0 hat die neue Bulk-Action explizit `users.manage`, die bestehende Single-Action prüft nur `users.view` (implizit über Resource-Zugriff). Konsistent machen.
-5. **Recovery-Key-Verwaltung im UI** (Regeneration, Anzeige Fingerprint/Status). Aktuell nur über Setup-Flow oder CLI/Tinker.
-6. **Audit-Logging für Wrap-Provisioning/Revoke**: aktuell wird die Aktion nur via Notification gemeldet, kein AuditLog-Eintrag. Wäre für Compliance sinnvoll.
-7. **Hard-Delete für sehr alte archivierte Audit-Einträge** (z. B. nach 2 Jahren). Soft-Archive ist v1.28.0 implementiert; Hard-Delete-Phase ist offen, gehört zum DSGVO-Lifecycle.
-8. **Importer-Refactor: gemeinsame Basisklasse für SchildCsv + SvwsApi** — die Diff/Commit-Logik ist heute in beiden Klassen 1:1 dupliziert (bewusst, um SchildCsv-Tests nicht zu brechen). Nächster Schritt: `AbstractStudentImporter` mit gemeinsamer Diff/Commit-Logik, `fetchAndNormalize()` als abstract.
-9. **SVWS-Importer für SekI-Stufenfilter erweitern** — aktuell werden ALLE Schüler eines Abschnitts importiert. Für LSP relevant sind nur Klassen 5–10. Filter im Importer oder Wizard hinzufügen.
+3. **Recovery-Key-Verwaltung im UI** (Regeneration, Anzeige Fingerprint/Status). Aktuell nur über Setup-Flow oder CLI/Tinker.
+4. **Audit-Logging für Wrap-Provisioning/Revoke**: aktuell wird die Aktion nur via Notification gemeldet, kein AuditLog-Eintrag. Wäre für Compliance sinnvoll.
+5. **Hard-Delete für sehr alte archivierte Audit-Einträge** (z. B. nach 2 Jahren). Soft-Archive ist v1.28.0 implementiert; Hard-Delete-Phase ist offen, gehört zum DSGVO-Lifecycle.
+6. **Importer-Refactor: gemeinsame Basisklasse für SchildCsv + SvwsApi** — die Diff/Commit-Logik ist heute in beiden Klassen 1:1 dupliziert (bewusst, um SchildCsv-Tests nicht zu brechen). Nächster Schritt: `AbstractStudentImporter` mit gemeinsamer Diff/Commit-Logik, `fetchAndNormalize()` als abstract.
+7. **SVWS-Importer für SekI-Stufenfilter erweitern** — aktuell werden ALLE Schüler eines Abschnitts importiert. Für LSP relevant sind nur Klassen 5–10. Filter im Importer oder Wizard hinzufügen.
 
 ---
 

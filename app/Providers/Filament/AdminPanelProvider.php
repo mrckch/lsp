@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers\Filament;
 
 use App\Http\Middleware\EnforcePasswordChange;
+use App\Http\Middleware\EnforceTwoFactorIfRequired;
 use App\Http\Middleware\RequireSetupCompleted;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -59,6 +60,7 @@ class AdminPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
                 EnforcePasswordChange::class,
+                EnforceTwoFactorIfRequired::class,
             ])
             ->databaseNotifications();
     }

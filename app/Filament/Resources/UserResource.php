@@ -174,7 +174,8 @@ class UserResource extends Resource
                     ->label('Welcome-Mail senden')
                     ->icon('heroicon-o-paper-airplane')
                     ->color('info')
-                    ->visible(fn (User $r) => $r->email !== null)
+                    ->visible(fn (User $r) => $r->email !== null
+                        && app(PermissionResolver::class)->can(auth()->user(), 'users.manage'))
                     ->requiresConfirmation()
                     ->modalDescription('Erzeugt ein neues Initial-Passwort, markiert den User für '.
                         'Pflicht-Passwortwechsel beim nächsten Login und versendet eine Welcome-Mail.')
