@@ -41,6 +41,7 @@ final class BackupRestorer
      *   tables_skipped: array<string, string>,
      *   tables_missing_in_db: list<string>,
      *   tables_extra_in_db: list<string>,
+     *   schema_drift: array<string, array{extra_in_backup: list<string>, extra_in_db: list<string>}>,
      *   restored: array<string, int>,
      *   files_total: int,
      *   files_restored: int,
@@ -107,6 +108,30 @@ final class BackupRestorer
         }
         $extraInDb = array_values(array_diff($currentTables, array_keys($backupTables), self::SKIP_TABLES));
 
+        // Schema-Drift-Erkennung: Pro geplanter Tabelle vergleichen wir die Spalten
+        // der ersten Backup-Row mit dem aktuellen DB-Schema. Beim Insert greift
+        // ohnehin array_intersect_key (Backup-Extras werden gedroppt), aber DB-Extras
+        // (z. B. neue NOT NULL-Spalten ohne Default) können zum INSERT-Fehler führen —
+        // diese Drift wird hier sichtbar gemacht, bricht aber den Restore nicht ab.
+        $schemaDrift = [];
+        foreach ($planned as $name) {
+            $rows = (array) ($backupTables[$name] ?? []);
+            $firstRow = $rows[0] ?? null;
+            if ($firstRow === null) {
+                continue;
+            }
+            $backupCols = array_keys((array) $firstRow);
+            $dbCols = Schema::getColumnListing($name);
+            $colExtraBackup = array_values(array_diff($backupCols, $dbCols));
+            $colExtraDb = array_values(array_diff($dbCols, $backupCols));
+            if ($colExtraBackup !== [] || $colExtraDb !== []) {
+                $schemaDrift[$name] = [
+                    'extra_in_backup' => $colExtraBackup,
+                    'extra_in_db' => $colExtraDb,
+                ];
+            }
+        }
+
         $files = (array) ($manifest['files'] ?? []);
         $filesTotal = count($files);
 
@@ -161,6 +186,7 @@ final class BackupRestorer
             'tables_skipped' => $skipped,
             'tables_missing_in_db' => $missingInDb,
             'tables_extra_in_db' => $extraInDb,
+            'schema_drift' => $schemaDrift,
             'restored' => $restored,
             'files_total' => $filesTotal,
             'files_restored' => $filesRestored,

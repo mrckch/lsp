@@ -24,8 +24,10 @@ class BackupRestoreTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        // local-Disk NICHT faken: Storage-Path muss real sein, damit Restorer
-        // mit absolute path arbeiten kann.
+        // Fake-Disk isoliert pro Test — kein Cleanup nötig.
+        // Storage::fake() erstellt einen FakeFilesystemAdapter mit eigenem Pfad,
+        // den BackupRestorer korrekt via Storage::disk('local')->path() auflöst.
+        Storage::fake('local');
     }
 
     private function makeBackupTarget(string $password = ''): BackupTarget
@@ -222,6 +224,60 @@ class BackupRestoreTest extends TestCase
     }
 
     #[Test]
+    public function reports_schema_drift_for_columns(): void
+    {
+        // Mindestens ein User, damit das Backup nicht-leere users-Rows enthält
+        User::create([
+            'username' => 'sample', 'display_name' => 'S',
+            'password' => Hash::make('pw'), 'is_active' => true,
+        ]);
+
+        $target = $this->makeBackupTarget('pw-12345');
+        $run = app(BackupRunner::class)->run($target);
+
+        // Manifest manipulieren: in der users-Tabelle eine fiktive Spalte 'old_field'
+        // hinzufügen, die in der echten DB nicht existiert. Außerdem das Feld
+        // 'username' aus dem Manifest entfernen — DB hat es, Backup nicht.
+        $blob = file_get_contents($this->backupAbsolutePath($run->file_name));
+        $payload = app(BackupRunner::class)->decrypt($blob, 'pw-12345');
+        $manifest = json_decode($payload, true);
+        if (! empty($manifest['tables']['users'])) {
+            foreach ($manifest['tables']['users'] as &$row) {
+                $row['old_field'] = 'legacy';
+                unset($row['username']);
+            }
+            unset($row);
+        }
+        $modifiedBlob = app(BackupRunner::class)->encrypt(json_encode($manifest), 'pw-12345');
+        file_put_contents($this->backupAbsolutePath($run->file_name), $modifiedBlob);
+
+        $result = app(BackupRestorer::class)->restore(
+            absoluteFilePath: $this->backupAbsolutePath($run->file_name),
+            password: 'pw-12345',
+            dryRun: true,
+        );
+
+        $this->assertArrayHasKey('users', $result['schema_drift']);
+        $this->assertContains('old_field', $result['schema_drift']['users']['extra_in_backup']);
+        $this->assertContains('username', $result['schema_drift']['users']['extra_in_db']);
+    }
+
+    #[Test]
+    public function reports_no_drift_when_schemas_match(): void
+    {
+        $target = $this->makeBackupTarget('pw-12345');
+        $run = app(BackupRunner::class)->run($target);
+
+        $result = app(BackupRestorer::class)->restore(
+            absoluteFilePath: $this->backupAbsolutePath($run->file_name),
+            password: 'pw-12345',
+            dryRun: true,
+        );
+
+        $this->assertEmpty($result['schema_drift']);
+    }
+
+    #[Test]
     public function reports_extra_tables_in_db_not_in_backup(): void
     {
         $target = $this->makeBackupTarget('pw-12345');
@@ -334,9 +390,6 @@ class BackupRestoreTest extends TestCase
             dryRun: false,
         );
         $this->assertNotNull(User::query()->where('username', 'survives-only-via-snapshot')->first());
-
-        // Cleanup
-        Storage::disk('local')->delete($result['pre_snapshot_path']);
     }
 
     #[Test]
@@ -361,9 +414,6 @@ class BackupRestoreTest extends TestCase
             ->where('action', 'system.backup.restored')->first();
         $this->assertNotNull($audit->context['pre_snapshot_path']);
         $this->assertStringStartsWith('lsp/backups/', $audit->context['pre_snapshot_path']);
-
-        // Cleanup
-        Storage::disk('local')->delete($audit->context['pre_snapshot_path']);
     }
 
     #[Test]
@@ -409,9 +459,6 @@ class BackupRestoreTest extends TestCase
             "vorher;daten\n",
             Storage::disk('local')->get('lsp/imports/sample.csv'),
         );
-
-        // Cleanup für nachfolgende Tests
-        Storage::disk('local')->delete('lsp/imports/sample.csv');
     }
 
     #[Test]
@@ -437,10 +484,6 @@ class BackupRestoreTest extends TestCase
             }
         }
         $this->assertFalse($hasBackupPath, 'Backup-Verzeichnis darf nicht im Manifest sein.');
-
-        // Cleanup
-        Storage::disk('local')->delete('lsp/backups/old-marker.bin');
-        Storage::disk('local')->delete('lsp/imports/sentinel.csv');
     }
 
     #[Test]
@@ -460,10 +503,6 @@ class BackupRestoreTest extends TestCase
         $this->assertNull($manifest['files']['lsp/imports/big.bin']['content_b64']);
         $this->assertEquals('datei_zu_gross', $manifest['files']['lsp/imports/big.bin']['skipped_reason']);
         $this->assertNotNull($manifest['files']['lsp/imports/small.bin']['content_b64']);
-
-        // Cleanup
-        Storage::disk('local')->delete('lsp/imports/big.bin');
-        Storage::disk('local')->delete('lsp/imports/small.bin');
     }
 
     #[Test]

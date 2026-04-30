@@ -78,6 +78,19 @@ class BackupRestoreCommand extends Command
         if ($plan['tables_extra_in_db']) {
             $this->warn('  in DB, aber nicht im Backup (bleibt unangetastet): '.implode(', ', $plan['tables_extra_in_db']));
         }
+        if (! empty($plan['schema_drift'])) {
+            $this->warn('  schema-drift erkannt:');
+            foreach ($plan['schema_drift'] as $table => $drift) {
+                $msg = "    $table:";
+                if ($drift['extra_in_backup']) {
+                    $msg .= ' Backup-Spalten nicht in DB: '.implode(',', $drift['extra_in_backup']).' (werden gedroppt)';
+                }
+                if ($drift['extra_in_db']) {
+                    $msg .= ' DB-Spalten nicht im Backup: '.implode(',', $drift['extra_in_db']).' (NULL/Default!)';
+                }
+                $this->line($msg);
+            }
+        }
 
         if ($dryRun) {
             $this->info('Dry-Run – DB wurde NICHT verändert.');

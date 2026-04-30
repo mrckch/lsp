@@ -12,7 +12,7 @@ Dieses Dokument fasst den Stand des Projekts so zusammen, dass eine neue Session
 - **Lizenz:** EUPL 1.2
 - **Sprache der Doku & UI:** Deutsch
 - **Stack:** Laravel 12 · Filament 3 · MariaDB · Redis · Gotenberg · Docker Compose · Caddy
-- **Aktueller Stand:** Tag **`v1.37.0`** · **264 PHPUnit-Tests / 869 Assertions** + **10 Dusk-E2E-Tests / 36 Assertions** durchgehend grün
+- **Aktueller Stand:** Tag **`v1.38.0`** · **266 PHPUnit-Tests / 873 Assertions** + **10 Dusk-E2E-Tests / 36 Assertions** durchgehend grün
 
 ---
 
@@ -150,7 +150,8 @@ infra/                – Dockerfile, Caddyfile, docker-compose.yml
 | v1.34.0 | Importer-Refactor: AbstractStudentImporter (gemeinsame Diff/Commit-Logik) |
 | v1.35.0 | Backup inkludiert Storage-Files (Imports/Print-Jobs/Exports), Restore schreibt sie zurück |
 | v1.36.0 | E2E-Smoke-Test für Filament-Admin (Login + List + Auth-Redirect) |
-| **v1.37.0** | **Backup-Restore Pre-Snapshot (`--snapshot-before` Belt-and-Braces)** |
+| v1.37.0 | Backup-Restore Pre-Snapshot (`--snapshot-before` Belt-and-Braces) |
+| **v1.38.0** | **Backup-Tests via Storage::fake + Schema-Drift-Erkennung im Restorer** |
 
 ---
 
