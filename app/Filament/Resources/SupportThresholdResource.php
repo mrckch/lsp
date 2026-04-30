@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Domain\SupportThreshold\Models\SupportThreshold;
+use App\Filament\Concerns\AuthorizedResource;
 use App\Filament\Resources\SupportThresholdResource\Pages;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -21,6 +22,13 @@ use Filament\Tables\Table;
 
 class SupportThresholdResource extends Resource
 {
+    use AuthorizedResource;
+
+    protected static function viewPermission(): ?string { return 'support_thresholds.manage'; }
+    protected static function createPermission(): ?string { return 'support_thresholds.manage'; }
+    protected static function editPermission(): ?string { return 'support_thresholds.manage'; }
+    protected static function deletePermission(): ?string { return 'support_thresholds.manage'; }
+
     protected static ?string $model = SupportThreshold::class;
     protected static ?string $navigationIcon = 'heroicon-o-exclamation-triangle';
     protected static ?string $navigationGroup = 'Test-Konfiguration';

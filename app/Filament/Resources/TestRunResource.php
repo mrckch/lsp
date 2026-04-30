@@ -13,6 +13,7 @@ use App\Domain\School\Models\LearningGroup;
 use App\Domain\School\Models\SchoolYear;
 use App\Domain\TestRun\Models\AssessmentType;
 use App\Domain\TestRun\Models\TestRun;
+use App\Filament\Concerns\AuthorizedResource;
 use App\Filament\Resources\TestRunResource\Pages;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Section;
@@ -32,6 +33,13 @@ use Filament\Tables\Table;
 
 class TestRunResource extends Resource
 {
+    use AuthorizedResource;
+
+    protected static function viewPermission(): ?string { return 'test_runs.view'; }
+    protected static function createPermission(): ?string { return 'test_runs.create'; }
+    protected static function editPermission(): ?string { return 'test_runs.manage_own'; }
+    protected static function deletePermission(): ?string { return 'test_runs.delete'; }
+
     protected static ?string $model = TestRun::class;
     protected static ?string $navigationIcon = 'heroicon-o-play-circle';
     protected static ?string $navigationGroup = 'Erhebungen';

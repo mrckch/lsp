@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Domain\School\Models\LearningGroup;
 use App\Domain\School\Models\SchoolYear;
+use App\Filament\Concerns\AuthorizedResource;
 use App\Filament\Resources\LearningGroupResource\Pages;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -21,6 +22,13 @@ use Filament\Tables\Table;
 
 class LearningGroupResource extends Resource
 {
+    use AuthorizedResource;
+
+    protected static function viewPermission(): ?string { return 'learning_groups.view'; }
+    protected static function createPermission(): ?string { return 'learning_groups.manage'; }
+    protected static function editPermission(): ?string { return 'learning_groups.manage'; }
+    protected static function deletePermission(): ?string { return 'learning_groups.manage'; }
+
     protected static ?string $model = LearningGroup::class;
     protected static ?string $navigationIcon = 'heroicon-o-academic-cap';
     protected static ?string $navigationGroup = 'Stammdaten';

@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Domain\NormTable\Models\NormTable;
 use App\Domain\NormTable\Models\NormTableRow;
+use App\Filament\Concerns\AuthorizedResource;
 use App\Filament\Resources\NormTableResource\Pages;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
@@ -27,6 +28,13 @@ use Filament\Tables\Table;
 
 class NormTableResource extends Resource
 {
+    use AuthorizedResource;
+
+    protected static function viewPermission(): ?string { return 'norm_tables.view'; }
+    protected static function createPermission(): ?string { return 'norm_tables.manage'; }
+    protected static function editPermission(): ?string { return 'norm_tables.manage'; }
+    protected static function deletePermission(): ?string { return 'norm_tables.manage'; }
+
     protected static ?string $model = NormTable::class;
     protected static ?string $navigationIcon = 'heroicon-o-table-cells';
     protected static ?string $navigationGroup = 'Test-Konfiguration';

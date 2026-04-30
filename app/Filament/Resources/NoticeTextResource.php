@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Domain\NoticeText\Models\NoticeText;
+use App\Filament\Concerns\AuthorizedResource;
 use App\Filament\Resources\NoticeTextResource\Pages;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -21,6 +22,13 @@ use Filament\Tables\Table;
 
 class NoticeTextResource extends Resource
 {
+    use AuthorizedResource;
+
+    protected static function viewPermission(): ?string { return 'notice_texts.view'; }
+    protected static function createPermission(): ?string { return 'notice_texts.manage'; }
+    protected static function editPermission(): ?string { return 'notice_texts.manage'; }
+    protected static function deletePermission(): ?string { return 'notice_texts.manage'; }
+
     protected static ?string $model = NoticeText::class;
     protected static ?string $navigationIcon = 'heroicon-o-information-circle';
     protected static ?string $navigationGroup = 'Test-Konfiguration';

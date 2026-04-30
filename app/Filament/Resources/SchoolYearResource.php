@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Domain\School\Models\SchoolYear;
+use App\Filament\Concerns\AuthorizedResource;
 use App\Filament\Resources\SchoolYearResource\Pages;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
@@ -19,6 +20,13 @@ use Filament\Tables\Table;
 
 class SchoolYearResource extends Resource
 {
+    use AuthorizedResource;
+
+    protected static function viewPermission(): ?string { return 'school_years.view'; }
+    protected static function createPermission(): ?string { return 'school_years.manage'; }
+    protected static function editPermission(): ?string { return 'school_years.manage'; }
+    protected static function deletePermission(): ?string { return 'school_years.manage'; }
+
     protected static ?string $model = SchoolYear::class;
     protected static ?string $navigationIcon = 'heroicon-o-calendar';
     protected static ?string $navigationGroup = 'Stammdaten';

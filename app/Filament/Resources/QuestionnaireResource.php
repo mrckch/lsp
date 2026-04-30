@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Domain\Questionnaire\Models\Questionnaire;
+use App\Filament\Concerns\AuthorizedResource;
 use App\Filament\Resources\QuestionnaireResource\Pages;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
@@ -22,6 +23,13 @@ use Filament\Tables\Table;
 
 class QuestionnaireResource extends Resource
 {
+    use AuthorizedResource;
+
+    protected static function viewPermission(): ?string { return 'questionnaires.view'; }
+    protected static function createPermission(): ?string { return 'questionnaires.manage'; }
+    protected static function editPermission(): ?string { return 'questionnaires.manage'; }
+    protected static function deletePermission(): ?string { return 'questionnaires.manage'; }
+
     protected static ?string $model = Questionnaire::class;
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
     protected static ?string $navigationGroup = 'Test-Konfiguration';

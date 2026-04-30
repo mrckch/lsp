@@ -8,6 +8,7 @@ use App\Domain\PrintJob\GotenbergClient;
 use App\Domain\PrintJob\PrintJobRunner;
 use App\Domain\PrintTemplate\Models\PrintTemplate;
 use App\Domain\PrintTemplate\TemplateCatalog;
+use App\Filament\Concerns\AuthorizedResource;
 use App\Filament\Resources\PrintTemplateResource\Pages;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\RichEditor;
@@ -30,6 +31,13 @@ use Illuminate\Support\HtmlString;
 
 class PrintTemplateResource extends Resource
 {
+    use AuthorizedResource;
+
+    protected static function viewPermission(): ?string { return 'print.templates.view'; }
+    protected static function createPermission(): ?string { return 'print.templates.manage'; }
+    protected static function editPermission(): ?string { return 'print.templates.manage'; }
+    protected static function deletePermission(): ?string { return 'print.templates.manage'; }
+
     protected static ?string $model = PrintTemplate::class;
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
     protected static ?string $navigationGroup = 'Drucksachen';

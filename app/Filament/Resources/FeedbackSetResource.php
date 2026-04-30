@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Domain\FeedbackSet\Models\FeedbackSet;
+use App\Filament\Concerns\AuthorizedResource;
 use App\Filament\Resources\FeedbackSetResource\Pages;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
@@ -23,6 +24,13 @@ use Filament\Tables\Table;
 
 class FeedbackSetResource extends Resource
 {
+    use AuthorizedResource;
+
+    protected static function viewPermission(): ?string { return 'feedback_sets.view'; }
+    protected static function createPermission(): ?string { return 'feedback_sets.manage'; }
+    protected static function editPermission(): ?string { return 'feedback_sets.manage'; }
+    protected static function deletePermission(): ?string { return 'feedback_sets.manage'; }
+
     protected static ?string $model = FeedbackSet::class;
     protected static ?string $navigationIcon = 'heroicon-o-chat-bubble-left-right';
     protected static ?string $navigationGroup = 'Test-Konfiguration';

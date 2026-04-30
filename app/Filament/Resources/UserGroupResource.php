@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Domain\Permission\Models\Permission;
 use App\Domain\Permission\Models\UserGroup;
+use App\Filament\Concerns\AuthorizedResource;
 use App\Filament\Resources\UserGroupResource\Pages;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -22,6 +23,13 @@ use Filament\Tables\Table;
 
 class UserGroupResource extends Resource
 {
+    use AuthorizedResource;
+
+    protected static function viewPermission(): ?string { return 'user_groups.manage'; }
+    protected static function createPermission(): ?string { return 'user_groups.manage'; }
+    protected static function editPermission(): ?string { return 'user_groups.manage'; }
+    protected static function deletePermission(): ?string { return 'user_groups.manage'; }
+
     protected static ?string $model = UserGroup::class;
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
     protected static ?string $navigationGroup = 'Verwaltung';

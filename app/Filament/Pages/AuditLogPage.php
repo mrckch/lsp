@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Domain\Audit\Models\AuditLog;
+use App\Filament\Concerns\AuthorizedPage;
 use Filament\Pages\Page;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\IconColumn;
@@ -18,7 +19,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class AuditLogPage extends Page implements HasTable
 {
+    use AuthorizedPage;
     use InteractsWithTable;
+
+    protected static function requiredPermission(): ?string { return 'system.audit.view'; }
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
     protected static ?string $navigationGroup = 'System';

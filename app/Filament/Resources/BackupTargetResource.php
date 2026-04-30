@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Domain\Backup\BackupRunner;
 use App\Domain\Backup\Models\BackupTarget;
+use App\Filament\Concerns\AuthorizedResource;
 use App\Filament\Resources\BackupTargetResource\Pages;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -24,6 +25,13 @@ use Filament\Tables\Table;
 
 class BackupTargetResource extends Resource
 {
+    use AuthorizedResource;
+
+    protected static function viewPermission(): ?string { return 'system.backup.targets.manage'; }
+    protected static function createPermission(): ?string { return 'system.backup.targets.manage'; }
+    protected static function editPermission(): ?string { return 'system.backup.targets.manage'; }
+    protected static function deletePermission(): ?string { return 'system.backup.targets.manage'; }
+
     protected static ?string $model = BackupTarget::class;
     protected static ?string $navigationIcon = 'heroicon-o-cloud-arrow-up';
     protected static ?string $navigationGroup = 'System';

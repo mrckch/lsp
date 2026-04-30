@@ -6,6 +6,7 @@ namespace App\Filament\Pages;
 
 use App\Domain\Audit\AuditLogger;
 use App\Domain\Crypto\CryptoService;
+use App\Filament\Concerns\AuthorizedPage;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -16,7 +17,10 @@ use Filament\Pages\Page;
 
 class ClearnamePasswordChange extends Page implements HasForms
 {
+    use AuthorizedPage;
     use InteractsWithForms;
+
+    protected static function requiredPermission(): ?string { return 'clearname.password.change'; }
 
     protected static ?string $navigationIcon = 'heroicon-o-key';
     protected static ?string $navigationGroup = 'Klarnamen';

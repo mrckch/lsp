@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Domain\Permission\Models\UserGroup;
 use App\Domain\Permission\PermissionResolver;
+use App\Filament\Concerns\AuthorizedResource;
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
 use Filament\Forms\Components\Section;
@@ -25,6 +26,13 @@ use Illuminate\Support\Facades\Hash;
 
 class UserResource extends Resource
 {
+    use AuthorizedResource;
+
+    protected static function viewPermission(): ?string { return 'users.view'; }
+    protected static function createPermission(): ?string { return 'users.manage'; }
+    protected static function editPermission(): ?string { return 'users.manage'; }
+    protected static function deletePermission(): ?string { return 'users.delete'; }
+
     protected static ?string $model = User::class;
     protected static ?string $navigationIcon = 'heroicon-o-users';
     protected static ?string $navigationGroup = 'Verwaltung';

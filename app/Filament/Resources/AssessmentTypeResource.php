@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Domain\TestRun\Models\AssessmentType;
+use App\Filament\Concerns\AuthorizedResource;
 use App\Filament\Resources\AssessmentTypeResource\Pages;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -18,6 +19,13 @@ use Filament\Tables\Table;
 
 class AssessmentTypeResource extends Resource
 {
+    use AuthorizedResource;
+
+    protected static function viewPermission(): ?string { return 'assessment_types.manage'; }
+    protected static function createPermission(): ?string { return 'assessment_types.manage'; }
+    protected static function editPermission(): ?string { return 'assessment_types.manage'; }
+    protected static function deletePermission(): ?string { return 'assessment_types.manage'; }
+
     protected static ?string $model = AssessmentType::class;
     protected static ?string $navigationIcon = 'heroicon-o-tag';
     protected static ?string $navigationGroup = 'Test-Konfiguration';

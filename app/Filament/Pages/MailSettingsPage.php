@@ -6,6 +6,7 @@ namespace App\Filament\Pages;
 
 use App\Domain\Mail\MailService;
 use App\Domain\Mail\Models\MailSettings;
+use App\Filament\Concerns\AuthorizedPage;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -19,7 +20,10 @@ use Filament\Pages\Page;
 
 class MailSettingsPage extends Page implements HasForms
 {
+    use AuthorizedPage;
     use InteractsWithForms;
+
+    protected static function requiredPermission(): ?string { return 'mail.settings.manage'; }
 
     protected static ?string $navigationIcon = 'heroicon-o-envelope';
     protected static ?string $navigationGroup = 'System';

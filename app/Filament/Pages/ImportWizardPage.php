@@ -10,6 +10,7 @@ use App\Domain\Import\DTOs\ImportInput;
 use App\Domain\Import\Models\ImportDiffEntry;
 use App\Domain\Import\Models\ImportJob;
 use App\Domain\School\Models\SchoolYear;
+use App\Filament\Concerns\AuthorizedPage;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Section;
@@ -33,7 +34,10 @@ use Illuminate\Support\Facades\Storage;
  */
 class ImportWizardPage extends Page implements HasForms
 {
+    use AuthorizedPage;
     use InteractsWithForms;
+
+    protected static function requiredPermission(): ?string { return 'import.run'; }
 
     protected static ?string $navigationIcon = 'heroicon-o-arrow-up-tray';
     protected static ?string $navigationGroup = 'Stammdaten';

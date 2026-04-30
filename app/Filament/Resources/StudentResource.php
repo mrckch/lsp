@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Domain\Permission\ScopeFilter;
 use App\Domain\Student\Models\Student;
+use App\Filament\Concerns\AuthorizedResource;
 use App\Filament\Resources\StudentResource\Pages;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -21,6 +22,13 @@ use Illuminate\Database\Eloquent\Builder;
 
 class StudentResource extends Resource
 {
+    use AuthorizedResource;
+
+    protected static function viewPermission(): ?string { return 'students.view'; }
+    protected static function createPermission(): ?string { return 'students.manage'; }
+    protected static function editPermission(): ?string { return 'students.manage'; }
+    protected static function deletePermission(): ?string { return 'students.delete'; }
+
     protected static ?string $model = Student::class;
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
     protected static ?string $navigationGroup = 'Stammdaten';
