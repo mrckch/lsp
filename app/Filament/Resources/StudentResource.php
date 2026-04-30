@@ -7,6 +7,7 @@ namespace App\Filament\Resources;
 use App\Domain\Permission\ScopeFilter;
 use App\Domain\PrintJob\BulkHistoryExporter;
 use App\Domain\Student\Models\Student;
+use App\Jobs\GenerateBulkHistoryZipJob;
 use App\Filament\Concerns\AuthorizedResource;
 use App\Filament\Concerns\HandlesPrintErrors;
 use App\Filament\Resources\StudentResource\Pages;
@@ -93,40 +94,22 @@ class StudentResource extends Resource
             ->bulkActions([
                 BulkActionGroup::make([
                     BulkAction::make('bulkHistoryExport')
-                        ->label('Verlaufsdiagramme als ZIP')
+                        ->label('Verlaufsdiagramme als ZIP (Hintergrund)')
                         ->icon('heroicon-o-document-arrow-down')
                         ->color('info')
                         ->visible(fn () => auth()->user()?->hasPermission('print.generate_with_clearname') ?? false)
+                        ->requiresConfirmation()
+                        ->modalDescription('Der Job läuft im Hintergrund. Sobald das ZIP fertig ist, '.
+                            'erscheint es unter "Drucksachen > Erzeugte Dokumente" zum Download.')
+                        ->deselectRecordsAfterCompletion()
                         ->action(function (Collection $records) {
-                            return self::runPrintAction(function () use ($records) {
-                                $ids = $records->pluck('id')->all();
-                                $result = app(BulkHistoryExporter::class)
-                                    ->exportFor($ids, forUser: auth()->user());
+                            $ids = $records->pluck('id')->map(fn ($v) => (int) $v)->all();
+                            GenerateBulkHistoryZipJob::dispatch($ids, auth()->id());
 
-                                if ($result['count'] === 0) {
-                                    Notification::make()->warning()
-                                        ->title('Keine Verlaufs-PDFs erzeugt')
-                                        ->body("0 erzeugt, {$result['skipped']} ohne Versuche übersprungen.")
-                                        ->send();
-
-                                    return null;
-                                }
-
-                                $bytes = file_get_contents($result['zip']);
-                                @unlink($result['zip']);
-
-                                $msg = "{$result['count']} PDFs erzeugt";
-                                if ($result['skipped']) {
-                                    $msg .= ", {$result['skipped']} ohne Versuche übersprungen";
-                                }
-                                Notification::make()->success()->title($msg)->send();
-
-                                return response()->streamDownload(
-                                    fn () => print ($bytes),
-                                    'verlaeufe_'.now()->format('Ymd_His').'.zip',
-                                    ['Content-Type' => 'application/zip'],
-                                );
-                            }, 'Bulk-Verlaufs-Export');
+                            Notification::make()->success()
+                                ->title('Verlaufs-Export gestartet')
+                                ->body(count($ids).' Schüler. Fertige Datei unter "Drucksachen > Erzeugte Dokumente".')
+                                ->send();
                         }),
                 ]),
             ]);
