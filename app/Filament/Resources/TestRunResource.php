@@ -13,6 +13,7 @@ use App\Domain\Permission\ScopeFilter;
 use App\Domain\NoticeText\Models\NoticeText;
 use App\Domain\PrintJob\BulkFeedbackGenerator;
 use App\Jobs\GenerateBulkFeedbackZipJob;
+use App\Jobs\SendBulkFeedbackMailJob;
 use App\Domain\Questionnaire\Models\Questionnaire;
 use App\Domain\School\Models\LearningGroup;
 use App\Domain\School\Models\SchoolYear;
@@ -246,40 +247,17 @@ class TestRunResource extends Resource
                         }
                     })
                     ->action(function (TestRun $record, array $data) {
-                        self::runPrintAction(function () use ($record, $data) {
-                            $result = app(BulkFeedbackGenerator::class)
-                                ->generateForRun($record, forUser: auth()->user());
-                            if ($result['count'] === 0) {
-                                Notification::make()->warning()
-                                    ->title('Keine abgegebenen Versuche im Scope')->send();
-
-                                return null;
-                            }
-
-                            $msg = app(MailService::class)->sendWithRawAttachment(
-                                to: [$data['recipient']],
-                                subject: $data['subject'],
-                                bodyHtml: nl2br(e($data['body'])),
-                                attachmentName: 'rueckmeldungen_'.$record->short_code.'.zip',
-                                attachmentMime: 'application/zip',
-                                attachmentBytes: file_get_contents($result['zip']),
-                                includesClearnames: true,
-                                userId: auth()->id(),
-                            );
-                            @unlink($result['zip']);
-
-                            if ($msg->status === 'sent') {
-                                Notification::make()->success()
-                                    ->title("Mail mit {$result['count']} PDFs versendet")
-                                    ->body($data['recipient'])->send();
-                            } else {
-                                Notification::make()->danger()
-                                    ->title('Mailversand fehlgeschlagen')
-                                    ->body($msg->error_message ?? '')->send();
-                            }
-
-                            return null;
-                        }, 'Bulk-Mail');
+                        SendBulkFeedbackMailJob::dispatch(
+                            testRunId: $record->id,
+                            recipient: $data['recipient'],
+                            subject: $data['subject'],
+                            bodyHtml: nl2br(e($data['body'])),
+                            userId: auth()->id(),
+                        );
+                        Notification::make()->success()
+                            ->title('Bulk-Mail-Job gestartet')
+                            ->body('Der Versand läuft im Hintergrund. Status im Mailprotokoll.')
+                            ->send();
                     }),
                 DeleteAction::make(),
             ]);
