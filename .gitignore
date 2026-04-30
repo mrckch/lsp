@@ -54,3 +54,13 @@ docker-compose.override.local.yml
 /storage/app/imports/
 /storage/app/exports/
 /storage/app/print-jobs/
+
+# Dusk
+.env.dusk.local
+/database/dusk.sqlite
+/tests/Browser/screenshots/*
+!/tests/Browser/screenshots/.gitignore
+/tests/Browser/console/*
+!/tests/Browser/console/.gitignore
+/tests/Browser/source/*
+!/tests/Browser/source/.gitignore

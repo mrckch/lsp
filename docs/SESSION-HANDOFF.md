@@ -12,7 +12,7 @@ Dieses Dokument fasst den Stand des Projekts so zusammen, dass eine neue Session
 - **Lizenz:** EUPL 1.2
 - **Sprache der Doku & UI:** Deutsch
 - **Stack:** Laravel 12 · Filament 3 · MariaDB · Redis · Gotenberg · Docker Compose · Caddy
-- **Aktueller Stand:** Tag **`v1.24.0`** · **181 Tests / 576 Assertions** durchgehend grün
+- **Aktueller Stand:** Tag **`v1.25.0`** · **181 PHPUnit-Tests / 576 Assertions** + **7 Dusk-E2E-Tests / 30 Assertions** durchgehend grün
 
 ---
 
@@ -74,6 +74,8 @@ resources/views/
   filament/pages/, filament/widgets/, filament/resources/
 
 tests/Feature/        – Domain- und Filament-Tests, alle grün
+tests/Browser/        – Laravel-Dusk-E2E-Tests (StudentTestFlowTest, StudentTimerTest)
+tests/DuskTestCase.php – Basis für E2E-Tests, säubert Cookies in tearDown
 docs/                 – 01..07 Spezifikation + dieses Handoff
 infra/                – Dockerfile, Caddyfile, docker-compose.yml
 ```
@@ -135,7 +137,8 @@ infra/                – Dockerfile, Caddyfile, docker-compose.yml
 | v1.9–v1.12 | Bulk-Verlauf, Förderliste, Bulk-PDF-Queue, Privacy-Workflow |
 | v1.13–v1.15 | Bulk-Mail-Queue, Job-Status-Widget, Verlauf-Queue |
 | v1.16–v1.20 | Failed-Jobs, Cleanup-Cron, Mail-Action-Förder, Audit-Stats, CSV-Export |
-| **v1.21–v1.24** | **Onboarding, TeacherStats, Re-Calc-UI, Demo-Data** |
+| v1.21–v1.24 | Onboarding, TeacherStats, Re-Calc-UI, Demo-Data |
+| **v1.25.0** | **E2E-Browser-Tests mit Laravel Dusk (Schüler-Test-Flow)** |
 
 ---
 
@@ -143,7 +146,7 @@ infra/                – Dockerfile, Caddyfile, docker-compose.yml
 
 Vom User explizit als „später" markiert oder am Ende der letzten Session vorgeschlagen, aber nicht angegangen:
 
-1. **E2E-Browser-Test mit Playwright/Dusk** für Schüler-Test-Flow + Bulk-Job-Flow
+1. **E2E-Browser-Test für Bulk-Job-Flow** (Filament-Admin-UI mit Dusk) – Schüler-Test-Flow ist in v1.25.0 abgedeckt, der Filament-Teil (Login + Livewire-Interaktion + Job-Trigger) steht noch aus
 2. **Filament-Bulk-Action für Schüler-Auswahl** kombiniert mit Onboarding-Mailer
 3. **Mehrere parallele Klarnamen-Passwörter pro Schule** voll im UI verwaltbar (technisch durch Envelope-Encryption schon möglich – braucht UI-Workflow)
 4. **Audit-Log nach X Tagen automatisch archivieren** (Konzept im Pflichtenheft, keine Implementation)
@@ -159,6 +162,14 @@ Vom User explizit als „später" markiert oder am Ende der letzten Session vorg
 # Tests laufen lassen (PHP lokal mit nötigen Extensions)
 php -d extension=pdo_sqlite -d extension=sqlite3 -d extension=sodium \
     vendor/bin/phpunit --no-coverage
+
+# E2E-Browser-Tests (Laravel Dusk) — benötigen laufenden Dev-Server:
+#   1. Dev-Server in separater Shell starten:
+#        php artisan serve --env=dusk.local --port=8000 --host=127.0.0.1
+#   2. In anderer Shell:
+#        php artisan dusk --no-coverage
+# Voraussetzung: ChromeDriver in vendor/laravel/dusk/bin/chromedriver-win.exe
+# (passend zur installierten Chrome-Version, Download via Chrome-for-Testing-API)
 
 # Stack starten
 docker compose up -d
