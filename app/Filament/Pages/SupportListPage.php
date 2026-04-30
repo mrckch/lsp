@@ -13,9 +13,12 @@ use App\Domain\Student\Models\Student;
 use App\Domain\SupportThreshold\ThresholdEvaluator;
 use App\Filament\Concerns\AuthorizedPage;
 use App\Filament\Concerns\HandlesPrintErrors;
+use App\Jobs\MailSupportListJob;
 use App\Models\AppSetting;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
@@ -182,6 +185,63 @@ class SupportListPage extends Page implements HasForms
                         ['Content-Type' => 'application/pdf'],
                     );
                 }, 'PDF-Export');
+            });
+    }
+
+    public function mailListAction(): Action
+    {
+        return Action::make('mailList')
+            ->label('Liste per Mail')
+            ->icon('heroicon-o-envelope')
+            ->color('info')
+            ->visible(fn () => auth()->user()?->hasPermission('mail.send_with_clearname') ?? false)
+            ->form([
+                TextInput::make('recipient')->label('Empfänger-E-Mail')
+                    ->email()->required()
+                    ->helperText('Z. B. Förderkoordination oder Schulleitung. Liste enthält Klarnamen.'),
+                TextInput::make('subject')->label('Betreff')->required()
+                    ->default('Förderbedarfs-Liste – Lese-Screening'),
+                Textarea::make('body')->label('Nachricht')->rows(4)
+                    ->default('Anbei die aktuelle Förderbedarfs-Liste mit den geltenden Filtern.'),
+            ])
+            ->before(function () {
+                $u = auth()->user();
+                if ($u === null || ! $u->two_factor_enabled) {
+                    Notification::make()->danger()
+                        ->title('2FA erforderlich')
+                        ->body('Aktivieren Sie 2FA, bevor Sie Listen mit Klarnamen versenden.')
+                        ->persistent()->send();
+                    $this->halt();
+                }
+                $ttl = (int) config('lsp.two_factor.reauth_ttl_minutes', 15);
+                if ($u->last_2fa_at === null || $u->last_2fa_at->lt(now()->subMinutes($ttl))) {
+                    Notification::make()->warning()
+                        ->title('2FA-Bestätigung zu alt')
+                        ->body("Bitte 2FA innerhalb der letzten $ttl Minuten erneut bestätigen.")
+                        ->persistent()->send();
+                    $this->halt();
+                }
+            })
+            ->action(function (array $data) {
+                $rows = $this->getRows();
+                if (empty($rows)) {
+                    Notification::make()->warning()->title('Keine Treffer für Versand')->send();
+
+                    return;
+                }
+
+                MailSupportListJob::dispatch(
+                    filters: $this->form->getState(),
+                    recipient: $data['recipient'],
+                    subject: $data['subject'],
+                    bodyHtml: nl2br(e($data['body'])),
+                    userId: auth()->id(),
+                );
+
+                Notification::make()->success()
+                    ->title('Listen-Mail-Job gestartet')
+                    ->body('Versand läuft im Hintergrund. Status im Mailprotokoll.')
+                    ->send();
             });
     }
 }
