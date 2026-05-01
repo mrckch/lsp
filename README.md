@@ -59,7 +59,7 @@ Schulen, die diese Software einsetzen, müssen die zu nutzenden Materialien selb
 
 ### Voraussetzungen
 - Docker Desktop / Docker Engine + Compose v2
-- Optional: PHP 8.3+, Composer 2 (nur für Out-of-Container-Tooling)
+- Optional: PHP 8.4+, Composer 2 (nur für Out-of-Container-Tooling)
 
 ### Erststart
 
@@ -67,13 +67,14 @@ Schulen, die diese Software einsetzen, müssen die zu nutzenden Materialien selb
 # 1. Konfiguration vorbereiten
 cp .env.example .env
 
-# 2. Container bauen und starten
+# 2. Container bauen und starten (PHP 8.4-FPM, MariaDB 11, Redis 7, Caddy 2, Gotenberg 8)
 docker compose up -d --build
 
-# 3. Laravel installieren (im Container)
-docker compose exec app composer install
+# 3. Laravel initialisieren (im Container)
+docker compose exec app composer install --no-scripts
 docker compose exec app php artisan key:generate
-docker compose exec app php artisan migrate --seed
+docker compose exec app php artisan migrate --seed --force
+docker compose exec app php artisan lsp:selftest    # Diagnose: alles grün?
 
 # 4. Setup-Wizard öffnen
 # → http://localhost:8080/setup
@@ -84,6 +85,15 @@ Im Setup-Wizard:
 2. Schulnamen eintragen
 3. Klarnamen-Passwort vergeben
 4. **Recovery-Key sichern** (wird nur einmalig angezeigt)
+
+### Reset („alles von vorne")
+
+```bash
+docker compose down -v        # Stoppt alles + löscht DB-/Cache-Volumes
+docker compose up -d --build  # Frischer Start
+docker compose exec app php artisan migrate --seed --force
+# → http://localhost:8080/setup wieder von vorne
+```
 
 ### Stack
 
