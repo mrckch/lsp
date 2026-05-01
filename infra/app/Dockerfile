@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM php:8.3-fpm-bookworm AS base
+FROM php:8.4-fpm-bookworm AS base
 
 ARG WWWUSER=1000
 ARG WWWGROUP=1000
@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         git curl unzip libzip-dev libpng-dev libjpeg62-turbo-dev libfreetype6-dev \
         libonig-dev libxml2-dev libicu-dev libsodium-dev \
         default-mysql-client mariadb-client \
-        ca-certificates gnupg supervisor \
+        ca-certificates gnupg supervisor gosu \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j"$(nproc)" \
         bcmath gd intl mbstring pdo_mysql pcntl sockets sodium zip exif opcache \
@@ -47,8 +47,9 @@ WORKDIR /var/www/html
 COPY infra/app/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-USER lsp
-
+# Container startet als root → Entrypoint setzt Permissions auf gemountete
+# Bind-Mounts (storage/, bootstrap/cache) und droppt dann via 'su' zum
+# unprivilegierten lsp-User. Siehe infra/app/entrypoint.sh.
 EXPOSE 9000
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["php-fpm"]

@@ -12,7 +12,7 @@ services:
       - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-      - app_public:/srv/public:ro
+      - ./public:/var/www/html/public:ro
     depends_on:
       - app
     networks: [lsp]
@@ -41,9 +41,10 @@ services:
       GOTENBERG_URL: http://pdf:3000
       LSP_AUTO_MIGRATE: ${LSP_AUTO_MIGRATE:-false}
     volumes:
+      # Bind-Mount des Repos (Dev). Public + Storage liegen im Repo —
+      # so werden Caddy + PHP-FPM mit demselben Inhalt versorgt und
+      # laufen ohne extra Volume-Init durch.
       - ./:/var/www/html
-      - app_public:/var/www/html/public
-      - app_storage:/var/www/html/storage
     depends_on:
       db: { condition: service_healthy }
       cache: { condition: service_started }
@@ -64,7 +65,6 @@ services:
       GOTENBERG_URL: http://pdf:3000
     volumes:
       - ./:/var/www/html
-      - app_storage:/var/www/html/storage
     depends_on: [app]
     networks: [lsp]
 
@@ -75,7 +75,6 @@ services:
     environment: *app_env
     volumes:
       - ./:/var/www/html
-      - app_storage:/var/www/html/storage
     depends_on: [app]
     networks: [lsp]
 
@@ -121,7 +120,6 @@ services:
     environment: *app_env
     volumes:
       - ./:/var/www/html
-      - app_storage:/var/www/html/storage
       - backup_data:/backups
     depends_on: [app]
     networks: [lsp]
@@ -129,8 +127,6 @@ services:
 volumes:
   caddy_data:
   caddy_config:
-  app_public:
-  app_storage:
   db_data:
   cache_data:
   backup_data:

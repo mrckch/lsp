@@ -3,10 +3,29 @@ set -euo pipefail
 
 cd /var/www/html
 
+# Wenn als root gestartet: storage/bootstrap-cache-Verzeichnisse anlegen +
+# Permissions absichern (Bind-Mount vom Host hat oft falsche Owner-IDs).
+# PHP-FPM-Master MUSS als root starten (sonst kein Zugriff auf
+# /proc/self/fd/2 für error_log) — Workers laufen via php-fpm.conf
+# user/group-Direktive automatisch als lsp. Für andere Befehle
+# (queue:work, schedule:run, backup-Worker, artisan) gosu zu lsp.
+if [ "$(id -u)" = "0" ]; then
+    mkdir -p storage/logs storage/framework/cache storage/framework/sessions \
+             storage/framework/views storage/framework/testing bootstrap/cache
+    chown -R lsp:lsp storage bootstrap/cache 2>/dev/null || true
+    chmod -R 775 storage bootstrap/cache 2>/dev/null || true
+
+    case "${1:-}" in
+        php-fpm|*php-fpm*) : ;;  # bleibt root, Worker switch via Pool-Config
+        *) exec gosu lsp:lsp "$0" "$@" ;;
+    esac
+fi
+
 # Install composer deps if vendor missing (first run / dev)
 if [ ! -d "vendor" ] && [ -f "composer.json" ]; then
     echo "[entrypoint] composer install (vendor missing)..."
-    composer install --no-interaction --prefer-dist
+    composer install --no-interaction --prefer-dist --no-scripts
+    composer dump-autoload --optimize || true
 fi
 
 # Generate APP_KEY if missing

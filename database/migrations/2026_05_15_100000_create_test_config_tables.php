@@ -50,7 +50,8 @@ return new class extends Migration
             $table->text('question_text');
             $table->enum('correct_answer', ['richtig', 'falsch']);
             $table->timestamps();
-            $table->unique(['questionnaire_id', 'sort_order']);
+            // Expliziter, kürzerer Index-Name (MariaDB-Limit 64 Zeichen)
+            $table->unique(['questionnaire_id', 'sort_order'], 'qpq_qid_sort_unique');
         });
 
         Schema::create('norm_tables', function (Blueprint $table) {

@@ -12,7 +12,7 @@ Dieses Dokument fasst den Stand des Projekts so zusammen, dass eine neue Session
 - **Lizenz:** EUPL 1.2
 - **Sprache der Doku & UI:** Deutsch
 - **Stack:** Laravel 12 · Filament 3 · MariaDB · Redis · Gotenberg · Docker Compose · Caddy
-- **Aktueller Stand:** Tag **`v1.44.0`** · **279 PHPUnit-Tests / 964 Assertions** + **10 Dusk-E2E-Tests / 36 Assertions** durchgehend grün · `composer lint` (Pint + PHPStan Level 5) sauber · CI-Pipeline (GitHub Actions) auf jeden Push gegen `main` · `lsp:selftest`-Command für End-to-End-Diagnose
+- **Aktueller Stand:** Tag **`v1.45.0`** · **279 PHPUnit-Tests / 964 Assertions** + **10 Dusk-E2E-Tests / 36 Assertions** durchgehend grün · `composer lint` (Pint + PHPStan Level 5) sauber · CI-Pipeline (GitHub Actions) · `lsp:selftest`-Command · **Docker-Stack lokal verifiziert: `docker compose up -d --build` → `migrate --seed` → `selftest` läuft ohne manuelle Workarounds durch**
 
 ---
 
@@ -157,7 +157,8 @@ infra/                – Dockerfile, Caddyfile, docker-compose.yml
 | v1.41.0 | OSS-Doku: README aktualisiert + DEPLOYMENT + CONTRIBUTING + 5 ADRs |
 | v1.42.0 | Bulk-Reset-Login-Codes (rotiert aktive Codes eines TestRuns) |
 | v1.43.0 | CI-Pipeline (GitHub Actions): Lint + PHPUnit auf Push/PR gegen main |
-| **v1.44.0** | **`lsp:selftest`-Command (DB/Cache/Queue/Mail/Storage/Crypto/Gotenberg/AppSetting)** |
+| v1.44.0 | `lsp:selftest`-Command (DB/Cache/Queue/Mail/Storage/Crypto/Gotenberg/AppSetting) |
+| **v1.45.0** | **Docker-Stack-Fixes: PHP 8.4, MariaDB-Index-Limit, Caddy-Pfade, Volume-Bind-Mounts, Entrypoint-Permissions** |
 
 ---
 

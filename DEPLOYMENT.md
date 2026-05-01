@@ -21,18 +21,33 @@ cp .env.example .env
 # .env editieren: APP_URL, LSP_HOSTNAME, LETSENCRYPT_EMAIL,
 # DB_PASSWORD, DB_ROOT_PASSWORD, REDIS_PASSWORD, MAIL_*
 
-# 3. Stack bauen + starten
+# 3. Stack bauen + starten (PHP 8.4-FPM, MariaDB 11, Redis 7, Caddy 2, Gotenberg 8)
 docker compose up -d --build
 
 # 4. Laravel-Initialisierung
-docker compose exec app composer install --no-dev --optimize-autoloader
+docker compose exec app composer install --no-dev --optimize-autoloader --no-scripts
 docker compose exec app php artisan key:generate
-docker compose exec app php artisan config:cache
-docker compose exec app php artisan route:cache
 docker compose exec app php artisan migrate --force --seed
+docker compose exec app php artisan lsp:selftest    # Diagnose: alles grün?
 
 # 5. Setup-Wizard im Browser öffnen
-# → https://<deine-domain>/setup
+# Lokal/Dev: http://localhost:8080/setup
+# Production: https://<deine-domain>/setup
+```
+
+**Wenn schon vorhanden, `composer.lock` muss zum Container-PHP passen.**
+Der Container nutzt PHP 8.4 (siehe `infra/app/Dockerfile`). Falls du lokal eine
+andere PHP-Version hast und `vendor/` dort generiert wurde, kann der Container-
+Start fehlschlagen. Lösung: `vendor/` löschen oder `composer install` im
+Container ausführen.
+
+## Reset („alles von vorne")
+
+```bash
+docker compose down -v        # Stoppt alles + löscht DB-/Cache-Volumes
+docker compose up -d --build  # Frischer Start
+docker compose exec app php artisan migrate --seed --force
+# → http://localhost:8080/setup wieder von vorne
 ```
 
 Im Setup-Wizard:
@@ -151,6 +166,10 @@ docker compose exec app php artisan backup:run
 - PdfServiceHealth-Widget zeigt Gotenberg-Status
 
 ## Troubleshooting
+
+**Port 443 oder 80 belegt** (z. B. anderer Server auf der Host-Maschine): Caddy
+bindet auf 8080/8443 (HTTP/HTTPS) per Default — siehe `LSP_HTTP_PORT` /
+`LSP_HTTPS_PORT` in der `.env`. Lokale Dev-URL ist dann `http://localhost:8080/setup`.
 
 **Setup-Wizard zeigt sich nicht**: prüfen ob `is_initialized` in `app_settings` evtl. schon true ist.
 

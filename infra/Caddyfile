@@ -4,10 +4,18 @@
 {
     # Globale Optionen
     email {$LETSENCRYPT_EMAIL:admin@example.com}
+    # Lokal/Dev: kein automatischer HTTP→HTTPS-Redirect, weil
+    # auf der Host-Maschine evtl. ein anderer Service auf 443 lauscht.
+    # In Produktion (mit echter Domain via LSP_HOSTNAME) entfernen!
+    auto_https disable_redirects
 }
 
-{$LSP_HOSTNAME:localhost} {
-    root * /srv/public
+http://{$LSP_HOSTNAME:localhost}, {$LSP_HOSTNAME:localhost} {
+    # Achtung: Pfad muss zwischen Caddy und PHP-FPM identisch sein, weil
+    # Caddys php_fastcgi standardmäßig SCRIPT_FILENAME=$root/index.php
+    # an PHP-FPM weitergibt. Im app-Container liegt public/ unter
+    # /var/www/html/public — daher hier denselben Pfad nutzen.
+    root * /var/www/html/public
     encode zstd gzip
 
     # Security headers
