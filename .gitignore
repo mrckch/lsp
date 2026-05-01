@@ -4,6 +4,10 @@
 /public/build/
 /public/hot
 /public/storage
+# Filament-Assets (via 'php artisan filament:assets' generiert,
+# läuft im Container-Entrypoint / nach Deploy)
+/public/css/filament/
+/public/js/filament/
 /storage/*.key
 /storage/pail
 /storage/app/private/

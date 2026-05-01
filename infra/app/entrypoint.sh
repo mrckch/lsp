@@ -34,6 +34,13 @@ if [ -f .env ] && ! grep -q "^APP_KEY=base64:" .env; then
     php artisan key:generate --force || true
 fi
 
+# Filament-Assets ins public/-Verzeichnis publizieren wenn fehlend
+# (idempotent — überschreibt nur, wenn etwas geändert wurde).
+if [ -d vendor/filament ] && [ ! -f public/css/filament/filament/app.css ]; then
+    echo "[entrypoint] publishing filament assets..."
+    php artisan filament:assets || true
+fi
+
 # Run migrations only when explicitly requested
 if [ "${LSP_AUTO_MIGRATE:-false}" = "true" ]; then
     echo "[entrypoint] running migrations..."
