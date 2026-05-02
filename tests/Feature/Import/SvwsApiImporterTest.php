@@ -61,7 +61,7 @@ class SvwsApiImporterTest extends TestCase
             'config_encrypted' => [
                 'api_url' => 'https://svws.test',
                 'schema' => 'svwsdb',
-                'username' => 'hoett',
+                'username' => 'testuser',
                 'password' => 'secret',
                 'verify_ssl' => false,
                 'timeout_seconds' => 20,
