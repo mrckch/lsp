@@ -72,11 +72,75 @@ passend zur installierten Chrome-Version. `.env.dusk.local` aus `.env.dusk.examp
   Gotenberg-Ausfällen.
 - **Sensitive Aktionen**: brauchen `EnsureRecentTwoFactor`-Middleware.
 
+## Branch-Strategie
+
+GitHub Flow + Tag-basierte Releases. Drei Regeln:
+
+1. **`main` ist heilig** — alles was hier landet, ist getestet + lint-clean
+   (CI muss grün sein; Branch-Schutz ist auf GitHub aktiviert).
+2. **Jede Änderung in einem Feature-Branch** — kein direkter Push auf `main`.
+3. **Production-VMs checken nur Tags aus**, nie `main` direkt.
+
+### Branch-Namen-Konvention
+
+| Präfix | Wofür | Beispiele |
+|---|---|---|
+| `feat/` | Neue Funktionalität | `feat/svws-cron-import`, `feat/eltern-ergebnisbrief` |
+| `fix/` | Bug-Fix | `fix/notifications-migration`, `fix/csp-filament` |
+| `chore/` | Wartung, Dependency-Update, Doku | `chore/upgrade-laravel-12.6`, `chore/changelog-update` |
+| `docs/` | Nur Dokumentation | `docs/adr-mysqldump`, `docs/branching-strategy` |
+| `hotfix/` | Production-Notfall (vom letzten Production-Tag aus) | `hotfix/clearname-decrypt-crash` |
+
+### Standard-Workflow (Feature)
+
+```bash
+git checkout main
+git pull
+git checkout -b feat/<beschreibung>
+# ... Code-Änderungen, Commits ...
+git push -u origin feat/<beschreibung>
+# Auf GitHub: Pull Request öffnen → CI läuft automatisch
+# Nach grünem CI + Review: "Squash and merge" nach main
+git checkout main && git pull
+git branch -d feat/<beschreibung>     # lokal aufräumen
+```
+
+Nach Merge — wenn Iteration release-würdig — neuer Tag:
+
+```bash
+git tag -a v1.46.0 -m "Iteration X: Kurzbeschreibung"
+git push origin v1.46.0
+```
+
+### Hotfix-Workflow
+
+Wenn auf Production-VM was crasht und `main` aber schon weiter ist:
+
+```bash
+git checkout v1.45.0       # vom letzten Production-Tag aus
+git checkout -b hotfix/<beschreibung>
+# ... Fix + Tests ...
+git push -u origin hotfix/<beschreibung>
+# PR → Merge nach main
+git checkout main && git pull
+git tag -a v1.45.1 -m "Hotfix: ..."   # PATCH-Tag, nicht MINOR!
+git push origin v1.45.1
+```
+
+Auf der Production-VM:
+```bash
+cd /opt/lsp
+git fetch --tags
+git checkout v1.45.1
+docker compose up -d --build
+docker compose exec app php artisan migrate --force
+```
+
 ## Commit-Konventionen
 
 Pro Feature-/Fix-Iteration ein Tag (`vX.Y.Z`). Commit-Message-Form siehe `git log`:
 ```
-Kurztitel-Zeile (Imperativ, prägnant)
+type(scope): Kurztitel-Zeile (Imperativ, prägnant)
 
 Optional: Kontext + Begründung.
 
@@ -85,6 +149,9 @@ Optional: Kontext + Begründung.
 
 Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
 ```
+
+`type` wie im Branch-Präfix (`feat`, `fix`, `chore`, `docs`, `hotfix`); `scope`
+optional, z. B. `feat(svws): cron-basierter Auto-Import`.
 
 ## Sicherheitslücken
 
