@@ -21,7 +21,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.4'
           extensions: pdo_sqlite, sqlite3, sodium, openssl, mbstring, intl
           tools: composer:v2
           coverage: none
@@ -34,7 +34,13 @@ jobs:
           restore-keys: composer-
 
       - name: Install dependencies
-        run: composer install --no-progress --prefer-dist --no-interaction
+        run: composer install --no-progress --prefer-dist --no-interaction --no-scripts
+
+      - name: Prepare app (PHPStan boot-tet Laravel und braucht .env + storage-Pfade)
+        run: |
+          cp .env.example .env
+          mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
+          php artisan key:generate --ansi
 
       - name: Pint (Code-Style)
         run: vendor/bin/pint --test
@@ -51,7 +57,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.4'
           extensions: pdo_sqlite, sqlite3, sodium, openssl, mbstring, intl
           tools: composer:v2
           coverage: none
@@ -64,12 +70,13 @@ jobs:
           restore-keys: composer-
 
       - name: Install dependencies
-        run: composer install --no-progress --prefer-dist --no-interaction
+        run: composer install --no-progress --prefer-dist --no-interaction --no-scripts
 
       - name: Prepare app
         run: |
-          cp .env.example .env || true
-          php artisan key:generate --ansi || true
+          cp .env.example .env
+          mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
+          php artisan key:generate --ansi
 
       - name: Run PHPUnit
         run: vendor/bin/phpunit --no-coverage
