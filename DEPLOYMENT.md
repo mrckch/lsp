@@ -143,21 +143,49 @@ Restore ist **zerstörerisch** — alle Tabellen aus dem Backup werden TRUNCATEd
 neu eingespielt. Tabellen, die im Backup nicht enthalten sind, bleiben unangetastet.
 `migrations` wird IMMER übersprungen (Schema-Drift-Schutz).
 
-## Datenmigration / Update
+## Update auf neuen Release-Tag
+
+**Production-VMs sollten auf einem fixierten Tag stehen, nie auf `main`.** Das
+verhindert, dass ein versehentlicher `git pull` halbfertige Änderungen ins
+Production-System zieht.
 
 ```bash
-git pull
-docker compose exec app composer install --no-dev --optimize-autoloader
+cd /opt/lsp
+
+# 1. Vor Update: Backup ziehen!
+docker compose exec app php artisan backup:run
+
+# 2. Neuen Tag holen
+git fetch --tags
+git checkout v1.46.0     # konkrete Version, nicht 'main'
+
+# 3. Container + Dependencies aktualisieren
+docker compose up -d --build
+docker compose exec app composer install --no-dev --optimize-autoloader --no-scripts
 docker compose exec app php artisan migrate --force
 docker compose exec app php artisan config:cache
 docker compose exec app php artisan route:cache
 docker compose restart app queue scheduler
+
+# 4. Diagnose
+docker compose exec app php artisan lsp:selftest
 ```
 
-Bei Schema-Migrationen vorab Backup ziehen:
+### Rollback bei Problemen
+
 ```bash
-docker compose exec app php artisan backup:run
+# Zurück auf den vorherigen Tag
+git checkout v1.45.0
+docker compose up -d --build
+
+# Wenn auch DB-Schema rückwärts nötig: aus dem Pre-Update-Backup wiederherstellen
+docker compose exec app php artisan backup:restore <pre-update-backup.bin> --snapshot-before
 ```
+
+### Hotfix-Updates (Patch-Releases)
+
+Hotfixes werden als Patch-Tag (`v1.45.1` statt `v1.46.0`) vom letzten Production-
+Tag abgezweigt. Update-Befehl ist identisch — `git checkout v1.45.1`.
 
 ## Monitoring / Health
 
