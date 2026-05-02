@@ -2,6 +2,140 @@
 
 Alle nennenswerten Änderungen in diesem Projekt sind hier dokumentiert. Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
+## [1.45.0] – 2026-05-01
+
+### Fixed
+- Docker-Stack-Erststart läuft ohne manuelle Workarounds: PHP-Container auf 8.4 angehoben, MariaDB-Index-Name in `questionnaire_practice_questions` gekürzt, Caddy-Pfad-Mismatch zu PHP-FPM behoben, `auto_https disable_redirects` für lokale Setups, named volumes durch Bind-Mounts ersetzt
+- Storage-/bootstrap-cache-Permissions: Container startet als root, Entrypoint legt Verzeichnisse an + chown, PHP-FPM-Master bleibt root (Pool-Config switcht Worker zu `lsp`), andere Commands droppen via `gosu`
+- `notifications`-Tabelle fehlte (Filaments `databaseNotifications()` crashte) — Standard-Migration nachgereicht
+- `config_encrypted`-Spalten in `import_sources` + `backup_targets` von `json` auf `text` (MariaDB-`JSON_VALID`-Constraint lehnte Cipher-Strings ab)
+
+### Added
+- README + DEPLOYMENT mit Reset-Befehlen, PHP-8.4-Hinweis
+- Filament-Assets werden vom Entrypoint automatisch publiziert wenn fehlend
+
+## [1.44.0] – 2026-04-30
+
+### Added
+- `lsp:selftest`-Command (DB / Cache / Queue / Mail / Storage / Crypto / Gotenberg / AppSetting). JSON-Output via `--json`, Exit-Code = Anzahl Failures.
+
+## [1.43.0] – 2026-04-30
+
+### Added
+- CI-Pipeline (`.github/workflows/ci.yml`): Pint + PHPStan + PHPUnit auf jeden Push/PR gegen `main`
+
+## [1.42.0] – 2026-04-30
+
+### Added
+- Bulk-Reset für aktive Login-Codes eines TestRuns (`TestEngine::regenerateActiveLoginCodes` + Filament-Action)
+
+## [1.41.0] – 2026-04-30
+
+### Added
+- DEPLOYMENT.md (Production-Setup, Cron-Jobs, Restore, Sicherheits-Checkliste)
+- CONTRIBUTING.md (lokales Setup, Test-Befehle, Code-Standards)
+- 5 ADRs in `docs/adr/`: Envelope-Encryption, Permission-Modell, Importer-Adapter, Backup-Format, DSGVO-Audit-Lifecycle
+
+## [1.40.0] – 2026-04-30
+
+### Added
+- Sicherheits-Header-Middleware (CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy)
+- Rate-Limit auf öffentlichen Schüler-Test-Routes (10/min Login, 120/min Antwort)
+
+## [1.39.0] – 2026-04-30
+
+### Changed
+- Code-Quality-Pass: Pint auto-fix auf ~93 Files, PHPStan Level 5 mit Larastan-Baseline
+
+## [1.38.0] – 2026-04-30
+
+### Added
+- Schema-Drift-Erkennung im BackupRestorer (Spalten-Diff im Plan)
+
+### Changed
+- Backup-Tests via `Storage::fake()` (kein manuelles Cleanup mehr)
+
+## [1.37.0] – 2026-04-30
+
+### Added
+- `backup:restore --snapshot-before` (Pre-Restore-Notfall-Snapshot)
+
+## [1.36.0] – 2026-04-30
+
+### Added
+- E2E-Smoke-Tests (Dusk) für Filament-Admin: Login, User-Liste, Auth-Redirect
+
+## [1.35.0] – 2026-04-30
+
+### Added
+- Backup inkludiert Storage-Files (`lsp/imports`, `lsp/print-jobs`, `lsp/exports`); Restore schreibt zurück. Größenlimit, Selbst-Inklusion-Schutz für `lsp/backups`.
+
+## [1.34.0] – 2026-04-30
+
+### Changed
+- Importer-Refactor: gemeinsame `AbstractStudentImporter`-Basisklasse (~350 Zeilen Duplikat eliminiert, Public-API unverändert)
+
+## [1.33.0] – 2026-04-30
+
+### Added
+- Audit-Logging für Wrap-Provisioning + Revoke
+- `audit:purge`-Command für Hard-Delete archivierter Einträge (Default 730 Tage, wöchentlicher Cron)
+- SekI-Stufenfilter im SVWS-Importer (Default 5–10), Wizard-Toggle
+
+## [1.32.0] – 2026-04-30
+
+### Added
+- Recovery-Key-Verwaltung im Filament-UI: Status-Übersicht + Regenerate-Action mit einmaliger Klartext-Anzeige
+- `CryptoService::regenerateRecoveryKey()` mit Audit-Trail
+
+## [1.31.0] – 2026-04-30
+
+### Added
+- `BackupRestorer`-Service mit echter DB-Wiederherstellung (Schema-Check, FK-Off, TRUNCATE+INSERT, SQLite + MariaDB)
+- CLI `backup:restore` mit `--dry-run`, `--force`, `--allow-version-mismatch`
+- Permission `system.backup.restore`
+
+## [1.30.0] – 2026-04-30
+
+### Added
+- 2FA-Pflicht pro UserGroup erzwingbar via `EnforceTwoFactorIfRequired`-Middleware + `ForceTwoFactorSetup`-Page
+
+### Changed
+- `sendWelcome`-Single-Action mit explizitem `users.manage`-Permission-Gate
+
+## [1.29.0] – 2026-04-30
+
+### Added
+- SVWS-NRW-API-Importer aktiv: `SvwsApiClient`, `SvwsApiImporter`, `ImporterFactory`, `ImportSourceResource`. Live verifiziert gegen echte SVWS-Instanz.
+
+## [1.28.0] – 2026-04-30
+
+### Added
+- Audit-Log-Soft-Archivierung (`archived_at`, `audit:archive`-Cron, Filament-Filter, Default 90 Tage)
+
+## [1.27.0] – 2026-04-30
+
+### Added
+- Klarnamen-Zugang für andere User: Admin-Provisioning + Revoke, Status-Spalte, Permissions `clearname.password.provision/revoke`
+
+## [1.26.0] – 2026-04-30
+
+### Added
+- Bulk-Welcome-Mail-Action für User-Resource
+
+## [1.25.0] – 2026-04-30
+
+### Added
+- E2E-Browser-Tests (Laravel Dusk) für Schüler-Test-Flow inkl. Timer-Ablauf, ChromeDriver-Setup-Doku
+
+## [1.21.0] – [1.24.0] – 2026-04
+
+### Added
+- Onboarding-Flow mit Welcome-Mail + erzwungenem Passwortwechsel
+- TeacherStats-Widget
+- Re-Calc-Tool für Normtabellen
+- `lsp:demo-data`-Command
+
 ## [1.0.0] – 2026-07-01
 
 Erstes stabiles Release. Funktionsumfang gemäß [docs/01-pflichtenheft.md](docs/01-pflichtenheft.md), implementiert in fünf Phasen.
