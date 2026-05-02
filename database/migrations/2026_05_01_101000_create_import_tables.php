@@ -15,7 +15,10 @@ return new class extends Migration
             $table->string('key', 50)->unique();
             $table->string('name', 100);
             $table->string('type', 50);
-            $table->json('config_encrypted')->nullable();
+            // text statt json: Laravels 'encrypted:array'-Cast schreibt einen base64-
+            // Cipher-String, der kein valides JSON ist — MariaDBs JSON_VALID-Constraint
+            // würde ihn ablehnen.
+            $table->text('config_encrypted')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });

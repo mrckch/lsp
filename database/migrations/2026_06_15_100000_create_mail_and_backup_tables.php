@@ -58,7 +58,9 @@ return new class extends Migration
             $table->id();
             $table->string('name', 100);
             $table->enum('type', ['local', 'sftp', 's3'])->default('local');
-            $table->json('config_encrypted')->nullable();
+            // text statt json: Cipher-String aus encrypted-Cast wäre kein valides JSON
+            // (MariaDBs JSON_VALID-Constraint würde ihn ablehnen).
+            $table->text('config_encrypted')->nullable();
             $table->text('encryption_password_encrypted')->nullable();
             $table->unsignedSmallInteger('retention_daily')->default(7);
             $table->unsignedSmallInteger('retention_weekly')->default(4);
