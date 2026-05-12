@@ -41,6 +41,39 @@ andere PHP-Version hast und `vendor/` dort generiert wurde, kann der Container-
 Start fehlschlagen. Lösung: `vendor/` löschen oder `composer install` im
 Container ausführen.
 
+## Deploy-Variante: Portainer (Git-Repository-Stack)
+
+Wenn der Host mit Portainer verwaltet wird, sollte der Stack **als Git-Repository-Stack
+in Portainer angelegt** werden — nicht per SSH + `docker compose up` an Portainer vorbei.
+So bleibt Portainer Single-Source-of-Truth, Updates laufen über „Pull and redeploy",
+und der ganze Repo-Stand (inkl. `infra/Caddyfile`) ist garantiert auf dem Host
+ausgecheckt.
+
+**Stack anlegen:**
+1. Portainer → **Stacks → Add stack → Repository**
+2. Repository-URL: `<repo-url>`
+3. Reference name: konkreter Tag (`refs/tags/v1.46.0`), **nicht** `refs/heads/main`
+4. Compose path: `docker-compose.yml`
+5. Environment variables aus `.env.example` übernehmen und produktive Werte setzen
+   (`APP_URL`, `LSP_HOSTNAME`, `LETSENCRYPT_EMAIL`, `DB_PASSWORD`, …)
+6. **Deploy the stack**
+
+Danach einmalig die Laravel-Init aus „Erstinstallation" Schritt 4 im `app`-Container
+ausführen (`composer install … --no-scripts`, `key:generate`, `migrate --seed`).
+
+**Update auf neuen Tag:**
+1. Portainer → Stack → **Editor**
+2. Reference name auf neuen Tag setzen (`refs/tags/v1.47.0`)
+3. **Pull and redeploy** anklicken
+4. Im `app`-Container: `composer install …`, `migrate --force`, `config:cache`,
+   `route:cache` (siehe „Update auf neuen Release-Tag")
+
+**Warnsignal:** Wenn auf der Stack-Seite *„This stack was created outside of
+Portainer. Control over this stack is limited."* steht, wurde der Stack per CLI
+gestartet — Portainer kann ihn nicht sauber redeployen. In dem Fall: Stack einmal
+komplett killen (`docker compose down` per SSH) und neu als Repository-Stack über
+Portainer anlegen.
+
 ## Reset („alles von vorne")
 
 ```bash
@@ -200,6 +233,26 @@ bindet auf 8080/8443 (HTTP/HTTPS) per Default — siehe `LSP_HTTP_PORT` /
 `LSP_HTTPS_PORT` in der `.env`. Lokale Dev-URL ist dann `http://localhost:8080/setup`.
 
 **Setup-Wizard zeigt sich nicht**: prüfen ob `is_initialized` in `app_settings` evtl. schon true ist.
+
+**`web`-Container startet nicht, Fehler „error mounting … Caddyfile … not a directory"**:
+Tritt auf, wenn beim ersten `docker compose up` der Pfad `infra/Caddyfile` auf dem
+Host fehlte — Docker legt für fehlende Bind-Mount-Quellen automatisch ein leeres
+**Verzeichnis** an, das danach kollidiert, weil der Container-Pfad eine Datei ist.
+Fix auf dem Host (Stack-Working-Dir, bei Portainer-Stacks z. B. `/data/compose/<id>/`):
+
+```bash
+# Defektes Verzeichnis entfernen
+rm -rf infra/Caddyfile
+# Repo-Stand wiederherstellen
+git checkout -- infra/Caddyfile      # oder: git pull (jetzt klappt der Checkout)
+# Container neu erzeugen (restart reicht NICHT — Bind-Mount-Inode wird beim
+# create gebunden)
+docker rm -f <stack>-web-1
+docker compose up -d web
+```
+
+Strukturell vermeidet das die Portainer-Git-Repository-Variante (siehe oben):
+beim initialen Deploy ist das Caddyfile garantiert vorhanden.
 
 **Schüler-Test rendert nicht**: Browser-Console prüfen — vermutlich Asset-Pfad falsch (APP_URL nicht passend).
 
