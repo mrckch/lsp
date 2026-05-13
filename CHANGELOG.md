@@ -2,6 +2,12 @@
 
 Alle nennenswerten Änderungen in diesem Projekt sind hier dokumentiert. Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
+## [1.46.0] – 2026-05-12
+
+### Added
+- DEPLOYMENT: Abschnitt „Deploy-Variante: Portainer (Git-Repository-Stack)" — Anlegen via Repository-Quelle mit Tag-Pin, Update via „Pull and redeploy", Warnsignal bei extern erzeugten Stacks
+- DEPLOYMENT-Troubleshooting: Caddyfile-Mount-Fehler („not a directory") inkl. Fix-Sequenz (`rm -rf` defektes Auto-Verzeichnis → `git checkout` → `docker rm -f` + `up -d`)
+
 ## [1.45.0] – 2026-05-01
 
 ### Fixed
