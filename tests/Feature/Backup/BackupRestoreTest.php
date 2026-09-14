@@ -10,9 +10,11 @@ use App\Domain\Backup\BackupRunner;
 use App\Domain\Backup\Models\BackupTarget;
 use App\Models\AppSetting;
 use App\Models\User;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -527,5 +529,32 @@ class BackupRestoreTest extends TestCase
             ->assertSuccessful();
 
         $this->assertNotNull(User::query()->find($userBefore->id));
+    }
+
+    #[Test]
+    public function binary_columns_survive_backup_and_restore(): void
+    {
+        // Verschlüsselte Klarnamen, DEK-Wraps und 2FA-Secrets liegen als Binärdaten vor —
+        // ungültiges UTF-8 darf den JSON-Dump nicht sprengen. Eigene Tabelle ohne FKs,
+        // weil SQLite in der Test-Transaktion FK-Kaskaden beim Leeren nicht abschalten kann.
+        Schema::create('backup_binary_probe', function (Blueprint $table) {
+            $table->id();
+            $table->binary('payload');
+        });
+        $secret = "\xFF\xFE\x80\x81verschlüsselt\xC3";
+        DB::table('backup_binary_probe')->insert(['payload' => $secret]);
+
+        $run = app(BackupRunner::class)->run($this->makeBackupTarget('pw-12345'));
+        $this->assertEquals('success', $run->status, (string) $run->error_message);
+
+        DB::table('backup_binary_probe')->delete();
+
+        app(BackupRestorer::class)->restore(
+            absoluteFilePath: $this->backupAbsolutePath($run->file_name),
+            password: 'pw-12345',
+            dryRun: false,
+        );
+
+        $this->assertSame($secret, DB::table('backup_binary_probe')->value('payload'));
     }
 }

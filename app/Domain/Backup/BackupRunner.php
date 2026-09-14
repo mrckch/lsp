@@ -6,23 +6,29 @@ namespace App\Domain\Backup;
 
 use App\Domain\Backup\Models\BackupRun;
 use App\Domain\Backup\Models\BackupTarget;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 /**
  * Erzeugt ein verschlüsseltes Backup eines Targets.
  *
- * Inhalt (konfigurierbar pro Run):
- *  - DB-Dump (mariadb-dump bzw. SQLite-Dump – in Tests via DB::select)
- *  - storage/app/lsp Dateien
- *  - .env-ähnliche Config-Datei (sanitized)
+ * Inhalt:
+ *  - alle Tabellen der aktuellen Datenbank (SQLite und MariaDB/MySQL)
+ *  - Storage-Dateien aus config('lsp.backup.include_paths')
  *
- * Output: passwort-verschlüsselte ZIP / TAR (AES-256-GCM Stream).
- *
- * Der Upload an externe Ziele (SFTP) erfolgt in einem separaten Schritt.
+ * Output: JSON-Manifest, AES-256-GCM-verschlüsselt (Argon2id-KEK), immer als
+ * lokale Kopie unter lsp/backups/. Bei externen Zielen (SFTP) wird dieselbe
+ * Datei zusätzlich hochgeladen; der Run gilt nur bei erfolgreichem Upload als OK.
  */
 final class BackupRunner
 {
+    /** Markiert Binärwerte (kein valides UTF-8) im JSON-Manifest. */
+    public const BINARY_MARKER = '__lsp_b64';
+
+    public function __construct(private readonly BackupDiskFactory $disks) {}
+
     public function run(BackupTarget $target, string $trigger = 'manual', ?int $userId = null): BackupRun
     {
         $run = BackupRun::create([
@@ -37,24 +43,33 @@ final class BackupRunner
         ]);
 
         try {
-            $manifest = $this->collect();
-            $bundle = $this->bundle($manifest);
-            $encrypted = $this->encrypt($bundle, $target->encryption_password ?? '');
+            $password = (string) ($target->encryption_password ?? '');
+            if ($password === '') {
+                throw new \RuntimeException('Backup-Ziel hat kein Backup-Passwort – unverschlüsselte Backups werden nicht erstellt.');
+            }
 
-            $disk = Storage::disk('local');
+            $remote = $this->disks->forTarget($target);
+
+            $encrypted = $this->encrypt($this->bundle($this->collect()), $password);
+
             $name = sprintf('lsp_backup_%s_run%d.bin', now()->format('Ymd_His'), $run->id);
-            $path = 'lsp/backups/'.$name;
-            $disk->put($path, $encrypted);
+            if (! Storage::disk('local')->put('lsp/backups/'.$name, $encrypted)) {
+                throw new \RuntimeException('Backup-Datei konnte lokal nicht geschrieben werden.');
+            }
 
             $run->update([
-                'status' => 'success',
-                'finished_at' => now(),
                 'file_name' => $name,
                 'size_bytes' => strlen($encrypted),
                 'sha256' => hash('sha256', $encrypted),
             ]);
 
-            $this->applyRetention($target);
+            if ($remote !== null) {
+                $this->upload($remote, $name, $encrypted);
+            }
+
+            $run->update(['status' => 'success', 'finished_at' => now()]);
+
+            $this->applyRetention($target, $remote);
         } catch (\Throwable $e) {
             $run->update([
                 'status' => 'failed',
@@ -64,6 +79,23 @@ final class BackupRunner
         }
 
         return $run->refresh();
+    }
+
+    /**
+     * Prüft ein externes Ziel mit einer kleinen Testdatei (schreiben, Größe prüfen, löschen).
+     *
+     * @throws \RuntimeException
+     */
+    public function testConnection(BackupTarget $target): void
+    {
+        $remote = $this->disks->forTarget($target);
+        if ($remote === null) {
+            return;
+        }
+
+        $probe = '.lsp_connection_test_'.bin2hex(random_bytes(4));
+        $this->upload($remote, $probe, 'ok');
+        $remote->delete($probe);
     }
 
     /**
@@ -95,6 +127,39 @@ final class BackupRunner
             'size' => strlen($encrypted),
             'sha256' => hash('sha256', $encrypted),
         ];
+    }
+
+    /**
+     * Tabellen der aktuellen Datenbank — treiberunabhängig über den Schema-Builder.
+     *
+     * @return list<string>
+     */
+    public function tableNames(): array
+    {
+        $tables = Schema::getTables(Schema::getCurrentSchemaName());
+
+        return array_values(array_unique(array_column($tables, 'name')));
+    }
+
+    /**
+     * Macht Binärwerte JSON-tauglich (Rückweg: decodeValue).
+     */
+    public static function encodeValue(mixed $value): mixed
+    {
+        if (is_string($value) && ! mb_check_encoding($value, 'UTF-8')) {
+            return [self::BINARY_MARKER => base64_encode($value)];
+        }
+
+        return $value;
+    }
+
+    public static function decodeValue(mixed $value): mixed
+    {
+        if (is_array($value) && array_keys($value) === [self::BINARY_MARKER]) {
+            return base64_decode((string) $value[self::BINARY_MARKER], true);
+        }
+
+        return $value;
     }
 
     /**
@@ -154,14 +219,11 @@ final class BackupRunner
 
     private function dumpTables(): array
     {
-        $tables = DB::select("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
-        $names = array_map(fn ($t) => $t->name, $tables);
-
         $out = [];
-        foreach ($names as $name) {
-            // Roh-Dump nur als Beispiel; in Produktion: mysqldump bevorzugen
-            $rows = DB::table($name)->get();
-            $out[$name] = $rows->toArray();
+        foreach ($this->tableNames() as $name) {
+            $out[$name] = DB::table($name)->get()
+                ->map(fn ($row) => array_map(self::encodeValue(...), (array) $row))
+                ->all();
         }
 
         return $out;
@@ -172,13 +234,27 @@ final class BackupRunner
         return json_encode($manifest, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 
+    private function upload(Filesystem $remote, string $name, string $contents): void
+    {
+        try {
+            $remote->put($name, $contents);
+            $size = $remote->size($name);
+        } catch (\Throwable $e) {
+            throw new \RuntimeException('Upload zum externen Ziel fehlgeschlagen: '.$e->getMessage(), previous: $e);
+        }
+
+        if ($size !== strlen($contents)) {
+            throw new \RuntimeException(sprintf('Upload unvollständig: %d von %d Bytes übertragen.', $size, strlen($contents)));
+        }
+    }
+
     /**
      * AES-256-GCM mit Argon2id-abgeleitetem Schlüssel.
      */
     public function encrypt(string $payload, string $password): string
     {
         if ($password === '') {
-            // Fallback: Nutze APP_KEY-basierte Verschlüsselung
+            // Nur für lokale Notfall-Snapshots (createStandaloneSnapshot)
             return 'NOENC:'.base64_encode($payload);
         }
         $salt = random_bytes(16);
@@ -229,15 +305,17 @@ final class BackupRunner
 
     /**
      * Wendet Retention-Policy an: behalte X tägliche / Y wöchentliche / Z monatliche Runs.
-     * Vereinfacht: behalte die letzten N erfolgreichen Runs (Summe).
+     * Vereinfacht: behalte die letzten N erfolgreichen Runs (Summe) — lokal und extern.
+     * Lokale Dateien fehlgeschlagener Runs (z. B. Upload-Fehler) werden nach 30 Tagen entfernt.
      */
-    private function applyRetention(BackupTarget $target): void
+    private function applyRetention(BackupTarget $target, ?Filesystem $remote): void
     {
         $keep = $target->retention_daily + $target->retention_weekly + $target->retention_monthly;
         $obsolete = BackupRun::query()
             ->where('backup_target_id', $target->id)
             ->where('status', 'success')
             ->orderByDesc('started_at')
+            ->orderByDesc('id')
             ->skip($keep)
             ->take(1000)
             ->get();
@@ -245,8 +323,25 @@ final class BackupRunner
         foreach ($obsolete as $r) {
             if ($r->file_name) {
                 Storage::disk('local')->delete('lsp/backups/'.$r->file_name);
+                try {
+                    $remote?->delete($r->file_name);
+                } catch (\Throwable) {
+                    // Remote-Aufräumen ist best effort — der nächste Lauf versucht es nicht erneut,
+                    // aber ein fehlendes Löschen gefährdet keine Daten.
+                }
             }
             $r->delete();
         }
+
+        BackupRun::query()
+            ->where('backup_target_id', $target->id)
+            ->where('status', 'failed')
+            ->whereNotNull('file_name')
+            ->where('started_at', '<', now()->subDays(30))
+            ->get()
+            ->each(function (BackupRun $r) {
+                Storage::disk('local')->delete('lsp/backups/'.$r->file_name);
+                $r->update(['file_name' => null]);
+            });
     }
 }

@@ -13,18 +13,18 @@ Route::get('/setup/recovery', [SetupController::class, 'recovery'])->name('setup
 Route::post('/setup/recovery', [SetupController::class, 'recoveryAck'])->name('setup.recovery.ack');
 
 // Schüler-Test (öffentlich, Code-basiert).
-// Rate-Limits schützen vor Brute-Force auf 10-stellige Login-Codes
-// und gegen automatisiertes Versuchen-Spamming.
+// Rate-Limits (siehe AppServiceProvider + config lsp.rate_limits) schützen vor
+// Brute-Force auf Login-Codes, ohne ganze Klassen hinter einer Schul-NAT-IP auszusperren.
 Route::prefix('t')->name('student-test.')->group(function () {
     Route::get('/', [StudentTestController::class, 'start'])->name('start');
     Route::post('/login', [StudentTestController::class, 'login'])
-        ->middleware('throttle:10,1') // 10 Login-Versuche pro Minute pro IP
+        ->middleware('throttle:student-login') // pro Code + großzügig pro IP
         ->name('login');
     Route::get('/hinweise', [StudentTestController::class, 'instructions'])->name('instructions');
     Route::get('/aufgaben', [StudentTestController::class, 'questions'])->name('questions');
-    // AJAX-Antworten: typisch ~30/Minute, daher großzügig (eine pro 0.5s)
+    // AJAX-Antworten: typisch ~30/Minute pro Schüler → Limit pro laufendem Versuch
     Route::post('/antwort', [StudentTestController::class, 'answer'])
-        ->middleware('throttle:120,1')
+        ->middleware('throttle:student-answer')
         ->name('answer');
     Route::post('/abgeben', [StudentTestController::class, 'submit'])->name('submit');
     Route::get('/ergebnis', [StudentTestController::class, 'result'])->name('result');

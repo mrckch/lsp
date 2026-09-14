@@ -17,6 +17,8 @@
         .timer.warning { background:#b91c1c; }
         .question { display:flex; align-items:center; gap:0.5rem; padding:0.65rem 0.75rem; border-bottom:1px solid #e2e8f0; }
         .question:nth-child(odd) { background:#f8fafc; }
+        .question.unsaved { box-shadow: inset 4px 0 0 #f59e0b; }
+        .save-status { position:sticky; top:2.75rem; background:#fef3c7; color:#92400e; padding:0.5rem 1rem; border-radius:6px; text-align:center; font-weight:600; margin-top:0.5rem; }
         .q-text { flex:1; font-size:1rem; }
         .q-actions { display:flex; gap:0.4rem; }
         .btn { background:#2563eb; color:#fff; border:0; padding:0.6rem 1.2rem; border-radius:6px; font-size:1rem; font-weight:600; cursor:pointer; }

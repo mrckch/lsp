@@ -4,7 +4,7 @@
 
 **Lizenz:** [EUPL 1.2](LICENSE)
 **Sprache:** Deutsch
-**Status:** funktionsfähig (alle Phasen 0–5 abgeschlossen) · 274 Unit-/Feature-Tests + 10 E2E-Browser-Tests grün · `composer lint` (Pint + PHPStan Level 5) sauber
+**Status:** funktionsfähig (alle Phasen 0–5 abgeschlossen) · 315 Unit-/Feature-Tests + 10 E2E-Browser-Tests grün · `composer lint` (Pint + PHPStan Level 5) sauber
 
 CI-Pipeline läuft auf jeden Push/PR gegen `main` (Pint + PHPStan + PHPUnit) — siehe `.github/workflows/ci.yml`.
 
@@ -22,6 +22,9 @@ CI-Pipeline läuft auf jeden Push/PR gegen `main` (Pint + PHPStan + PHPUnit) —
 - ✅ Audit-Log mit Soft-Archivierung (Cron) + Hard-Delete-Cron für DSGVO-Lifecycle
 - ✅ Backup mit AES-256-GCM-Verschlüsselung, JSON-Dump (DB) + Storage-Files; Restore inkl. Pre-Snapshot
 - ✅ Import-Adapter: SchiLD-CSV + SVWS-NRW-API (live verifiziert)
+- ✅ Manueller Fragen-Import per UI (CSV/JSON, mit Vorlagen)
+- ✅ Tägliches verschlüsseltes Backup mit SFTP-Upload
+- ✅ Betrieb hinter externem Reverse-Proxy (z. B. Nginx Proxy Manager), siehe [DEPLOYMENT.md](DEPLOYMENT.md)
 - ✅ Welcome-Mail-Onboarding mit Force-Password-Change
 - ✅ Recovery-Key-Verwaltung im UI (Regenerate, Status-Übersicht)
 
@@ -66,6 +69,7 @@ Schulen, die diese Software einsetzen, müssen die zu nutzenden Materialien selb
 ```bash
 # 1. Konfiguration vorbereiten
 cp .env.example .env
+cp docker-compose.override.example.yml docker-compose.override.yml   # Dev: Debug + lokale Ports
 
 # 2. Container bauen und starten (PHP 8.4-FPM, MariaDB 11, Redis 7, Caddy 2, Gotenberg 8)
 docker compose up -d --build
@@ -100,13 +104,12 @@ docker compose exec app php artisan migrate --seed --force
 | Container | Image | Zweck |
 |-----------|-------|-------|
 | `web` | caddy:2 | Reverse Proxy + TLS |
-| `app` | custom (PHP 8.3-FPM + Laravel + Filament) | Anwendung |
-| `queue` | custom | Queue-Worker (PDF, Mail, Backup) |
-| `scheduler` | custom | Cron-Scheduler |
+| `app` | custom (PHP 8.4-FPM + Laravel + Filament) | Anwendung |
+| `queue` | custom | Queue-Worker (PDF, Mail) |
+| `scheduler` | custom | Cron-Scheduler (u. a. tägliches Backup) |
 | `db` | mariadb:11 | Datenbank |
 | `cache` | redis:7-alpine | Cache + Queue |
 | `pdf` | gotenberg/gotenberg:8 | HTML→PDF |
-| `backup` | custom | Backup-Worker |
 
 ---
 

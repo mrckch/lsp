@@ -12,7 +12,7 @@ Dieses Dokument fasst den Stand des Projekts so zusammen, dass eine neue Session
 - **Lizenz:** EUPL 1.2
 - **Sprache der Doku & UI:** Deutsch
 - **Stack:** Laravel 12 · Filament 3 · MariaDB · Redis · Gotenberg · Docker Compose · Caddy
-- **Aktueller Stand:** Tag **`v1.45.0`** · **279 PHPUnit-Tests / 964 Assertions** + **10 Dusk-E2E-Tests / 36 Assertions** durchgehend grün · `composer lint` (Pint + PHPStan Level 5) sauber · CI-Pipeline (GitHub Actions) · `lsp:selftest`-Command · **Docker-Stack lokal verifiziert: `docker compose up -d --build` → `migrate --seed` → `selftest` läuft ohne manuelle Workarounds durch**
+- **Aktueller Stand:** Branch `fix/production-blockers` (→ **`v1.46.0`**) · **315 PHPUnit-Tests / 1129 Assertions** + **10 Dusk-E2E-Tests / 36 Assertions** durchgehend grün · `composer lint` (Pint + PHPStan Level 5) sauber · CI-Pipeline (GitHub Actions) · `lsp:selftest`-Command · **Docker-Stack lokal verifiziert: `docker compose up -d --build` → `migrate --seed` → `selftest` läuft ohne manuelle Workarounds durch**
 
 ---
 
@@ -158,7 +158,8 @@ infra/                – Dockerfile, Caddyfile, docker-compose.yml
 | v1.42.0 | Bulk-Reset-Login-Codes (rotiert aktive Codes eines TestRuns) |
 | v1.43.0 | CI-Pipeline (GitHub Actions): Lint + PHPUnit auf Push/PR gegen main |
 | v1.44.0 | `lsp:selftest`-Command (DB/Cache/Queue/Mail/Storage/Crypto/Gotenberg/AppSetting) |
-| **v1.45.0** | **Docker-Stack-Fixes: PHP 8.4, MariaDB-Index-Limit, Caddy-Pfade, Volume-Bind-Mounts, Entrypoint-Permissions** |
+| v1.45.0 | Docker-Stack-Fixes: PHP 8.4, MariaDB-Index-Limit, Caddy-Pfade, Volume-Bind-Mounts, Entrypoint-Permissions |
+| **v1.46.0** | **Produktionsreife: Backup auf MariaDB + Binärdaten + SFTP + Scheduler + Pflicht-Passwort, Schüler-Rate-Limits pro Code/Versuch + Save-Retry im Test-UI, Override-Datei raus, NPM-Betrieb (Caddyfile/Trusted Proxies), manueller Fragen-Import CSV/JSON** |
 
 ---
 
@@ -166,6 +167,7 @@ infra/                – Dockerfile, Caddyfile, docker-compose.yml
 
 Vom User explizit als „später" markiert oder am Ende der letzten Session vorgeschlagen, aber nicht angegangen:
 
+0. **v1.46.0 live auf MariaDB verifizieren** — Backup/Restore-Roundtrip, SFTP-Upload und NPM-Proxy-Headers sind nur gegen SQLite bzw. Fakes getestet; einmal im echten Docker-Stack hinter NPM durchspielen (inkl. Klassen-Lasttest über Schul-WLAN).
 1. **Dusk-Test für Bulk-Action-Modal-Flow** — der eigentliche Bulk-Action-Klick (Multi-Row-Auswahl + Modal-Confirmation) ist in v1.36.0 bewusst weggelassen worden, weil Dusk + Livewire-Modals fragil. Wenn das gewünscht ist, müsste man Page-Objects in Filament-Style aufbauen.
 
 ---

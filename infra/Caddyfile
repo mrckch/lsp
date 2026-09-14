@@ -1,16 +1,20 @@
-# LSP – Caddyfile
-# In Produktion via Umgebungsvariable LSP_HOSTNAME setzen.
+# LSP – Caddyfile (Standard: hinter externem Reverse-Proxy, z. B. Nginx Proxy Manager)
+#
+# TLS terminiert der vorgeschaltete Proxy; Caddy spricht nur HTTP auf :80.
+# Für den Betrieb OHNE externen Proxy (Caddy holt selbst Let's-Encrypt-Zertifikate):
+#   LSP_CADDYFILE=Caddyfile.tls in der .env setzen.
 
 {
-    # Globale Optionen
-    email {$LETSENCRYPT_EMAIL:admin@example.com}
-    # Lokal/Dev: kein automatischer HTTP→HTTPS-Redirect, weil
-    # auf der Host-Maschine evtl. ein anderer Service auf 443 lauscht.
-    # In Produktion (mit echter Domain via LSP_HOSTNAME) entfernen!
-    auto_https disable_redirects
+    auto_https off
+
+    servers {
+        # X-Forwarded-For/-Proto nur von diesen Absendern übernehmen
+        # (LSP_CADDY_TRUSTED_PROXIES in der .env, z. B. die IP der NPM-VM).
+        trusted_proxies static {$LSP_TRUSTED_PROXIES:private_ranges}
+    }
 }
 
-http://{$LSP_HOSTNAME:localhost}, {$LSP_HOSTNAME:localhost} {
+:80 {
     # Achtung: Pfad muss zwischen Caddy und PHP-FPM identisch sein, weil
     # Caddys php_fastcgi standardmäßig SCRIPT_FILENAME=$root/index.php
     # an PHP-FPM weitergibt. Im app-Container liegt public/ unter
@@ -18,7 +22,7 @@ http://{$LSP_HOSTNAME:localhost}, {$LSP_HOSTNAME:localhost} {
     root * /var/www/html/public
     encode zstd gzip
 
-    # Security headers
+    # Security headers (HSTS wirkt, weil der Browser über den https-Proxy zugreift)
     header {
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
         X-Content-Type-Options "nosniff"

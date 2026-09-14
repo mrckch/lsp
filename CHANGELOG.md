@@ -2,9 +2,32 @@
 
 Alle nennenswerten Änderungen in diesem Projekt sind hier dokumentiert. Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
-## [1.46.0] – 2026-05-12
+## [1.46.0] – 2026-09-14
+
+Produktionsreife für den Betrieb auf einer Docker-VM hinter Nginx Proxy Manager.
+
+### Fixed
+- **Backup auf MariaDB lief nie**: Tabellenliste kam aus `sqlite_master`; jetzt treiberunabhängig über den Schema-Builder. Binärspalten (verschlüsselte Klarnamen, DEK-Wraps, 2FA-Secrets) werden im JSON-Manifest base64-markiert und beim Restore verlustfrei zurückgeschrieben
+- **Backup-Passwort aus dem UI wurde verworfen** (nicht fillable) → Backups waren unverschlüsselt (`NOENC`). Create/Edit setzen es jetzt korrekt; Backup-Runs ohne Passwort schlagen fehl statt Klartext zu schreiben
+- `backup:run` liefert Exit-Code ≠ 0, wenn ein Ziel fehlschlägt
+- **Schüler-Rate-Limits sperrten ganze Klassen hinter einer Schul-NAT-IP aus**: Login jetzt pro Code (10/min) plus großzügig pro IP (300/min), Antworten pro laufendem Versuch (120/min); alle Werte per `LSP_STUDENT_*` konfigurierbar
+- **Antworten gingen bei 429/Netzfehlern still verloren**: Schüler-UI wiederholt fehlgeschlagene Saves automatisch, markiert ungespeicherte Zeilen und speichert vor Abgabe/Timeout alles
 
 ### Added
+- SFTP-Backup-Ziel: Upload jedes Backups inkl. Größenprüfung, Retention auch extern, „Verbindung testen"-Action, Passwort- oder Schlüssel-Auth, optionaler Host-Fingerprint; Zugangsdaten verschlüsselt (`encrypted:array`, Migration für Bestandsdaten)
+- Tägliches `backup:run` im Scheduler (`LSP_BACKUP_TIME`, Default 02:30)
+- **Manueller Fragen-Import per UI (CSV/JSON)**: neuer Fragebogen aus Datei oder Fragen in bestehenden Fragebogen anhängen/ersetzen, Test- und Übungsfragen, Excel-Encoding, Zeilen-genaue Fehlermeldungen, alles-oder-nichts, Audit-Log, CSV-/JSON-Vorlagen
+- Reverse-Proxy-Betrieb: `TRUSTED_PROXIES` (Laravel), `LSP_CADDY_TRUSTED_PROXIES` (Caddy), https-Links bei `APP_URL=https://…`
+- `infra/Caddyfile.tls` für Betrieb ohne externen Proxy, `.env.production.example`, NPM-Anleitung in DEPLOYMENT.md
+- Redis startet mit `requirepass`, wenn `REDIS_PASSWORD` gesetzt ist; Gotenberg-Healthcheck
+
+### Changed
+- **Breaking (Dev):** `docker-compose.override.yml` ist nicht mehr eingecheckt (öffnete DB/Redis/Gotenberg-Ports und erzwang Debug auch auf Produktions-Hosts). Lokal: `cp docker-compose.override.example.yml docker-compose.override.yml`
+- **Breaking (Betrieb):** `infra/Caddyfile` lauscht standardmäßig nur HTTP auf `:80` (hinter Proxy). Standalone-TLS über `LSP_CADDYFILE=Caddyfile.tls`
+- **Breaking (Betrieb):** Bestehende Backup-Ziele ohne Backup-Passwort müssen im UI ein Passwort erhalten, sonst schlagen Backups fehl
+- Compose-Defaults: `APP_ENV=production`, `APP_DEBUG=false`; Platzhalter-Container `backup` entfernt
+
+### Docs
 - DEPLOYMENT: Abschnitt „Deploy-Variante: Portainer (Git-Repository-Stack)" — Anlegen via Repository-Quelle mit Tag-Pin, Update via „Pull and redeploy", Warnsignal bei extern erzeugten Stacks
 - DEPLOYMENT-Troubleshooting: Caddyfile-Mount-Fehler („not a directory") inkl. Fix-Sequenz (`rm -rf` defektes Auto-Verzeichnis → `git checkout` → `docker rm -f` + `up -d`)
 

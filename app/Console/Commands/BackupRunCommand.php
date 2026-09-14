@@ -26,6 +26,7 @@ class BackupRunCommand extends Command
             return self::FAILURE;
         }
 
+        $failed = 0;
         foreach ($targets as $target) {
             $this->info("Starte Backup für Target '{$target->name}' (#{$target->id}) ...");
             $run = $runner->run($target, 'scheduled');
@@ -33,9 +34,11 @@ class BackupRunCommand extends Command
                 $this->info("  → OK: {$run->file_name} ({$run->size_bytes} bytes)");
             } else {
                 $this->error("  → FEHLER: {$run->error_message}");
+                $failed++;
             }
         }
 
-        return self::SUCCESS;
+        // Exit-Code ≠ 0, damit Scheduler/Monitoring fehlgeschlagene Backups bemerken
+        return $failed === 0 ? self::SUCCESS : self::FAILURE;
     }
 }

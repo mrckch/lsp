@@ -10,6 +10,13 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+// Täglich Backup aller aktiven Backup-Ziele (lokale Kopie + ggf. SFTP-Upload).
+Schedule::command('backup:run')
+    ->dailyAt((string) config('lsp.backup.schedule_time', '02:30'))
+    ->onOneServer()
+    ->withoutOverlapping(120)
+    ->runInBackground();
+
 // Täglich abgelaufene generated_documents (PDF/ZIP) aufräumen.
 Schedule::command('documents:cleanup')
     ->dailyAt('03:15')
