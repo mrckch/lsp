@@ -52,6 +52,9 @@ services:
       SESSION_DRIVER: redis
       GOTENBERG_URL: http://pdf:3000
       LSP_AUTO_MIGRATE: ${LSP_AUTO_MIGRATE:-false}
+      # Reverse-Proxy — auch ohne .env im Checkout (z. B. Portainer-Git-Stack) wirksam
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-}
     volumes:
       # Bind-Mount des Repos. Public + Storage liegen im Repo —
       # so werden Caddy + PHP-FPM mit demselben Inhalt versorgt und

@@ -27,6 +27,10 @@ Produktionsreife für den Betrieb auf einer Docker-VM hinter Nginx Proxy Manager
 - **Breaking (Betrieb):** Bestehende Backup-Ziele ohne Backup-Passwort müssen im UI ein Passwort erhalten, sonst schlagen Backups fehl
 - Compose-Defaults: `APP_ENV=production`, `APP_DEBUG=false`; Platzhalter-Container `backup` entfernt
 
+### Docs
+- DEPLOYMENT: Abschnitt „Deploy-Variante: Portainer (Git-Repository-Stack)" — Anlegen via Repository-Quelle mit Tag-Pin, Update via „Pull and redeploy", Warnsignal bei extern erzeugten Stacks
+- DEPLOYMENT-Troubleshooting: Caddyfile-Mount-Fehler („not a directory") inkl. Fix-Sequenz (`rm -rf` defektes Auto-Verzeichnis → `git checkout` → `docker rm -f` + `up -d`)
+
 ## [1.45.0] – 2026-05-01
 
 ### Fixed
