@@ -42,7 +42,7 @@ Thumbs.db
 # Docker / Secrets
 /secrets/
 /backups/
-docker-compose.override.local.yml
+docker-compose.override.yml
 
 # IDE
 *.swp

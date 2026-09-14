@@ -1,0 +1,37 @@
+# LSP – Caddyfile für Betrieb OHNE externen Reverse-Proxy
+#
+# Caddy holt selbst ein Let's-Encrypt-Zertifikat für LSP_HOSTNAME.
+# Aktivieren mit LSP_CADDYFILE=Caddyfile.tls, LSP_HTTP_PORT=80, LSP_HTTPS_PORT=443
+# (Let's Encrypt braucht die Standard-Ports).
+
+{
+    email {$LETSENCRYPT_EMAIL:admin@example.com}
+}
+
+{$LSP_HOSTNAME:localhost} {
+    # Pfad muss zum PHP-FPM-Container passen (siehe infra/Caddyfile)
+    root * /var/www/html/public
+    encode zstd gzip
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(self), microphone=(), geolocation=()"
+        -Server
+    }
+
+    @notfile {
+        not file
+    }
+    rewrite @notfile /index.php
+
+    php_fastcgi app:9000
+    file_server
+
+    log {
+        output stdout
+        format json
+    }
+}

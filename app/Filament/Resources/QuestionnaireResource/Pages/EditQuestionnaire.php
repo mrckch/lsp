@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\QuestionnaireResource\Pages;
 
 use App\Filament\Resources\QuestionnaireResource;
+use App\Filament\Resources\QuestionnaireResource\Actions\ImportQuestionsAction;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 
@@ -14,6 +15,10 @@ class EditQuestionnaire extends EditRecord
 
     protected function getHeaderActions(): array
     {
-        return [DeleteAction::make()];
+        return [
+            ImportQuestionsAction::templates(),
+            ImportQuestionsAction::forExistingQuestionnaire(),
+            DeleteAction::make(),
+        ];
     }
 }

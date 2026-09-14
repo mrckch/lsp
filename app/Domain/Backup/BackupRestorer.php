@@ -230,19 +230,7 @@ final class BackupRestorer
     /** @return list<string> */
     private function currentTableNames(): array
     {
-        $driver = DB::connection()->getDriverName();
-
-        return match ($driver) {
-            'sqlite' => array_map(
-                fn ($t) => $t->name,
-                DB::select("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"),
-            ),
-            'mysql', 'mariadb' => array_map(
-                fn ($t) => $t->table_name ?? array_values((array) $t)[0],
-                DB::select('SELECT TABLE_NAME as table_name FROM information_schema.tables WHERE table_schema = DATABASE()'),
-            ),
-            default => throw new \RuntimeException("DB-Treiber '$driver' wird vom Restorer nicht unterstützt."),
-        };
+        return $this->runner->tableNames();
     }
 
     private function withForeignKeysDisabled(callable $fn): void
@@ -295,8 +283,12 @@ final class BackupRestorer
             $clean = array_map(function ($row) use ($columns) {
                 $r = (array) $row;
 
-                // Nur bekannte Spalten übernehmen (ältere Backups → unbekannte Felder dropen)
-                return array_intersect_key($r, array_flip($columns));
+                // Nur bekannte Spalten übernehmen (ältere Backups → unbekannte Felder dropen),
+                // base64-markierte Binärwerte zurückwandeln
+                return array_map(
+                    BackupRunner::decodeValue(...),
+                    array_intersect_key($r, array_flip($columns)),
+                );
             }, $chunk);
             DB::table($table)->insert($clean);
             $count += count($clean);

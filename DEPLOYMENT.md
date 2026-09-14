@@ -1,25 +1,28 @@
 # Production-Deployment
 
-Single-Tenant pro Schule: eine Installation = eine Schule. Empfohlenes Setup ist Docker Compose mit
-Reverse-Proxy (Caddy übernimmt TLS), MariaDB, Redis, Gotenberg für PDF.
+Single-Tenant pro Schule: eine Installation = eine Schule. Empfohlenes Setup ist Docker Compose auf
+einer Linux-VM mit MariaDB, Redis und Gotenberg für PDF. TLS übernimmt entweder ein **externer
+Reverse-Proxy** (z. B. Nginx Proxy Manager auf eigener VM — Standard) oder der mitgelieferte Caddy selbst.
 
 ## Voraussetzungen
 
-- Linux-Host mit Docker Engine + Compose v2 (≥ 1 GB RAM, ≥ 10 GB Disk)
-- Domain mit DNS auf den Host (für Caddy-Auto-TLS via Let's Encrypt)
+- Linux-VM mit Docker Engine + Compose v2 (empfohlen 2 vCPU / 4 GB RAM / 40 GB Disk für ~1000 SuS)
+- Domain mit DNS auf den Reverse-Proxy (bzw. direkt auf die VM im Caddy-TLS-Modus)
 - SMTP-Zugang für E-Mail-Versand (Welcome-Mails, Bulk-Mails)
+- Externer SFTP-Server für Backups (NAS, zweite VM, Hoster)
 
 ## Erstinstallation
 
 ```bash
-# 1. Repo klonen
-git clone <repo-url> lsp
-cd lsp
+# 1. Repo auf festen Release-Tag klonen (nie 'main' in Produktion)
+git clone <repo-url> /opt/lsp
+cd /opt/lsp
+git checkout v1.46.0
 
 # 2. Konfiguration
-cp .env.example .env
-# .env editieren: APP_URL, LSP_HOSTNAME, LETSENCRYPT_EMAIL,
-# DB_PASSWORD, DB_ROOT_PASSWORD, REDIS_PASSWORD, MAIL_*
+cp .env.production.example .env
+# .env editieren: alle <…>-Platzhalter ersetzen (APP_URL, DB-/Redis-Passwörter,
+# IP der NPM-VM, MAIL_*). Passwörter z. B. mit: openssl rand -base64 32
 
 # 3. Stack bauen + starten (PHP 8.4-FPM, MariaDB 11, Redis 7, Caddy 2, Gotenberg 8)
 docker compose up -d --build
@@ -28,27 +31,19 @@ docker compose up -d --build
 docker compose exec app composer install --no-dev --optimize-autoloader --no-scripts
 docker compose exec app php artisan key:generate
 docker compose exec app php artisan migrate --force --seed
+docker compose restart app queue scheduler   # Config-Cache mit APP_KEY neu aufbauen
 docker compose exec app php artisan lsp:selftest    # Diagnose: alles grün?
 
-# 5. Setup-Wizard im Browser öffnen
-# Lokal/Dev: http://localhost:8080/setup
-# Production: https://<deine-domain>/setup
+# 5. Setup-Wizard im Browser öffnen: https://<deine-domain>/setup
 ```
 
-**Wenn schon vorhanden, `composer.lock` muss zum Container-PHP passen.**
-Der Container nutzt PHP 8.4 (siehe `infra/app/Dockerfile`). Falls du lokal eine
-andere PHP-Version hast und `vendor/` dort generiert wurde, kann der Container-
-Start fehlschlagen. Lösung: `vendor/` löschen oder `composer install` im
-Container ausführen.
+> **Keine `docker-compose.override.yml` auf Produktions-Hosts.** Die Datei wird von Compose automatisch
+> geladen. Die Vorlage `docker-compose.override.example.yml` ist nur für lokale Entwicklung (Debug an,
+> DB-/Redis-Ports offen).
 
-## Reset („alles von vorne")
-
-```bash
-docker compose down -v        # Stoppt alles + löscht DB-/Cache-Volumes
-docker compose up -d --build  # Frischer Start
-docker compose exec app php artisan migrate --seed --force
-# → http://localhost:8080/setup wieder von vorne
-```
+**`composer.lock` muss zum Container-PHP passen.** Der Container nutzt PHP 8.4 (siehe
+`infra/app/Dockerfile`). Wurde `vendor/` lokal mit einer anderen PHP-Version erzeugt, kann der
+Container-Start fehlschlagen. Lösung: `vendor/` löschen oder `composer install` im Container ausführen.
 
 Im Setup-Wizard:
 1. Admin-Konto anlegen (Username + Passwort + optional E-Mail)
@@ -56,81 +51,164 @@ Im Setup-Wizard:
 3. **Klarnamen-Passwort** vergeben — verschlüsselt die DEK, die Schülernamen schützt
 4. **Recovery-Key SICHERN** — wird nur einmalig angezeigt, ohne ihn ist bei verlorenem Klarnamen-Passwort kein Zugriff mehr möglich
 
+## Betrieb hinter Nginx Proxy Manager (eigene VM)
+
+```
+Browser ──https──▶ NPM-VM (TLS, Let's Encrypt) ──http──▶ LSP-VM:8080 (Caddy) ──fastcgi──▶ app (PHP-FPM)
+```
+
+### `.env` auf der LSP-VM
+
+```ini
+APP_URL=https://lsp.deine-schule.de
+SESSION_SECURE_COOKIE=true
+LSP_CADDYFILE=Caddyfile              # Caddy nur HTTP auf :80 (im Container)
+LSP_HTTP_PORT=8080                   # Port auf der LSP-VM, den NPM anspricht
+LSP_CADDY_TRUSTED_PROXIES=10.0.0.5/32  # IP der NPM-VM
+TRUSTED_PROXIES=*                    # Laravel übernimmt X-Forwarded-* (von Caddy durchgereicht)
+```
+
+Warum beides: Caddy übernimmt `X-Forwarded-For`/`-Proto` nur von der NPM-VM und überschreibt sie bei
+allen anderen Absendern. Laravel liest daraus die echte Schüler-IP (Rate-Limits, Audit-Log) und erkennt
+`https` (korrekte Links, sichere Cookies). Ohne diese Einstellungen landen alle Anfragen unter der
+NPM-IP im selben Rate-Limit-Topf.
+
+### Proxy Host in NPM
+
+| Feld | Wert |
+|---|---|
+| Domain Names | `lsp.deine-schule.de` |
+| Scheme / Forward Hostname / Port | `http` / IP der LSP-VM / `8080` |
+| Block Common Exploits | an |
+| Websockets Support | nicht nötig |
+| SSL | Let's-Encrypt-Zertifikat, **Force SSL**, HTTP/2, HSTS an |
+
+Unter **Advanced → Custom Nginx Configuration** (Uploads bis 50 MB für Importe, Timeout für Bulk-PDFs):
+
+```nginx
+client_max_body_size 60m;
+proxy_read_timeout 120s;
+```
+
+### Firewall auf der LSP-VM
+
+Port 8080 darf nur von der NPM-VM erreichbar sein. **Achtung:** Docker veröffentlicht Ports an `ufw`
+vorbei. Entweder `LSP_HTTP_BIND` auf die interne IP der LSP-VM setzen und das Netz absichern, oder
+eine Regel in der `DOCKER-USER`-Chain anlegen:
+
+```bash
+iptables -I DOCKER-USER -p tcp -m conntrack --ctorigdstport 8080 ! -s <ip-der-npm-vm> -j DROP
+```
+
+(Regel persistent machen, z. B. über `iptables-persistent`.)
+
+### Alternative: ohne externen Proxy
+
+Caddy holt selbst das Zertifikat: in der `.env` `LSP_CADDYFILE=Caddyfile.tls`, `LSP_HOSTNAME=<domain>`,
+`LSP_HTTP_PORT=80`, `LSP_HTTPS_PORT=443`, `TRUSTED_PROXIES=` (leer) setzen.
+
 ## Wichtige Konfiguration
 
-### `.env` (auszugsweise)
+Vollständige Vorlage: [`.env.production.example`](.env.production.example). Auszug:
 
 ```ini
 APP_ENV=production
 APP_DEBUG=false
-APP_URL=https://lsp.beispiel-schule.de
+REDIS_PASSWORD=<langes-zufalls-passwort>   # Redis startet damit automatisch mit requirepass
 
-DB_CONNECTION=mysql
-DB_HOST=db
-DB_DATABASE=lsp
-DB_USERNAME=lsp
-DB_PASSWORD=<langes-zufalls-passwort>
-
-CACHE_STORE=redis
-QUEUE_CONNECTION=redis
-SESSION_DRIVER=redis
-REDIS_PASSWORD=<langes-zufalls-passwort>
-
-# Caddy: TLS-Zertifikat-Email
-LETSENCRYPT_EMAIL=admin@beispiel-schule.de
-
-# Mail
-MAIL_MAILER=smtp
-MAIL_HOST=mail.example.com
-MAIL_PORT=587
-MAIL_ENCRYPTION=tls
-MAIL_USERNAME=lsp@beispiel-schule.de
-MAIL_PASSWORD=<smtp-passwort>
-MAIL_FROM_ADDRESS=lsp@beispiel-schule.de
-MAIL_FROM_NAME="LSP – Beispiel-Schule"
+# Schüler-Rate-Limits pro Minute — ganze Klassen teilen sich meist eine Schul-IP
+LSP_STUDENT_LOGIN_PER_IP=300           # grober Deckel gegen Code-Raten
+LSP_STUDENT_LOGIN_PER_CODE=10          # Fehlversuche pro Login-Code
+LSP_STUDENT_ANSWERS_PER_ATTEMPT=120    # Antwort-Requests pro laufendem Test
 
 # Audit-Lifecycle
 LSP_AUDIT_ARCHIVE_AFTER_DAYS=90
 LSP_AUDIT_PURGE_AFTER_DAYS=730
 ```
 
-### Backup-Ziel anlegen
+## Backups
 
-Nach dem Setup-Wizard im Admin-UI unter **System → Backup-Ziele**:
-- Typ: `local` (in `storage/lsp/backups/` im Container) oder `sftp`/`s3` für externes Ziel
-- Backup-Passwort (Argon2id-Wrap der Daten) — separat vom Recovery-Key, ebenso sicher verwahren!
-- Retention: `daily=7 / weekly=4 / monthly=12` als Default
+Nach dem Setup-Wizard im Admin-UI unter **System → Backup-Ziele → Neu**:
 
-Cron läuft via `php artisan schedule:run` — der Compose-Service `scheduler` triggert das jede Minute.
+- **Typ `SFTP`** (empfohlen): Host, Port, Benutzer, Zielverzeichnis und Passwort *oder* privater
+  SSH-Schlüssel. Optional den Host-Fingerprint hinterlegen. Zugangsdaten werden verschlüsselt gespeichert.
+- **Typ `Lokal`**: nur Kopie auf derselben VM — nicht DR-tauglich.
+- **Backup-Passwort** (Pflicht, ≥ 12 Zeichen): Argon2id + AES-256-GCM. Separat vom Recovery-Key im
+  Tresor verwahren — ohne dieses Passwort ist das Backup wertlos.
+- **Retention**: `daily=7 / weekly=4 / monthly=12` als Default (lokal und extern angewandt)
+
+Danach in der Liste **„Verbindung testen"** und einmal **„Jetzt sichern"** ausführen.
+
+Jedes Backup wird verschlüsselt lokal unter `storage/app/private/lsp/backups/` abgelegt und bei
+SFTP-Zielen zusätzlich hochgeladen. Schlägt der Upload fehl, ist der Run `failed` (lokale Kopie bleibt).
+Der Scheduler startet `backup:run` täglich um `LSP_BACKUP_TIME` (Default 02:30). Manuell:
+
+```bash
+docker compose exec app php artisan backup:run   # Exit-Code ≠ 0, wenn ein Ziel fehlschlägt
+```
 
 ### Standard-Cron-Jobs (siehe `routes/console.php`)
 
+Der Compose-Service `scheduler` führt `php artisan schedule:run` jede Minute aus.
+
 | Aktion | Wann |
 |---|---|
+| `backup:run` | täglich 02:30 (`LSP_BACKUP_TIME`) — alle aktiven Backup-Ziele |
 | `documents:cleanup` | täglich 03:15 — abgelaufene generierte PDFs löschen |
 | `audit:archive` | täglich 03:30 — Audit-Einträge älter als 90 d → soft-archive |
 | `audit:purge` | sonntags 03:45 — archivierte ältere als 2 J → hard-delete |
 
-Backup-Run muss zusätzlich manuell oder per externem Cron getriggert werden:
-```bash
-docker compose exec app php artisan backup:run
+## Fragebögen importieren
+
+Unter **Test-Konfiguration → Fragebögen**:
+
+- **„Importieren (CSV/JSON)"** legt aus einer Datei einen neuen Fragebogen (Status *Entwurf*) an.
+- **„Fragen importieren"** auf der Bearbeiten-Seite hängt Fragen an oder ersetzt sie.
+- **„Vorlagen"** liefert Beispieldateien.
+
+CSV: Spalten `satz;antwort;typ` (Trennzeichen `;`, `,` oder Tab, Kopfzeile optional, UTF-8 oder
+Excel/Windows-1252). `antwort` = `richtig`/`falsch` (auch `r`/`f`, `ja`/`nein`, `1`/`0`),
+`typ` = `test` (Standard) oder `uebung`.
+
+JSON:
+
+```json
+{
+  "name": "Form A1",
+  "parallel_form": "A1",
+  "grade_level_target": "5-6",
+  "default_time_limit_seconds": 180,
+  "practice_time_seconds": 30,
+  "practice_questions": [{ "text": "Die Sonne ist heiß.", "answer": "richtig" }],
+  "questions": [{ "text": "Schnee ist schwarz.", "answer": "falsch" }]
+}
 ```
+
+Der Import ist alles-oder-nichts: bei einem fehlerhaften Eintrag wird nichts gespeichert, die Fehler
+werden mit Zeilennummer angezeigt. Fragebögen, die bereits in Testdurchläufen verwendet wurden, lassen
+sich nicht mehr per Import ändern (Vergleichbarkeit der Rohwerte) — dafür einen neuen Fragebogen importieren.
 
 ## Sicherheits-Checkliste
 
-- [x] **TLS via Caddy**: automatisches Let's-Encrypt-Cert
+- [x] **TLS** am Reverse-Proxy (NPM) bzw. via Caddy-Auto-TLS
+- [x] **HSTS**: in NPM aktivieren (Caddy setzt den Header zusätzlich)
 - [x] **2FA-Pflicht für Admin-Klasse**: per Default-Seeder gesetzt
-- [x] **Rate-Limit auf Schüler-Login**: 10 Versuche/Min/IP
+- [x] **Rate-Limit auf Schüler-Login**: pro Code + großzügig pro IP
 - [x] **CSP/X-Frame/Referrer-Policy** auf allen Antworten
-- [ ] **HSTS** auf Caddy-Ebene konfigurieren (siehe `infra/Caddyfile`)
-- [ ] **Backup-Ziel extern** (SFTP/S3) — local-only ist nicht DR-tauglich
+- [x] **Keine offenen DB-/Redis-/Gotenberg-Ports** (keine Override-Datei auf dem Host)
+- [ ] **`REDIS_PASSWORD`, `DB_PASSWORD`, `DB_ROOT_PASSWORD`** mit Zufallswerten gesetzt
+- [ ] **App-Port nur für die NPM-VM** erreichbar (Firewall / `DOCKER-USER`)
+- [ ] **Backup-Ziel extern** (SFTP) angelegt, Verbindungstest + erstes Backup erfolgreich
+- [ ] **Restore einmal getestet** (z. B. auf einer Test-VM)
 - [ ] **Recovery-Key + Backup-Passwort** physisch sicher verwahren (Tresor / Passwort-Manager)
 
 ## Restore aus Backup
 
+Backup-Datei von SFTP holen und nach `storage/app/private/lsp/backups/` legen (sofern nicht mehr lokal vorhanden), dann:
+
 ```bash
 # Plan + Confirmation interaktiv
-docker compose exec app php artisan backup:restore lsp_backup_20260901_031500_run42.bin
+docker compose exec app php artisan backup:restore lsp_backup_20260901_023000_run42.bin
 
 # Oder: dry-run zur Validierung
 docker compose exec app php artisan backup:restore <file> --dry-run
@@ -160,7 +238,7 @@ git fetch --tags
 git checkout v1.46.0     # konkrete Version, nicht 'main'
 
 # 3. Container + Dependencies aktualisieren
-docker compose up -d --build
+docker compose up -d --build --remove-orphans
 docker compose exec app composer install --no-dev --optimize-autoloader --no-scripts
 docker compose exec app php artisan migrate --force
 docker compose exec app php artisan config:cache
@@ -187,24 +265,43 @@ docker compose exec app php artisan backup:restore <pre-update-backup.bin> --sna
 Hotfixes werden als Patch-Tag (`v1.45.1` statt `v1.46.0`) vom letzten Production-
 Tag abgezweigt. Update-Befehl ist identisch — `git checkout v1.45.1`.
 
+## Reset („alles von vorne")
+
+```bash
+docker compose down -v        # Stoppt alles + löscht DB-/Cache-Volumes
+docker compose up -d --build  # Frischer Start
+docker compose exec app php artisan migrate --seed --force
+# → https://<deine-domain>/setup wieder von vorne
+```
+
 ## Monitoring / Health
 
-- `GET /up` — Laravel-Health-Endpoint (kein Auth nötig)
+- `GET /up` — Laravel-Health-Endpoint (kein Auth nötig), z. B. für Uptime-Kuma
+- `backup:run` liefert Exit-Code ≠ 0 bei Fehlern; Backup-Runs mit Status/Fehlertext unter System → Backup-Ziele
 - Failed-Jobs sichtbar im Admin → User-Dashboard-Widget
 - PdfServiceHealth-Widget zeigt Gotenberg-Status
 
 ## Troubleshooting
 
-**Port 443 oder 80 belegt** (z. B. anderer Server auf der Host-Maschine): Caddy
-bindet auf 8080/8443 (HTTP/HTTPS) per Default — siehe `LSP_HTTP_PORT` /
-`LSP_HTTPS_PORT` in der `.env`. Lokale Dev-URL ist dann `http://localhost:8080/setup`.
+**Port belegt**: Caddy bindet per Default auf 8080/8443 der VM — siehe `LSP_HTTP_PORT` /
+`LSP_HTTPS_PORT` in der `.env`.
+
+**Links/Assets werden als `http://` ausgeliefert oder Login-Schleife hinter NPM**: `APP_URL` mit
+`https://`, `TRUSTED_PROXIES=*` und `LSP_CADDY_TRUSTED_PROXIES` (IP der NPM-VM) prüfen, danach
+`docker compose restart app`.
+
+**Schüler bekommen „Too Many Requests" (429)**: Stimmt die NPM-IP in `LSP_CADDY_TRUSTED_PROXIES`?
+Sonst zählen alle Anfragen unter einer IP. Limits ggf. über `LSP_STUDENT_*` anpassen.
 
 **Setup-Wizard zeigt sich nicht**: prüfen ob `is_initialized` in `app_settings` evtl. schon true ist.
 
 **Schüler-Test rendert nicht**: Browser-Console prüfen — vermutlich Asset-Pfad falsch (APP_URL nicht passend).
 
-**PDF-Erzeugung schlägt fehl**: Gotenberg-Container-Health checken (`docker compose logs pdf`),
+**PDF-Erzeugung schlägt fehl**: Gotenberg-Container-Health checken (`docker compose ps`, `docker compose logs pdf`),
 URL in `config/lsp.php` (`pdf.gotenberg_url`) muss aus Sicht des `app`-Containers erreichbar sein.
+
+**Backup „Upload zum externen Ziel fehlgeschlagen"**: „Verbindung testen" im UI nutzen; Firewall der
+SFTP-Gegenstelle, Schreibrechte im Zielverzeichnis und ggf. Host-Fingerprint prüfen.
 
 **Klarnamen-Session sperrt sich nach Inaktivität**: das ist Absicht. Per User in den Filament-
 Pages → Klarnamen → Entsperren. Sensitive Aktionen brauchen 2FA-Re-Auth (Default 15 min,
