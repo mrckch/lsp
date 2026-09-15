@@ -2,6 +2,12 @@
 
 Alle nennenswerten Änderungen in diesem Projekt sind hier dokumentiert. Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
+## [Unreleased]
+
+### Fixed
+- **Normtabellen-CSV-Import importierte nie Zeilen**: Die Datei wurde unter `storage/app/…` gesucht, die `local`-Disk liegt aber unter `storage/app/private` → stets „0 Norm-Zeilen importiert" ohne Fehler. Jetzt Zugriff über die Disk; der Upload wird danach gelöscht (landete sonst in den Backups)
+- Normtabellen-Import: BOM/Windows-1252 (Excel), Trennzeichen `;` `,` oder Tab, zeilengenaue Fehlermeldungen, alles-oder-nichts in einer Transaktion; Fehlermeldung statt Erfolg, wenn nichts importiert wurde
+
 ## [1.46.0] – 2026-09-14
 
 Produktionsreife für den Betrieb auf einer Docker-VM hinter Nginx Proxy Manager.
