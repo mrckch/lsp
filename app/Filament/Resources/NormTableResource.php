@@ -27,6 +27,8 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class NormTableResource extends Resource
 {
@@ -131,10 +133,42 @@ class NormTableResource extends Resource
                             ->disk('local')->directory('lsp/imports')->visibility('private'),
                     ])
                     ->action(function (NormTable $record, array $data) {
-                        $path = storage_path('app/'.$data['csv']);
-                        $count = self::importRowsCsv($record, $path);
+                        $disk = Storage::disk('local');
+                        try {
+                            // Über die Disk lesen: deren Root ist storage/app/private, nicht storage/app
+                            $content = $disk->get($data['csv']);
+                        } finally {
+                            // Upload nicht liegen lassen, sonst landet er in den Backups
+                            $disk->delete($data['csv']);
+                        }
+
+                        $result = $content === null
+                            ? ['rows' => [], 'errors' => ['Die hochgeladene Datei konnte nicht gelesen werden.']]
+                            : self::parseRowsCsv($content);
+                        if ($result['errors'] === [] && $result['rows'] === []) {
+                            $result['errors'][] = 'Die Datei enthält keine Norm-Zeilen.';
+                        }
+                        if ($result['errors'] !== []) {
+                            Notification::make()->danger()
+                                ->title('Import fehlgeschlagen — keine Zeilen importiert')
+                                ->body(implode("\n", array_slice($result['errors'], 0, 10)))
+                                ->persistent()
+                                ->send();
+
+                            return;
+                        }
+
+                        DB::transaction(function () use ($record, $result) {
+                            foreach ($result['rows'] as $row) {
+                                NormTableRow::query()->updateOrCreate(
+                                    ['norm_table_id' => $record->id, 'raw_score' => $row['raw_score']],
+                                    $row,
+                                );
+                            }
+                        });
+
                         Notification::make()->success()
-                            ->title("$count Norm-Zeilen importiert")->send();
+                            ->title(count($result['rows']).' Norm-Zeilen importiert')->send();
                     }),
                 Action::make('recalculateLqs')
                     ->label('Alle LQs neu berechnen')
@@ -166,40 +200,70 @@ class NormTableResource extends Resource
     }
 
     /**
-     * Erwartetes CSV-Format (mit Header):
+     * Erwartetes CSV-Format (Kopfzeile optional, Trennzeichen ; , oder Tab, UTF-8 oder Windows-1252):
      *   raw_score;quotient_male;quotient_female[;quotient_diverse]
+     *
+     * Alles-oder-nichts: enthält eine Zeile ungültige Werte, wird nichts importiert.
+     *
+     * @return array{
+     *   rows: list<array{raw_score: int, quotient_male: int, quotient_female: int, quotient_diverse: ?int}>,
+     *   errors: list<string>,
+     * }
      */
-    private static function importRowsCsv(NormTable $table, string $path): int
+    private static function parseRowsCsv(string $content): array
     {
-        if (! is_file($path)) {
-            return 0;
+        if (str_starts_with($content, "\xEF\xBB\xBF")) {
+            $content = substr($content, 3);
         }
-        $handle = fopen($path, 'r');
-        if (! $handle) {
-            return 0;
+        if (! mb_check_encoding($content, 'UTF-8')) {
+            // Excel unter Windows speichert CSV typischerweise als Windows-1252
+            $content = mb_convert_encoding($content, 'UTF-8', 'Windows-1252');
         }
-        $count = 0;
-        $first = true;
-        while (($row = fgetcsv($handle, 0, ';', '"', '')) !== false) {
-            if ($first && ! is_numeric(trim($row[0] ?? ''))) {
-                $first = false;
+        $lines = array_values(array_filter(
+            explode("\n", str_replace(["\r\n", "\r"], "\n", $content)),
+            fn (string $line) => trim($line) !== '',
+        ));
+        if ($lines === []) {
+            return ['rows' => [], 'errors' => []];
+        }
+
+        // Semikolon zuerst (deutsches Excel), dann Tab, sonst Komma
+        $delimiter = match (true) {
+            str_contains($lines[0], ';') => ';',
+            str_contains($lines[0], "\t") => "\t",
+            default => ',',
+        };
+        $isInt = fn (string $v) => preg_match('/^-?\d+$/', $v) === 1;
+
+        $rows = [];
+        $errors = [];
+        foreach ($lines as $index => $line) {
+            $cells = array_map('trim', str_getcsv($line, $delimiter, '"', ''));
+
+            // Kopfzeile erkennen: erste Zeile, deren erste Spalte keine Zahl ist
+            if ($index === 0 && ! $isInt($cells[0])) {
+                continue;
+            }
+
+            $where = 'Zeile '.($index + 1);
+            $diverse = $cells[3] ?? '';
+            if (! $isInt($cells[0]) || ! $isInt($cells[1] ?? '') || ! $isInt($cells[2] ?? '')
+                || ($diverse !== '' && ! $isInt($diverse))) {
+                $errors[] = "$where: erwartet Rohwert;LQ männlich;LQ weiblich[;LQ divers] als ganze Zahlen.";
 
                 continue;
             }
-            $first = false;
-            $raw = (int) trim($row[0] ?? '');
-            $male = (int) trim($row[1] ?? '');
-            $female = (int) trim($row[2] ?? '');
-            $diverse = isset($row[3]) && trim($row[3]) !== '' ? (int) $row[3] : null;
-            NormTableRow::query()->updateOrCreate(
-                ['norm_table_id' => $table->id, 'raw_score' => $raw],
-                ['quotient_male' => $male, 'quotient_female' => $female, 'quotient_diverse' => $diverse],
-            );
-            $count++;
-        }
-        fclose($handle);
 
-        return $count;
+            // Doppelte Rohwerte: letzte Zeile gewinnt
+            $rows[(int) $cells[0]] = [
+                'raw_score' => (int) $cells[0],
+                'quotient_male' => (int) $cells[1],
+                'quotient_female' => (int) $cells[2],
+                'quotient_diverse' => $diverse !== '' ? (int) $diverse : null,
+            ];
+        }
+
+        return ['rows' => array_values($rows), 'errors' => $errors];
     }
 
     public static function getPages(): array
