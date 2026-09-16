@@ -7,7 +7,22 @@
         </div>
     </form>
 
-    @php $entries = $this->getDiffEntries(); @endphp
+    @if($committing)
+        <x-filament::section wire:poll.700ms="processCommitChunk">
+            <x-slot name="heading">Import läuft …</x-slot>
+            <x-slot name="description">Die Seite bitte geöffnet lassen, bis der Import abgeschlossen ist.</x-slot>
+
+            @php $pct = $total > 0 ? (int) floor($processed / $total * 100) : 0; @endphp
+            <div style="margin-bottom:0.5rem; font-weight:600;">
+                {{ number_format($processed, 0, ',', '.') }} von {{ number_format($total, 0, ',', '.') }} verarbeitet ({{ $pct }} %)
+            </div>
+            <div style="width:100%; height:1.25rem; background:#e5e7eb; border-radius:9999px; overflow:hidden;">
+                <div style="width:{{ $pct }}%; height:100%; background:#16a34a; transition:width 0.3s ease;"></div>
+            </div>
+        </x-filament::section>
+    @endif
+
+    @php $entries = $committing ? collect() : $this->getDiffEntries(); @endphp
 
     @if($entries->isNotEmpty())
         <x-filament::section>
