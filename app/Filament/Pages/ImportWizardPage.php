@@ -22,6 +22,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Geführter SchiLD-CSV-Importassistent.
@@ -137,7 +138,7 @@ class ImportWizardPage extends Page implements HasForms
         $sourceKey = (string) ($data['source_key'] ?? 'schild_csv');
 
         if ($sourceKey === 'schild_csv') {
-            $path = storage_path('app/'.$data['csv_file']);
+            $path = Storage::disk('local')->path($data['csv_file']);
             if (! is_file($path)) {
                 Notification::make()->danger()->title('Datei nicht gefunden')->send();
 
@@ -236,8 +237,19 @@ class ImportWizardPage extends Page implements HasForms
 
         $job = ImportJob::query()->find($this->jobId);
         $sourceKey = $job?->import_source_id ? 'svws_api' : 'schild_csv';
-        $result = app(ImporterFactory::class)->make($sourceKey)
-            ->commit($this->jobId, $decisions);
+
+        try {
+            $result = app(ImporterFactory::class)->make($sourceKey)
+                ->commit($this->jobId, $decisions);
+        } catch (\Throwable $e) {
+            Notification::make()->danger()
+                ->title('Import fehlgeschlagen')
+                ->body($e->getMessage())
+                ->persistent()
+                ->send();
+
+            return;
+        }
 
         Notification::make()->success()
             ->title('Import abgeschlossen')

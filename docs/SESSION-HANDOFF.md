@@ -12,7 +12,7 @@ Dieses Dokument fasst den Stand des Projekts so zusammen, dass eine neue Session
 - **Lizenz:** EUPL 1.2
 - **Sprache der Doku & UI:** Deutsch
 - **Stack:** Laravel 12 · Filament 3 · MariaDB · Redis · Gotenberg · Docker Compose · Caddy
-- **Aktueller Stand:** `main` (→ **`v1.46.1`**) · **319 PHPUnit-Tests / 1166 Assertions** + **10 Dusk-E2E-Tests / 36 Assertions** durchgehend grün · `composer lint` (Pint + PHPStan Level 5) sauber · CI-Pipeline (GitHub Actions) · `lsp:selftest`-Command · **Docker-Stack lokal verifiziert: `docker compose up -d --build` → `migrate --seed` → `selftest` läuft ohne manuelle Workarounds durch**
+- **Aktueller Stand:** `main` (→ **`v1.46.2`**) · **322 PHPUnit-Tests / 1169 Assertions** + **10 Dusk-E2E-Tests / 36 Assertions** durchgehend grün · `composer lint` (Pint + PHPStan Level 5) sauber · CI-Pipeline (GitHub Actions) · `lsp:selftest`-Command · **erstes Live-Deployment auf Docker-VM hinter Nginx Proxy Manager (`https://lsp.lernix.site`) verifiziert**
 
 ---
 
@@ -160,7 +160,8 @@ infra/                – Dockerfile, Caddyfile, docker-compose.yml
 | v1.44.0 | `lsp:selftest`-Command (DB/Cache/Queue/Mail/Storage/Crypto/Gotenberg/AppSetting) |
 | v1.45.0 | Docker-Stack-Fixes: PHP 8.4, MariaDB-Index-Limit, Caddy-Pfade, Volume-Bind-Mounts, Entrypoint-Permissions |
 | v1.46.0 | Produktionsreife: Backup auf MariaDB + Binärdaten + SFTP + Scheduler + Pflicht-Passwort, Schüler-Rate-Limits pro Code/Versuch + Save-Retry im Test-UI, Override-Datei raus, NPM-Betrieb (Caddyfile/Trusted Proxies), manueller Fragen-Import CSV/JSON |
-| **v1.46.1** | **Hotfix: Normtabellen-CSV-Import importierte nie Zeilen (falscher Disk-Pfad) — jetzt über die Disk, Upload wird gelöscht, Excel-Encoding, Fehlermeldungen** |
+| v1.46.1 | Hotfix: Normtabellen-CSV-Import importierte nie Zeilen (falscher Disk-Pfad) — jetzt über die Disk, Upload wird gelöscht, Excel-Encoding, Fehlermeldungen |
+| **v1.46.2** | **Live-Hotfixes: Schüler-Import-Disk-Pfad (wie v1.46.1, im ImportWizard), 500 auf Lerngruppen/Schüler/Testläufe (`modifyQueryUsing`-Closure-Parameter `$q`→`$query`), Import-Commit-Fehler-Notification, docker-compose `&app_env` vervollständigt** |
 
 ---
 
