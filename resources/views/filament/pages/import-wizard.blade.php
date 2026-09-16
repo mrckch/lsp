@@ -7,7 +7,7 @@
                 Analysieren (Dry-Run)
             </button>
             @if($jobId)
-                <button type="button" wire:click="cancel"
+                <button type="button" wire:click="discardAnalysis"
                         style="background:#6b7280; color:#fff; padding:0.5rem 1rem; border:0; border-radius:6px; cursor:pointer;">
                     Analyse verwerfen
                 </button>
@@ -61,6 +61,25 @@
                 </span>
             </div>
 
+            @unless($this->clearnameUnlocked())
+                <div style="background:#fee2e2; border:1px solid #fca5a5; color:#991b1b; padding:0.75rem 1rem; border-radius:6px; margin-bottom:1rem;">
+                    <strong>Klarnamen-Session ist gesperrt.</strong> Der Import verschlüsselt die Schülernamen und
+                    benötigt die entsperrte Session. Bitte links unter <strong>Klarnamen&nbsp;→&nbsp;Entsperren</strong>
+                    entsperren und danach „Import durchführen" klicken.
+                </div>
+            @endunless
+
+            <div style="margin-bottom:1rem; display:flex; gap:0.5rem;">
+                <button type="button" wire:click="startImport"
+                        style="background:#16a34a; color:#fff; padding:0.5rem 1rem; border:0; border-radius:6px; cursor:pointer; font-weight:600;">
+                    Import durchführen
+                </button>
+                <button type="button" wire:click="discardAnalysis"
+                        style="background:#6b7280; color:#fff; padding:0.5rem 1rem; border:0; border-radius:6px; cursor:pointer;">
+                    Analyse verwerfen
+                </button>
+            </div>
+
             <div style="max-height:60vh; overflow-y:auto; border:1px solid #e5e7eb; border-radius:6px;">
                 <table style="width:100%; border-collapse:collapse;">
                     <thead style="position:sticky; top:0; background:#f9fafb;">
@@ -111,26 +130,6 @@
                         @endforeach
                     </tbody>
                 </table>
-            </div>
-
-            <div style="margin-top:1rem;">
-                @unless($this->clearnameUnlocked())
-                    <div style="background:#fee2e2; border:1px solid #fca5a5; color:#991b1b; padding:0.75rem 1rem; border-radius:6px; margin-bottom:0.75rem;">
-                        <strong>Klarnamen-Session ist gesperrt.</strong> Der Import verschlüsselt die Schülernamen und
-                        benötigt die entsperrte Session. Bitte links unter <strong>Klarnamen&nbsp;→&nbsp;Entsperren</strong>
-                        entsperren und danach „Import durchführen" klicken.
-                    </div>
-                @endunless
-                <div style="display:flex; gap:0.5rem;">
-                    <button type="button" wire:click="commit" wire:loading.attr="disabled"
-                            style="background:#16a34a; color:#fff; padding:0.5rem 1rem; border:0; border-radius:6px; cursor:pointer; font-weight:600;">
-                        Import durchführen
-                    </button>
-                    <button type="button" wire:click="cancel"
-                            style="background:#6b7280; color:#fff; padding:0.5rem 1rem; border:0; border-radius:6px; cursor:pointer;">
-                        Analyse verwerfen
-                    </button>
-                </div>
             </div>
         </x-filament::section>
     @endif

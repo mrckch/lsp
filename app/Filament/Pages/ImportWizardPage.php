@@ -219,7 +219,7 @@ class ImportWizardPage extends Page implements HasForms
      * processCommitChunk() (per wire:poll), damit jeder Request die entsperrte
      * Session trägt und der Fortschritt sichtbar ist.
      */
-    public function commit(): void
+    public function startImport(): void
     {
         if (! $this->jobId) {
             return;
@@ -281,7 +281,7 @@ class ImportWizardPage extends Page implements HasForms
         }
     }
 
-    public function cancel(): void
+    public function discardAnalysis(): void
     {
         if ($this->jobId) {
             ImportJob::query()->where('id', $this->jobId)->update(['status' => 'aborted']);

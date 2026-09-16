@@ -74,7 +74,7 @@ class ImportWizardProgressTest extends TestCase
 
         $component = Livewire::test(ImportWizardPage::class)
             ->set('jobId', $jobId)
-            ->call('commit')
+            ->call('startImport')
             ->assertSet('committing', true)
             ->assertSet('total', 4);
 
