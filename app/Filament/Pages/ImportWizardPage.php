@@ -223,8 +223,6 @@ class ImportWizardPage extends Page implements HasForms
             ->label('Import durchführen')
             ->icon('heroicon-o-check-circle')
             ->color('success')
-            ->requiresConfirmation()
-            ->modalDescription('Die bestätigten Aktionen werden ausgeführt (inkl. Archivierungen). Der Fortschritt wird angezeigt.')
             ->action('commit')
             ->visible(fn () => $this->jobId !== null && ! $this->committing);
     }
