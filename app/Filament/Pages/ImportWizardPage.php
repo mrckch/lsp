@@ -12,7 +12,6 @@ use App\Domain\Import\Models\ImportJob;
 use App\Domain\Import\Models\ImportSource;
 use App\Domain\School\Models\SchoolYear;
 use App\Filament\Concerns\AuthorizedPage;
-use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -121,14 +120,6 @@ class ImportWizardPage extends Page implements HasForms
         ])->statePath('data');
     }
 
-    public function analyzeAction(): Action
-    {
-        return Action::make('analyze')
-            ->label('Analysieren (Dry-Run)')
-            ->icon('heroicon-o-magnifying-glass')
-            ->action('analyze');
-    }
-
     public function analyze(): void
     {
         $data = $this->form->getState();
@@ -222,16 +213,6 @@ class ImportWizardPage extends Page implements HasForms
         ]);
     }
 
-    public function commitAction(): Action
-    {
-        return Action::make('commit')
-            ->label('Import durchführen')
-            ->icon('heroicon-o-check-circle')
-            ->color('success')
-            ->action('commit')
-            ->visible(fn () => $this->jobId !== null && ! $this->committing);
-    }
-
     /**
      * Startet den Import: prüft die Klarnamen-Session und schaltet auf die
      * Fortschrittsanzeige. Die eigentliche Verarbeitung läuft chunk-weise in
@@ -300,17 +281,12 @@ class ImportWizardPage extends Page implements HasForms
         }
     }
 
-    public function cancelAction(): Action
+    public function cancel(): void
     {
-        return Action::make('cancel')
-            ->label('Analyse verwerfen')
-            ->color('gray')
-            ->action(function () {
-                if ($this->jobId) {
-                    ImportJob::query()->where('id', $this->jobId)->update(['status' => 'aborted']);
-                    $this->jobId = null;
-                }
-            })
-            ->visible(fn () => $this->jobId !== null);
+        if ($this->jobId) {
+            ImportJob::query()->where('id', $this->jobId)->update(['status' => 'aborted']);
+            $this->jobId = null;
+        }
+        $this->committing = false;
     }
 }

@@ -2,8 +2,16 @@
     <form wire:submit="analyze">
         {{ $this->form }}
         <div style="margin-top:1rem; display:flex; gap:0.5rem;">
-            {{ $this->analyzeAction }}
-            {{ $this->cancelAction }}
+            <button type="submit" wire:loading.attr="disabled"
+                    style="background:#2563eb; color:#fff; padding:0.5rem 1rem; border:0; border-radius:6px; cursor:pointer; font-weight:600;">
+                Analysieren (Dry-Run)
+            </button>
+            @if($jobId)
+                <button type="button" wire:click="cancel"
+                        style="background:#6b7280; color:#fff; padding:0.5rem 1rem; border:0; border-radius:6px; cursor:pointer;">
+                    Analyse verwerfen
+                </button>
+            @endif
         </div>
     </form>
 
@@ -114,8 +122,14 @@
                     </div>
                 @endunless
                 <div style="display:flex; gap:0.5rem;">
-                    {{ $this->commitAction }}
-                    {{ $this->cancelAction }}
+                    <button type="button" wire:click="commit" wire:loading.attr="disabled"
+                            style="background:#16a34a; color:#fff; padding:0.5rem 1rem; border:0; border-radius:6px; cursor:pointer; font-weight:600;">
+                        Import durchführen
+                    </button>
+                    <button type="button" wire:click="cancel"
+                            style="background:#6b7280; color:#fff; padding:0.5rem 1rem; border:0; border-radius:6px; cursor:pointer;">
+                        Analyse verwerfen
+                    </button>
                 </div>
             </div>
         </x-filament::section>
