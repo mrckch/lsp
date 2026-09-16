@@ -105,9 +105,18 @@
                 </table>
             </div>
 
-            <div style="margin-top:1rem; display:flex; gap:0.5rem;">
-                {{ $this->commitAction }}
-                {{ $this->cancelAction }}
+            <div style="margin-top:1rem;">
+                @unless($this->clearnameUnlocked())
+                    <div style="background:#fee2e2; border:1px solid #fca5a5; color:#991b1b; padding:0.75rem 1rem; border-radius:6px; margin-bottom:0.75rem;">
+                        <strong>Klarnamen-Session ist gesperrt.</strong> Der Import verschlüsselt die Schülernamen und
+                        benötigt die entsperrte Session. Bitte links unter <strong>Klarnamen&nbsp;→&nbsp;Entsperren</strong>
+                        entsperren und danach „Import durchführen" klicken.
+                    </div>
+                @endunless
+                <div style="display:flex; gap:0.5rem;">
+                    {{ $this->commitAction }}
+                    {{ $this->cancelAction }}
+                </div>
             </div>
         </x-filament::section>
     @endif

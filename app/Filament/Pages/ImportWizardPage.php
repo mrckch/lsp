@@ -193,6 +193,11 @@ class ImportWizardPage extends Page implements HasForms
             ))->send();
     }
 
+    public function clearnameUnlocked(): bool
+    {
+        return app(CryptoService::class)->isUnlocked();
+    }
+
     public function getDiffEntries()
     {
         if (! $this->jobId) {
