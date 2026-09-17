@@ -2,6 +2,15 @@
 
 Alle nennenswerten Änderungen in diesem Projekt sind hier dokumentiert. Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
+## [Unreleased]
+
+### Added
+- **Echtes Login-2FA**: Wer 2FA aktiviert hat, muss nach der Passwort-Anmeldung einen TOTP-/Recovery-Code bestätigen, bevor das Panel nutzbar ist (`EnforceLoginTwoFactor`-Middleware + `LoginTwoFactor`-Challenge-Page, Nachweis pro Session, Rate-Limit). Vorher diente 2FA nur als Step-up-Re-Auth für sensible Aktionen; der Code wurde beim Login nie verlangt.
+- **Login akzeptiert Username ODER E-Mail** gleichberechtigt (E-Mail-Format → Spalte `email`, sonst `username`).
+
+### Changed
+- Panel nutzt eine eigene Login-Page (`App\Filament\Pages\Auth\Login`); frischer Login setzt das Login-2FA-Gate zurück. Frisch eingerichtetes 2FA (Setup-Seiten) gilt für die laufende Session sofort als bestätigt.
+
 ## [1.46.1] – 2026-09-15
 
 ### Fixed

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\Auth\Login;
+use App\Http\Middleware\EnforceLoginTwoFactor;
 use App\Http\Middleware\EnforcePasswordChange;
 use App\Http\Middleware\EnforceTwoFactorIfRequired;
 use App\Http\Middleware\RequireSetupCompleted;
@@ -31,7 +33,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login()
+            ->login(Login::class)
             ->brandName('LSP – Lese-Screening-Portal')
             ->colors([
                 'primary' => Color::Blue,
@@ -61,6 +63,7 @@ class AdminPanelProvider extends PanelProvider
                 Authenticate::class,
                 EnforcePasswordChange::class,
                 EnforceTwoFactorIfRequired::class,
+                EnforceLoginTwoFactor::class,
             ])
             ->databaseNotifications();
     }

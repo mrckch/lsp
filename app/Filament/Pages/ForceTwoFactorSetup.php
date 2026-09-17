@@ -89,6 +89,10 @@ class ForceTwoFactorSetup extends Page implements HasForms
 
         app(AuditLogger::class)->logUser($user->refresh(), 'two_factor.enabled.forced');
 
+        // Frisch eingerichtet = 2FA für diese Session bereits bestätigt (kein
+        // sofortiges Login-2FA-Re-Challenge, siehe EnforceLoginTwoFactor).
+        session()->put('login_2fa_ok', true);
+
         Notification::make()->success()
             ->title('2FA aktiviert')
             ->body('Sie können das System jetzt nutzen.')
