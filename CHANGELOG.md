@@ -2,6 +2,14 @@
 
 Alle nennenswerten Änderungen in diesem Projekt sind hier dokumentiert. Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
+## [Unreleased]
+
+### Added
+- **Default-Rückmeldeset als Bestand**: Neuinstallationen bringen ein aktives Set „SLS-Standardrückmeldung (LQ)" mit drei LQ-Bändern mit, abgestimmt auf die Default-Förderbedarfs-Schwellen (LQ&nbsp;<&nbsp;70 Förderbedarf, 70–84 auffällig, ab&nbsp;85 Normbereich). `DefaultFeedbackSetsSeeder`, idempotent — bestehende (auch bearbeitete) Sets bleiben unangetastet, alles wie bisher editier-/löschbar.
+
+### Changed
+- `feedback_sets.created_by_user_id` ist nullable (system-gesäte Default-Sets haben keinen menschlichen Ersteller; der Seeder läuft bei Erstinstallation vor dem Setup-Wizard).
+
 ## [1.46.1] – 2026-09-15
 
 ### Fixed
