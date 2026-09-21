@@ -4,12 +4,18 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Domain\Attempt\Models\StudentLoginCode;
 use App\Domain\Attempt\TestEngine;
+use App\Domain\Crypto\CryptoService;
 use App\Domain\FeedbackSet\Models\FeedbackSet;
 use App\Domain\NormTable\Models\NormTable;
 use App\Domain\NoticeText\Models\NoticeText;
 use App\Domain\Permission\PermissionResolver;
 use App\Domain\Permission\ScopeFilter;
+use App\Domain\PrintJob\Models\GeneratedDocument;
+use App\Domain\PrintJob\Models\PrintJob;
+use App\Domain\PrintJob\PrintJobRunner;
+use App\Domain\PrintTemplate\Models\PrintTemplate;
 use App\Domain\Questionnaire\Models\Questionnaire;
 use App\Domain\School\Models\LearningGroup;
 use App\Domain\School\Models\SchoolYear;
@@ -20,6 +26,7 @@ use App\Filament\Concerns\HandlesPrintErrors;
 use App\Filament\Resources\TestRunResource\Pages;
 use App\Jobs\GenerateBulkFeedbackZipJob;
 use App\Jobs\SendBulkFeedbackMailJob;
+use App\Models\AppSetting;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -30,6 +37,7 @@ use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables\Actions\Action;
+use Filament\Tables\Actions\ActionGroup;
 use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Columns\BadgeColumn;
@@ -38,6 +46,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class TestRunResource extends Resource
 {
@@ -180,7 +189,7 @@ class TestRunResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $q) => app(ScopeFilter::class)->applyToTestRuns($q, auth()->user()))
+            ->modifyQueryUsing(fn (Builder $query) => app(ScopeFilter::class)->applyToTestRuns($query, auth()->user()))
             ->columns([
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('short_code')->label('Code')->badge(),
@@ -207,95 +216,169 @@ class TestRunResource extends Resource
                 SelectFilter::make('school_year_id')->label('Schuljahr')->relationship('schoolYear', 'label'),
             ])
             ->actions([
-                EditAction::make(),
-                Action::make('issueCodes')
-                    ->label('Login-Codes erzeugen')
-                    ->icon('heroicon-o-key')
-                    ->requiresConfirmation()
-                    ->action(function (TestRun $record) {
-                        $count = app(TestEngine::class)->issueLoginCodes($record);
-                        Notification::make()->success()
-                            ->title("$count neue Login-Codes erzeugt")->send();
-                    }),
-                Action::make('regenerateCodes')
-                    ->label('Aktive Codes neu rotieren')
-                    ->icon('heroicon-o-arrow-path')
-                    ->color('warning')
-                    ->visible(fn () => auth()->user()?->hasPermission('test_runs.security.regenerate') ?? false)
-                    ->requiresConfirmation()
-                    ->modalDescription('Alle aktiven (noch nicht verwendeten) Login-Codes dieses '.
-                        'Testdurchlaufs werden auf neue Codes rotiert. Codes mit laufendem oder '.
-                        'abgeschlossenem Versuch bleiben unangetastet. Sinnvoll wenn Codes '.
-                        'verloren oder geleakt wurden.')
-                    ->action(function (TestRun $record) {
-                        $count = app(TestEngine::class)->regenerateActiveLoginCodes($record);
-                        Notification::make()->success()
-                            ->title("$count Login-Codes rotiert")
-                            ->body('Bitte die neuen Codes druckbar an die Schüler verteilen.')
-                            ->send();
-                    }),
-                Action::make('bulkPdf')
-                    ->label('Rückmeldungen-ZIP erzeugen (Hintergrund)')
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->color('info')
-                    ->visible(fn () => auth()->user()?->hasPermission('print.generate_with_clearname') ?? false)
-                    ->requiresConfirmation()
-                    ->modalDescription('Der Job läuft im Hintergrund. Sobald das ZIP fertig ist, erscheint es unter '.
-                        '"Drucksachen > Erzeugte Dokumente" zum Download.')
-                    ->action(function (TestRun $record) {
-                        GenerateBulkFeedbackZipJob::dispatch($record->id, auth()->id());
-                        Notification::make()->success()
-                            ->title('Bulk-PDF-Job gestartet')
-                            ->body('Das fertige ZIP findest du unter "Drucksachen > Erzeugte Dokumente".')
-                            ->send();
-                    }),
-                Action::make('bulkMail')
-                    ->label('Rückmeldungen per Mail')
-                    ->icon('heroicon-o-envelope')
-                    ->color('info')
-                    ->visible(fn () => auth()->user()?->hasPermission('mail.send_with_clearname') ?? false)
-                    ->form([
-                        TextInput::make('recipient')->label('Empfänger-E-Mail')
-                            ->email()->required()
-                            ->helperText('Z. B. die Klassenlehrkraft. Alle Rückmeldungs-PDFs werden als ZIP angehängt.'),
-                        TextInput::make('subject')->label('Betreff')->required()
-                            ->default(fn (TestRun $record) => 'Rückmeldungen Lese-Screening: '.$record->name),
-                        Textarea::make('body')->label('Nachricht')->rows(4)
-                            ->default('Anbei die Rückmeldungs-PDFs der Lese-Screening-Erhebung.'),
-                    ])
-                    ->before(function () {
-                        // 2FA-Re-Auth-Schwelle für Klarnamen-Versand
-                        $user = auth()->user();
-                        if ($user === null || ! $user->two_factor_enabled) {
-                            Notification::make()->danger()
-                                ->title('2FA erforderlich')
-                                ->body('Aktivieren Sie 2FA in Ihrem Konto, bevor Sie Rückmeldungen mit Klarnamen versenden.')
-                                ->persistent()->send();
-                            $this->halt();
-                        }
-                        $ttl = (int) config('lsp.two_factor.reauth_ttl_minutes', 15);
-                        if ($user->last_2fa_at === null || $user->last_2fa_at->lt(now()->subMinutes($ttl))) {
-                            Notification::make()->warning()
-                                ->title('2FA-Bestätigung zu alt')
-                                ->body("Bitte 2FA innerhalb der letzten $ttl Minuten erneut bestätigen.")
-                                ->persistent()->send();
-                            $this->halt();
-                        }
-                    })
-                    ->action(function (TestRun $record, array $data) {
-                        SendBulkFeedbackMailJob::dispatch(
-                            testRunId: $record->id,
-                            recipient: $data['recipient'],
-                            subject: $data['subject'],
-                            bodyHtml: nl2br(e($data['body'])),
-                            userId: auth()->id(),
-                        );
-                        Notification::make()->success()
-                            ->title('Bulk-Mail-Job gestartet')
-                            ->body('Der Versand läuft im Hintergrund. Status im Mailprotokoll.')
-                            ->send();
-                    }),
-                DeleteAction::make(),
+                ActionGroup::make([
+                    EditAction::make(),
+                    Action::make('issueCodes')
+                        ->label('Login-Codes erzeugen')
+                        ->icon('heroicon-o-key')
+                        ->requiresConfirmation()
+                        ->action(function (TestRun $record) {
+                            $count = app(TestEngine::class)->issueLoginCodes($record);
+                            Notification::make()->success()
+                                ->title("$count neue Login-Codes erzeugt")->send();
+                        }),
+                    Action::make('printCodes')
+                        ->label('Login-Codes drucken (PDF)')
+                        ->icon('heroicon-o-printer')
+                        ->visible(fn () => auth()->user()?->hasPermission('print.generate_with_clearname') ?? false)
+                        ->action(function (TestRun $record) {
+                            if (! app(CryptoService::class)->isUnlocked()) {
+                                Notification::make()->danger()
+                                    ->title('Klarnamen-Session gesperrt')
+                                    ->body('Bitte zuerst unter „Klarnamen → Entsperren" entsperren, dann erneut drucken.')
+                                    ->persistent()->send();
+
+                                return null;
+                            }
+
+                            $version = PrintTemplate::query()->where('type', 'login_codes')
+                                ->with('currentVersion')->first()?->currentVersion;
+                            if ($version === null) {
+                                Notification::make()->danger()
+                                    ->title('Keine Druckvorlage für Login-Codes vorhanden')->send();
+
+                                return null;
+                            }
+
+                            $students = StudentLoginCode::query()
+                                ->with('student')
+                                ->where('test_run_id', $record->id)
+                                ->get()
+                                ->map(fn (StudentLoginCode $c) => [
+                                    'name' => trim(($c->student->first_name_encrypted ?? '').' '.($c->student->last_name_encrypted ?? '')),
+                                    'code' => $c->login_code,
+                                ])
+                                ->sortBy('name')->values()->all();
+
+                            if ($students === []) {
+                                Notification::make()->warning()
+                                    ->title('Keine Login-Codes vorhanden')
+                                    ->body('Bitte zuerst „Login-Codes erzeugen".')->send();
+
+                                return null;
+                            }
+
+                            $job = PrintJob::create([
+                                'print_template_version_id' => $version->id,
+                                'context_type' => 'login_codes',
+                                'context_id' => $record->id,
+                                'parameters' => [
+                                    'school_name' => AppSetting::singleton()->school_name ?? 'Schule',
+                                    'run_name' => $record->name,
+                                    'group_name' => $record->learningGroups->pluck('name')->implode(', '),
+                                    'date' => now()->format('d.m.Y'),
+                                    'students' => $students,
+                                    '_includes_clearnames' => true,
+                                ],
+                                'status' => 'pending',
+                                'requested_by_user_id' => auth()->id(),
+                                'requested_at' => now(),
+                            ]);
+
+                            $job = app(PrintJobRunner::class)->run($job);
+                            if ($job->status !== 'done' || $job->output_document_id === null) {
+                                Notification::make()->danger()
+                                    ->title('PDF-Erzeugung fehlgeschlagen')
+                                    ->body($job->error_message ?? 'Unbekannter Fehler')
+                                    ->persistent()->send();
+
+                                return null;
+                            }
+
+                            $doc = GeneratedDocument::findOrFail($job->output_document_id);
+
+                            return Storage::disk('local')->download($doc->file_path, 'login-codes-'.$record->short_code.'.pdf');
+                        }),
+                    Action::make('regenerateCodes')
+                        ->label('Aktive Codes neu rotieren')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('warning')
+                        ->visible(fn () => auth()->user()?->hasPermission('test_runs.security.regenerate') ?? false)
+                        ->requiresConfirmation()
+                        ->modalDescription('Alle aktiven (noch nicht verwendeten) Login-Codes dieses '.
+                            'Testdurchlaufs werden auf neue Codes rotiert. Codes mit laufendem oder '.
+                            'abgeschlossenem Versuch bleiben unangetastet. Sinnvoll wenn Codes '.
+                            'verloren oder geleakt wurden.')
+                        ->action(function (TestRun $record) {
+                            $count = app(TestEngine::class)->regenerateActiveLoginCodes($record);
+                            Notification::make()->success()
+                                ->title("$count Login-Codes rotiert")
+                                ->body('Bitte die neuen Codes druckbar an die Schüler verteilen.')
+                                ->send();
+                        }),
+                    Action::make('bulkPdf')
+                        ->label('Rückmeldungen-ZIP erzeugen (Hintergrund)')
+                        ->icon('heroicon-o-document-arrow-down')
+                        ->color('info')
+                        ->visible(fn () => auth()->user()?->hasPermission('print.generate_with_clearname') ?? false)
+                        ->requiresConfirmation()
+                        ->modalDescription('Der Job läuft im Hintergrund. Sobald das ZIP fertig ist, erscheint es unter '.
+                            '"Drucksachen > Erzeugte Dokumente" zum Download.')
+                        ->action(function (TestRun $record) {
+                            GenerateBulkFeedbackZipJob::dispatch($record->id, auth()->id());
+                            Notification::make()->success()
+                                ->title('Bulk-PDF-Job gestartet')
+                                ->body('Das fertige ZIP findest du unter "Drucksachen > Erzeugte Dokumente".')
+                                ->send();
+                        }),
+                    Action::make('bulkMail')
+                        ->label('Rückmeldungen per Mail')
+                        ->icon('heroicon-o-envelope')
+                        ->color('info')
+                        ->visible(fn () => auth()->user()?->hasPermission('mail.send_with_clearname') ?? false)
+                        ->form([
+                            TextInput::make('recipient')->label('Empfänger-E-Mail')
+                                ->email()->required()
+                                ->helperText('Z. B. die Klassenlehrkraft. Alle Rückmeldungs-PDFs werden als ZIP angehängt.'),
+                            TextInput::make('subject')->label('Betreff')->required()
+                                ->default(fn (TestRun $record) => 'Rückmeldungen Lese-Screening: '.$record->name),
+                            Textarea::make('body')->label('Nachricht')->rows(4)
+                                ->default('Anbei die Rückmeldungs-PDFs der Lese-Screening-Erhebung.'),
+                        ])
+                        ->before(function () {
+                            // 2FA-Re-Auth-Schwelle für Klarnamen-Versand
+                            $user = auth()->user();
+                            if ($user === null || ! $user->two_factor_enabled) {
+                                Notification::make()->danger()
+                                    ->title('2FA erforderlich')
+                                    ->body('Aktivieren Sie 2FA in Ihrem Konto, bevor Sie Rückmeldungen mit Klarnamen versenden.')
+                                    ->persistent()->send();
+                                $this->halt();
+                            }
+                            $ttl = (int) config('lsp.two_factor.reauth_ttl_minutes', 15);
+                            if ($user->last_2fa_at === null || $user->last_2fa_at->lt(now()->subMinutes($ttl))) {
+                                Notification::make()->warning()
+                                    ->title('2FA-Bestätigung zu alt')
+                                    ->body("Bitte 2FA innerhalb der letzten $ttl Minuten erneut bestätigen.")
+                                    ->persistent()->send();
+                                $this->halt();
+                            }
+                        })
+                        ->action(function (TestRun $record, array $data) {
+                            SendBulkFeedbackMailJob::dispatch(
+                                testRunId: $record->id,
+                                recipient: $data['recipient'],
+                                subject: $data['subject'],
+                                bodyHtml: nl2br(e($data['body'])),
+                                userId: auth()->id(),
+                            );
+                            Notification::make()->success()
+                                ->title('Bulk-Mail-Job gestartet')
+                                ->body('Der Versand läuft im Hintergrund. Status im Mailprotokoll.')
+                                ->send();
+                        }),
+                    DeleteAction::make(),
+                ])->label('Aktionen')->button(),
             ]);
     }
 
