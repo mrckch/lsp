@@ -12,10 +12,8 @@ use App\Domain\NormTable\Models\NormTable;
 use App\Domain\NoticeText\Models\NoticeText;
 use App\Domain\Permission\PermissionResolver;
 use App\Domain\Permission\ScopeFilter;
-use App\Domain\PrintJob\Models\GeneratedDocument;
-use App\Domain\PrintJob\Models\PrintJob;
-use App\Domain\PrintJob\PrintJobRunner;
-use App\Domain\PrintTemplate\Models\PrintTemplate;
+use App\Domain\PrintJob\GotenbergClient;
+use App\Domain\PrintJob\LoginCardSheetGenerator;
 use App\Domain\Questionnaire\Models\Questionnaire;
 use App\Domain\School\Models\LearningGroup;
 use App\Domain\School\Models\SchoolYear;
@@ -46,7 +44,6 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Storage;
 
 class TestRunResource extends Resource
 {
@@ -228,8 +225,8 @@ class TestRunResource extends Resource
                                 ->title("$count neue Login-Codes erzeugt")->send();
                         }),
                     Action::make('printCodes')
-                        ->label('Login-Codes drucken (PDF)')
-                        ->icon('heroicon-o-printer')
+                        ->label('Login-Karten drucken (QR-PDF)')
+                        ->icon('heroicon-o-qr-code')
                         ->visible(fn () => auth()->user()?->hasPermission('print.generate_with_clearname') ?? false)
                         ->action(function (TestRun $record) {
                             if (! app(CryptoService::class)->isUnlocked()) {
@@ -241,26 +238,19 @@ class TestRunResource extends Resource
                                 return null;
                             }
 
-                            $version = PrintTemplate::query()->where('type', 'login_codes')
-                                ->with('currentVersion')->first()?->currentVersion;
-                            if ($version === null) {
-                                Notification::make()->danger()
-                                    ->title('Keine Druckvorlage für Login-Codes vorhanden')->send();
-
-                                return null;
-                            }
-
-                            $students = StudentLoginCode::query()
+                            $groupNames = $record->learningGroups->pluck('name')->implode(', ');
+                            $cards = StudentLoginCode::query()
                                 ->with('student')
                                 ->where('test_run_id', $record->id)
                                 ->get()
                                 ->map(fn (StudentLoginCode $c) => [
                                     'name' => trim(($c->student->first_name_encrypted ?? '').' '.($c->student->last_name_encrypted ?? '')),
+                                    'group' => $groupNames,
                                     'code' => $c->login_code,
                                 ])
                                 ->sortBy('name')->values()->all();
 
-                            if ($students === []) {
+                            if ($cards === []) {
                                 Notification::make()->warning()
                                     ->title('Keine Login-Codes vorhanden')
                                     ->body('Bitte zuerst „Login-Codes erzeugen".')->send();
@@ -268,36 +258,29 @@ class TestRunResource extends Resource
                                 return null;
                             }
 
-                            $job = PrintJob::create([
-                                'print_template_version_id' => $version->id,
-                                'context_type' => 'login_codes',
-                                'context_id' => $record->id,
-                                'parameters' => [
-                                    'school_name' => AppSetting::singleton()->school_name ?? 'Schule',
-                                    'run_name' => $record->name,
-                                    'group_name' => $record->learningGroups->pluck('name')->implode(', '),
-                                    'date' => now()->format('d.m.Y'),
-                                    'students' => $students,
-                                    '_includes_clearnames' => true,
-                                ],
-                                'status' => 'pending',
-                                'requested_by_user_id' => auth()->id(),
-                                'requested_at' => now(),
-                            ]);
+                            $html = app(LoginCardSheetGenerator::class)->html(
+                                AppSetting::singleton()->school_name ?? 'Schule',
+                                $record->name,
+                                $cards,
+                                (string) config('app.url'),
+                            );
 
-                            $job = app(PrintJobRunner::class)->run($job);
-                            if ($job->status !== 'done' || $job->output_document_id === null) {
+                            try {
+                                $pdf = app(GotenbergClient::class)->htmlToPdf($html);
+                            } catch (\Throwable $e) {
                                 Notification::make()->danger()
                                     ->title('PDF-Erzeugung fehlgeschlagen')
-                                    ->body($job->error_message ?? 'Unbekannter Fehler')
+                                    ->body($e->getMessage())
                                     ->persistent()->send();
 
                                 return null;
                             }
 
-                            $doc = GeneratedDocument::findOrFail($job->output_document_id);
-
-                            return Storage::disk('local')->download($doc->file_path, 'login-codes-'.$record->short_code.'.pdf');
+                            return response()->streamDownload(
+                                fn () => print ($pdf),
+                                'login-karten-'.$record->short_code.'.pdf',
+                                ['Content-Type' => 'application/pdf'],
+                            );
                         }),
                     Action::make('regenerateCodes')
                         ->label('Aktive Codes neu rotieren')

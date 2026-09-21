@@ -13,4 +13,12 @@
             </p>
         </form>
     </div>
+    @if(strlen($code) === 10 && ! $error)
+        {{-- Per QR-Code aufgerufen: direkt anmelden, ohne Tippen (ideal am iPad). --}}
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                document.querySelector('form').submit();
+            });
+        </script>
+    @endif
 @endsection
