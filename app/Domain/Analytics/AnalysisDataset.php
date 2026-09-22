@@ -40,9 +40,10 @@ final class AnalysisDataset
     }
 
     /**
+     * @param  bool  $perWave  je Schüler den letzten Versuch JE ERHEBUNG behalten (Entwicklung)
      * @return Collection<int, array<string, mixed>> Felder siehe toRow()
      */
-    public function rows(AnalysisFilter $f, User $user): Collection
+    public function rows(AnalysisFilter $f, User $user, bool $perWave = false): Collection
     {
         $allowed = $this->allowedGroupIds($user);
         if ($allowed === []) {
@@ -55,6 +56,7 @@ final class AnalysisDataset
                 'student.enrollments',
                 'testRun.learningGroups',
                 'testRun.assessmentType',
+                'testRun.schoolYear',
             ])
             ->withCount('answers')
             ->whereIn('status', self::COUNTED_STATUSES)
@@ -94,6 +96,7 @@ final class AnalysisDataset
             // Bei Gruppierung nach Erhebung/Run bleibt je Erhebung ein Versuch erhalten.
             $perRun = array_intersect(['test_run', 'assessment_type'], [$f->groupBy, $f->secondaryGroupBy]);
             $rows = $rows->unique(fn (array $r) => $r['student_id']
+                .($perWave ? '|w'.$r['wave_key'] : '')
                 .(in_array('test_run', $perRun, true) ? '|r'.$r['test_run_id'] : '')
                 .(in_array('assessment_type', $perRun, true) ? '|t'.$r['assessment_type_id'] : ''));
         }
@@ -116,6 +119,8 @@ final class AnalysisDataset
         );
         $enrollment = $student->enrollments->firstWhere('school_year_id', $run->school_year_id);
         $name = trim(($student->first_name_encrypted ?? '').' '.($student->last_name_encrypted ?? ''));
+        // Erhebungswelle: Erhebungstyp im Schuljahr (z. B. „Herbst 2026/27“), ohne Typ der einzelne Run
+        $hasType = $run->assessment_type_id !== null;
 
         return [
             'attempt_id' => $a->id,
@@ -134,6 +139,13 @@ final class AnalysisDataset
             'assessment_type' => $run->assessmentType->label ?? 'ohne Erhebungstyp',
             'assessment_type_sort' => (int) ($run->assessmentType->sort_order ?? PHP_INT_MAX),
             'school_year_id' => $run->school_year_id,
+            'wave_key' => $hasType ? 'y'.$run->school_year_id.'t'.$run->assessment_type_id : 'r'.$run->id,
+            'wave_label' => $hasType
+                ? trim(($run->assessmentType->label ?? 'Erhebung').' '.($run->schoolYear->label ?? ''))
+                : $run->name,
+            'wave_sort' => ($run->schoolYear?->start_date?->format('Y-m-d') ?? '0000').'|'
+                .str_pad((string) min((int) ($run->assessmentType->sort_order ?? 99999), 99999), 5, '0', STR_PAD_LEFT).'|'
+                .($run->scheduled_for?->toDateString() ?? ($a->submitted_at?->toDateString() ?? '')),
             'parallel_form' => $a->parallel_form,
             'lq' => (int) $a->lq_current,
             'raw' => (int) $a->score_raw,

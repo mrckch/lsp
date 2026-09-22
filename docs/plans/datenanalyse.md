@@ -229,7 +229,10 @@ Typische Voreinstellungen als Schnellwahl-Buttons über der Filterzeile:
 5. PDF-Export (Vergleich + Tabelle + Schülerlisten) und CSV.
 6. Berechtigungen/Scope-Tests (Lehrkraft sieht nur eigene Klassen; Schulleitung alles).
 
-### Phase 2 – Förderbereiche & Entwicklung
+### Phase 2 – Förderbereiche & Entwicklung — ✅ umgesetzt (Branch `feat/data-analysis`)
+> Umsetzung: Welle = Erhebungstyp im Schuljahr (ohne Typ: der einzelne Run). Δ-Schwelle aus der aktiven
+> `lq_delta`-Förderschwelle (Standard Δ < −10). Bei mehr als 2 Linien keine Q1–Q3-Bänder (unleserlich),
+> ab 7 Gruppen nur die Gesamtlinie. Presets speichern `settings` = {filters, view, show_bands, by_gender, dev_from, dev_to}.
 7. `stacked-bands` + Tab **Förderbereiche** (inkl. PDF).
 8. Tab **Entwicklung** (Herbst → Frühjahr) mit `development`-Komponente; Δ-Liste
    „stärkste Verschlechterungen“ (mit Namen) für Förderkonferenzen.

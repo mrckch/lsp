@@ -136,6 +136,25 @@ final class DistributionStats
     }
 
     /**
+     * Grenze für „auffällige Verschlechterung“ aus der aktiven Δ-Schwelle (Standard: Δ < −10).
+     *
+     * @return array{0: int, 1: string} Wert und Operator (lt | le)
+     */
+    public static function deltaCut(): array
+    {
+        return once(function () {
+            $t = SupportThreshold::query()
+                ->where('is_active', true)
+                ->where('metric', 'lq_delta')
+                ->whereIn('operator', ['lt', 'le'])
+                ->orderByDesc('value')
+                ->first();
+
+            return $t === null ? [-10, 'lt'] : [(int) $t->value, (string) $t->operator];
+        });
+    }
+
+    /**
      * Achsenbereich: mindestens 70–130, auf Zehner gerundet.
      *
      * @param  list<int|float>  $lqs

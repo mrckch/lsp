@@ -14,35 +14,46 @@ use Illuminate\Support\Collection;
  */
 final class AnalysisPdfRenderer
 {
-    public function __construct(private readonly AnalysisReport $report) {}
+    public function __construct(
+        private readonly AnalysisReport $report,
+        private readonly AnalysisDataset $dataset,
+    ) {}
+
+    public const VIEWS = [
+        'vergleich' => 'Vergleich',
+        'foerderbereiche' => 'Förderbereiche',
+        'entwicklung' => 'Entwicklung',
+    ];
 
     /**
-     * @param  Collection<int, array<string, mixed>>  $rows
-     * @param  array{show_bands?: bool, by_gender?: bool}  $display
+     * @param  array{orientation?: string, views?: list<string>, with_lists?: bool, with_names?: bool, show_bands?: bool, by_gender?: bool, dev_from?: ?string, dev_to?: ?string}  $options
      */
-    public function html(
-        AnalysisFilter $filter,
-        Collection $rows,
-        User $user,
-        string $orientation = 'portrait',
-        bool $withStudentLists = true,
-        array $display = [],
-    ): string {
+    public function html(AnalysisFilter $filter, User $user, array $options = []): string
+    {
+        $views = array_values(array_intersect(array_keys(self::VIEWS), $options['views'] ?? ['vergleich']));
+        $rows = $this->dataset->rows($filter, $user);
         $dist = $this->report->groupedDistribution($rows, $filter->groupBy, $filter->secondaryGroupBy);
+        $withNames = (bool) ($options['with_names'] ?? false);
+        $dev = in_array('entwicklung', $views, true)
+            ? $this->report->development($this->dataset->rows($filter, $user, perWave: true), $filter->groupBy, $options['dev_from'] ?? null, $options['dev_to'] ?? null)
+            : null;
 
         return view('print.analysis', [
             'schoolName' => AppSetting::singleton()->school_name ?? 'Schule',
             'filterText' => $filter->describe(),
             'createdBy' => $user->display_name ?? $user->username,
             'createdAt' => now()->format('d.m.Y, H:i'),
-            'orientation' => $orientation === 'landscape' ? 'landscape' : 'portrait',
+            'orientation' => ($options['orientation'] ?? 'portrait') === 'landscape' ? 'landscape' : 'portrait',
+            'views' => $views,
             'dist' => $dist,
+            'dev' => $dev,
             'kpis' => self::kpis($rows, $dist),
-            'studentLists' => $withStudentLists
+            'withNames' => $withNames,
+            'studentLists' => ($options['with_lists'] ?? false)
                 ? array_map(fn (array $g) => ['label' => trim($g['label'].($g['sublabel'] ? ' · '.$g['sublabel'] : '')), 'students' => AnalysisReport::studentList($g['rows'])], $dist['groups'])
                 : [],
-            'showBands' => (bool) ($display['show_bands'] ?? true),
-            'byGender' => (bool) ($display['by_gender'] ?? false),
+            'showBands' => (bool) ($options['show_bands'] ?? true),
+            'byGender' => (bool) ($options['by_gender'] ?? false),
             'genderInfo' => self::genderInfo($rows),
         ])->render();
     }

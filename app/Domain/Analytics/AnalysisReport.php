@@ -15,6 +15,9 @@ final class AnalysisReport
     /** Gruppen darunter bekommen keine Box, nur Einzelpunkte */
     public const MIN_GROUP_SIZE = 3;
 
+    /** Mehr Verlaufslinien werden unübersichtlich → dann nur „Alle“ */
+    public const MAX_SERIES = 6;
+
     /**
      * Verteilung je Gruppe (optional zweistufig, z. B. Klasse × Geschlecht).
      *
@@ -46,6 +49,136 @@ final class AnalysisReport
             'domain' => DistributionStats::domain($rows->pluck('lq')->all()),
             'threshold' => $threshold,
             'threshold_label' => $thresholdLabel,
+        ];
+    }
+
+    /**
+     * Entwicklung über Erhebungswellen (z. B. Herbst → Frühjahr): Median/Quartile je Welle
+     * und Gruppe sowie Δ-LQ je Schüler zwischen zwei Wellen.
+     * Erwartet einen Versuch je Schüler und Welle (AnalysisDataset::rows(perWave: true)).
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return array<string, mixed>
+     */
+    public function development(Collection $rows, string $groupBy, ?string $fromWave = null, ?string $toWave = null): array
+    {
+        $waves = $rows->groupBy('wave_key')
+            ->map(fn (Collection $items, string $key) => [
+                'key' => $key,
+                'label' => $items->first()['wave_label'],
+                'sort' => $items->min('wave_sort'),
+                'n' => $items->count(),
+            ])
+            ->sortBy('sort')->values()
+            ->map(fn (array $w) => array_diff_key($w, ['sort' => true]))->all();
+        $keys = array_column($waves, 'key');
+
+        $result = ['waves' => $waves, 'enough' => count($waves) >= 2];
+        if (! $result['enough']) {
+            return $result;
+        }
+
+        // Standard: die beiden jüngsten Wellen; „von“ liegt immer vor „bis“
+        $to = in_array($toWave, $keys, true) ? $toWave : $keys[count($keys) - 1];
+        $from = in_array($fromWave, $keys, true) && $fromWave !== $to
+            ? $fromWave
+            : ($keys[array_search($to, $keys, true) - 1] ?? $keys[1]);
+        if (array_search($from, $keys, true) > array_search($to, $keys, true)) {
+            [$from, $to] = [$to, $from];
+        }
+
+        // Verlaufslinien je Gruppe (max. MAX_SERIES, sonst nur „Alle“)
+        $byGroup = $groupBy === 'none' ? collect() : $rows->groupBy(fn (array $r) => self::keyOf($r, $groupBy));
+        $tooMany = $byGroup->count() > self::MAX_SERIES;
+        $seriesSource = $byGroup->isEmpty() || $tooMany
+            ? collect(['total' => $rows])
+            : $byGroup->sortBy(fn (Collection $items) => self::sortOf($items->first(), $groupBy), SORT_NATURAL | SORT_FLAG_CASE);
+        $series = $seriesSource->map(fn (Collection $items, string $key) => [
+            'key' => $key,
+            'label' => $key === 'total' ? 'Alle' : self::labelOf($items->first(), $groupBy),
+            'points' => array_map(function (array $w) use ($items) {
+                $lqs = $items->where('wave_key', $w['key'])->pluck('lq')->sort()->values()->all();
+
+                return $lqs === [] ? null : [
+                    'n' => count($lqs),
+                    'median' => DistributionStats::quantile($lqs, 0.5),
+                    'q1' => DistributionStats::quantile($lqs, 0.25),
+                    'q3' => DistributionStats::quantile($lqs, 0.75),
+                ];
+            }, $waves),
+        ])->values()->all();
+
+        // Paare: Schüler mit Versuch in beiden Wellen; Gruppe/Name aus der späteren Welle
+        $fromRows = $rows->where('wave_key', $from)->keyBy('student_id');
+        [$cutValue, $cutOp] = DistributionStats::deltaCut();
+        $pairs = $rows->where('wave_key', $to)
+            ->filter(fn (array $r) => $fromRows->has($r['student_id']))
+            ->map(function (array $r) use ($fromRows, $cutValue, $cutOp) {
+                $delta = $r['lq'] - $fromRows[$r['student_id']]['lq'];
+
+                return $r + [
+                    'lq_from' => $fromRows[$r['student_id']]['lq'],
+                    'delta' => $delta,
+                    'flagged' => $cutOp === 'le' ? $delta <= $cutValue : $delta < $cutValue,
+                ];
+            })->values();
+
+        $deltaGroups = ($groupBy === 'none' ? collect(['all' => $pairs]) : $pairs->groupBy(fn (array $r) => self::keyOf($r, $groupBy)))
+            ->map(fn (Collection $items, string $key) => $this->deltaGroup($items, $key, $groupBy === 'none' ? 'Alle' : self::labelOf($items->first(), $groupBy))
+                + ['sort' => $groupBy === 'none' ? '' : self::sortOf($items->first(), $groupBy)])
+            ->sortBy('sort', SORT_NATURAL | SORT_FLAG_CASE)->values()
+            ->map(fn (array $g) => array_diff_key($g, ['sort' => true]))->all();
+        $deltas = $pairs->pluck('delta')->all();
+
+        return $result + [
+            'from' => $from,
+            'to' => $to,
+            'from_label' => $waves[array_search($from, $keys, true)]['label'],
+            'to_label' => $waves[array_search($to, $keys, true)]['label'],
+            'series' => $series,
+            'too_many_series' => $tooMany,
+            'domain' => DistributionStats::domain($rows->pluck('lq')->all()),
+            'delta_groups' => $deltaGroups,
+            'delta_total' => $this->deltaGroup($pairs, 'total', 'Gesamt'),
+            'delta_domain' => [
+                (int) (floor((min([-25, ...$deltas]) - 5) / 10) * 10),
+                (int) (ceil((max([25, ...$deltas]) + 5) / 10) * 10),
+            ],
+            'delta_cut' => $cutValue,
+            'delta_cut_op' => $cutOp,
+            'declines' => $pairs->filter(fn (array $r) => $r['delta'] < 0)
+                ->sortBy([['delta', 'asc'], ['name', 'asc']])->values()
+                ->map(fn (array $r) => $r + ['gender_label' => DistributionStats::GENDER_LABELS[$r['gender']]])->all(),
+        ];
+    }
+
+    /**
+     * Δ-Kennzahlen einer Gruppe; Struktur passt zur Boxplot-Komponente (Punkt-x = Δ).
+     *
+     * @param  Collection<int, mixed>  $items  Paare aus development()
+     * @return array<string, mixed>
+     */
+    private function deltaGroup(Collection $items, string $key, string $label): array
+    {
+        $deltas = $items->pluck('delta')->all();
+
+        return [
+            'key' => $key,
+            'label' => $label,
+            'sublabel' => null,
+            'n' => count($deltas),
+            'too_small' => count($deltas) < self::MIN_GROUP_SIZE,
+            'summary' => DistributionStats::summary($deltas),
+            'gender' => null,
+            'improved' => count(array_filter($deltas, fn ($d) => $d > 0)),
+            'declined' => count(array_filter($deltas, fn ($d) => $d < 0)),
+            'flagged' => $items->where('flagged', true)->count(),
+            'points' => $items->sortBy('delta')->map(fn (array $r) => [
+                'lq' => $r['delta'],
+                'gender' => $r['gender'],
+                'label' => ($r['name'] !== '' && ! str_contains($r['name'], '***') ? $r['name'].': ' : '')
+                    .'LQ '.$r['lq_from'].' → '.$r['lq'].' (Δ '.($r['delta'] > 0 ? '+' : '').$r['delta'].')',
+            ])->values()->all(),
         ];
     }
 

@@ -15,6 +15,8 @@
     'print' => false,
     'labels' => null,
     'drilldown' => false,
+    'refs' => null,
+    'unit' => 'LQ',
 ])
 @php
     $labels ??= count($groups) > 1;
@@ -30,28 +32,21 @@
     $x = fn ($v) => round($padL + ($v - $d0) / max(1, $d1 - $d0) * ($W - $padL - $padR), 1);
     $fmt = fn ($v) => $v === null ? '–' : rtrim(rtrim(number_format((float) $v, 1, ',', ''), '0'), ',');
     $norm = \App\Domain\Analytics\DistributionStats::NORM_MEAN;
+    // Referenzlinien: Standard = Schwelle (Beschriftung links) + Normmittel (rechts)
+    $refs ??= [
+        ['value' => $threshold, 'label' => $thresholdLabel.' < '.$threshold, 'class' => 'ref-threshold', 'anchor' => 'end'],
+        ['value' => $norm, 'label' => 'Normmittel '.$norm, 'class' => 'ref-norm', 'anchor' => 'start'],
+    ];
     $total = array_sum(array_column($bands, 'count'));
     $genderLabels = \App\Domain\Analytics\DistributionStats::GENDER_LABELS;
     $aria = count($groups) === 1 && ($groups[0]['summary'] ?? null)
-        ? 'Boxplot der LQ-Werte: Median '.$fmt($groups[0]['summary']['median']).', Quartile '.$fmt($groups[0]['summary']['q1']).' bis '.$fmt($groups[0]['summary']['q3'])
-        : 'Boxplot der LQ-Werte je Gruppe: '.collect($groups)->map(fn ($g) => trim($g['label'].' '.($g['sublabel'] ?? '')).' Median '.$fmt($g['summary']['median'] ?? null))->implode('; ');
+        ? 'Boxplot der '.$unit.'-Werte: Median '.$fmt($groups[0]['summary']['median']).', Quartile '.$fmt($groups[0]['summary']['q1']).' bis '.$fmt($groups[0]['summary']['q3'])
+        : 'Boxplot der '.$unit.'-Werte je Gruppe: '.collect($groups)->map(fn ($g) => trim($g['label'].' '.($g['sublabel'] ?? '')).' Median '.$fmt($g['summary']['median'] ?? null))->implode('; ');
 @endphp
 
 <div {{ $attributes->class(['an-chart', 'an-print' => $print]) }}>
+    <x-analysis.tokens />
     <style>
-        .an-chart { --an-text: rgb(var(--gray-500)); --an-strong: rgb(var(--gray-700)); --an-axis: rgb(var(--gray-300)); --an-grid: rgb(var(--gray-200));
-            --an-row: rgba(var(--gray-500), .05); --an-whisker: rgb(var(--gray-500)); --an-box: rgba(var(--primary-500), .14); --an-box-line: rgb(var(--primary-600));
-            --an-median: rgb(var(--primary-700)); --an-dot: rgb(var(--primary-600)); --an-dot-low: rgb(var(--warning-600)); --an-dot-stroke: #fff;
-            --an-thr: rgb(var(--warning-500)); --an-norm: rgb(var(--gray-400)); --an-w: #2a78d6; --an-m: #eb6834; --an-o: rgb(var(--gray-400));
-            --an-b-f: rgba(var(--danger-500), .12); --an-b-a: rgba(var(--warning-500), .14); --an-b-h: rgba(var(--info-500), .12); --an-b-n: rgba(var(--success-500), .08); }
-        .dark .an-chart { --an-text: rgb(var(--gray-400)); --an-strong: rgb(var(--gray-200)); --an-axis: rgb(var(--gray-600)); --an-grid: rgb(var(--gray-800));
-            --an-row: rgba(255,255,255,.03); --an-whisker: rgb(var(--gray-400)); --an-box: rgba(var(--primary-400), .18); --an-box-line: rgb(var(--primary-400));
-            --an-median: rgb(var(--primary-300)); --an-dot: rgb(var(--primary-400)); --an-dot-low: rgb(var(--warning-400)); --an-dot-stroke: rgb(var(--gray-900));
-            --an-w: #3987e5; --an-m: #d95926; --an-b-f: rgba(var(--danger-400), .18); --an-b-a: rgba(var(--warning-400), .18); --an-b-n: rgba(var(--success-400), .10); }
-        .an-chart.an-print { --an-text: #555; --an-strong: #222; --an-axis: #bbb; --an-grid: #e5e5e5; --an-row: #f7f7f7; --an-whisker: #555;
-            --an-box: rgba(37, 99, 235, .14); --an-box-line: #2563eb; --an-median: #1d4ed8; --an-dot: #2563eb; --an-dot-low: #d97706; --an-dot-stroke: #fff;
-            --an-thr: #f59e0b; --an-norm: #999; --an-w: #2a78d6; --an-m: #eb6834; --an-o: #999;
-            --an-b-f: rgba(239, 68, 68, .14); --an-b-a: rgba(245, 158, 11, .16); --an-b-h: rgba(59, 130, 246, .12); --an-b-n: rgba(34, 197, 94, .10); }
         .an-plot text { fill: var(--an-text); font-size: 14px; }
         .an-plot text.an-label { fill: var(--an-strong); font-size: 15px; }
         .an-plot text.an-sub { fill: var(--an-text); }
@@ -152,10 +147,10 @@
         <line class="axis" x1="{{ $padL }}" x2="{{ $W - $padR }}" y1="{{ $axisY }}" y2="{{ $axisY }}" />
 
         {{-- Referenzlinien --}}
-        <line class="ref-threshold" x1="{{ $x($threshold) }}" x2="{{ $x($threshold) }}" y1="{{ $top - 8 }}" y2="{{ $axisY }}" />
-        <text x="{{ $x($threshold) - 4 }}" y="{{ $top - 14 }}" text-anchor="end">{{ $thresholdLabel }} &lt; {{ $threshold }}</text>
-        <line class="ref-norm" x1="{{ $x($norm) }}" x2="{{ $x($norm) }}" y1="{{ $top - 8 }}" y2="{{ $axisY }}" />
-        <text x="{{ $x($norm) + 4 }}" y="{{ $top - 14 }}">Normmittel {{ $norm }}</text>
+        @foreach($refs as $ref)
+            <line class="{{ $ref['class'] }}" x1="{{ $x($ref['value']) }}" x2="{{ $x($ref['value']) }}" y1="{{ $top - 8 }}" y2="{{ $axisY }}" />
+            <text x="{{ $x($ref['value']) + ($ref['anchor'] === 'end' ? -4 : 4) }}" y="{{ $top - 14 }}" text-anchor="{{ $ref['anchor'] }}">{{ $ref['label'] }}</text>
+        @endforeach
 
         @foreach($groups as $i => $g)
             @php

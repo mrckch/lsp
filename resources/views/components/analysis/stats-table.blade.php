@@ -17,23 +17,7 @@
 @endphp
 
 <div {{ $attributes->class(['an-table-wrap', 'an-print' => $print]) }} style="overflow-x:auto;">
-    <style>
-        .an-table { width: 100%; border-collapse: collapse; font-size: .875rem; font-variant-numeric: tabular-nums; }
-        .an-table th, .an-table td { padding: .35rem .5rem; border-bottom: 1px solid rgb(var(--gray-200)); text-align: right; white-space: nowrap; }
-        .an-table th:first-child, .an-table td:first-child { text-align: left; white-space: normal; }
-        .an-table thead th { font-weight: 600; color: rgb(var(--gray-600)); background: rgba(var(--gray-500), .06); }
-        .an-table tr.is-total td { font-weight: 600; border-top: 2px solid rgb(var(--gray-300)); }
-        .an-table .muted { color: rgb(var(--gray-400)); }
-        .an-table button.an-group { color: rgb(var(--primary-600)); text-decoration: underline; text-underline-offset: 2px; text-align: left; }
-        .dark .an-table th, .dark .an-table td { border-color: rgb(var(--gray-700)); }
-        .dark .an-table thead th { color: rgb(var(--gray-300)); background: rgba(255,255,255,.04); }
-        .dark .an-table button.an-group { color: rgb(var(--primary-400)); }
-        .an-print .an-table { font-size: 9.5pt; }
-        .an-print .an-table th, .an-print .an-table td { border-color: #ddd; }
-        .an-print .an-table thead th { color: #333; background: #f3f3f3; }
-        .an-print .an-table .muted { color: #999; }
-        .an-print .an-table tr.is-total td { border-top: 2px solid #999; }
-    </style>
+    <x-analysis.tokens />
     <table class="an-table">
         <thead>
             <tr>

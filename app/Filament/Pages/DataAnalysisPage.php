@@ -9,6 +9,7 @@ use App\Domain\Analytics\AnalysisDataset;
 use App\Domain\Analytics\AnalysisFilter;
 use App\Domain\Analytics\AnalysisPdfRenderer;
 use App\Domain\Analytics\AnalysisReport;
+use App\Domain\Analytics\Models\AnalysisPreset;
 use App\Domain\Audit\AuditLogger;
 use App\Domain\Crypto\CryptoService;
 use App\Domain\PrintJob\GotenbergClient;
@@ -20,11 +21,14 @@ use App\Domain\TestRun\Models\TestRun;
 use App\Filament\Concerns\AuthorizedPage;
 use App\Filament\Concerns\HandlesPrintErrors;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -78,6 +82,17 @@ class DataAnalysisPage extends Page implements HasForms
 
     #[Url(as: 'geschlecht')]
     public bool $byGender = false;
+
+    /** Ansicht (Tab): vergleich | foerderbereiche | entwicklung */
+    #[Url(as: 'ansicht')]
+    public string $tab = 'vergleich';
+
+    /** Entwicklung: verglichene Erhebungswellen (null = die beiden jüngsten) */
+    #[Url(as: 'von')]
+    public ?string $devFrom = null;
+
+    #[Url(as: 'bis')]
+    public ?string $devTo = null;
 
     public function mount(): void
     {
@@ -189,6 +204,11 @@ class DataAnalysisPage extends Page implements HasForms
         return AnalysisFilter::fromArray((array) $this->filters);
     }
 
+    public function setTab(string $tab): void
+    {
+        $this->tab = array_key_exists($tab, AnalysisPdfRenderer::VIEWS) ? $tab : 'vergleich';
+    }
+
     /** @return Collection<int, array<string, mixed>> */
     public function rows(): Collection
     {
@@ -209,33 +229,88 @@ class DataAnalysisPage extends Page implements HasForms
         return [
             'filter' => $filter,
             'dist' => $dist,
+            'dev' => $this->tab === 'entwicklung' ? $this->development($filter) : null,
             'kpis' => AnalysisPdfRenderer::kpis($rows, $dist),
             'genderInfo' => AnalysisPdfRenderer::genderInfo($rows),
             'noScope' => app(AnalysisDataset::class)->allowedGroupIds(auth()->user()) === [],
+            'canSeeNames' => app(CryptoService::class)->isUnlocked(),
         ];
+    }
+
+    /** @return array<string, mixed> */
+    private function development(AnalysisFilter $filter): array
+    {
+        $dev = app(AnalysisReport::class)->development(
+            app(AnalysisDataset::class)->rows($filter, auth()->user(), perWave: true),
+            $filter->groupBy,
+            $this->devFrom,
+            $this->devTo,
+        );
+        // Auswahlfelder zeigen die tatsächlich verglichenen Wellen
+        if ($dev['enough']) {
+            [$this->devFrom, $this->devTo] = [$dev['from'], $dev['to']];
+        }
+
+        return $dev;
     }
 
     protected function getHeaderActions(): array
     {
+        $canNames = fn () => auth()->user()?->hasPermission('print.generate_with_clearname') ?? false;
+
         return [
+            ActionGroup::make([
+                Action::make('savePreset')
+                    ->label('Speichern …')
+                    ->icon('heroicon-o-bookmark')
+                    ->modalHeading('Auswertung speichern')
+                    ->modalDescription('Speichert Filter und Ansicht. Freigegebene Auswertungen sehen alle – jeweils mit ihren eigenen Daten.')
+                    ->form([
+                        TextInput::make('name')->label('Name')->required()->maxLength(100),
+                        Toggle::make('is_shared')->label('Für alle Nutzer:innen freigeben')->default(false),
+                    ])
+                    ->action(fn (array $data) => $this->savePreset((string) $data['name'], (bool) ($data['is_shared'] ?? false))),
+                Action::make('presets')
+                    ->label('Öffnen …')
+                    ->icon('heroicon-o-folder-open')
+                    ->modalHeading('Gespeicherte Auswertungen')
+                    ->modalContent(fn () => view('filament.pages.data-analysis-presets', [
+                        'presets' => AnalysisPreset::query()->visibleTo(auth()->user())->with('user')->orderBy('name')->get(),
+                    ]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Schließen'),
+            ])->label('Auswertungen')->icon('heroicon-m-bookmark')->button()->color('gray'),
             Action::make('exportPdf')
                 ->label('PDF (A4)')
                 ->icon('heroicon-o-document-arrow-down')
                 ->color('primary')
                 ->visible(fn () => auth()->user()?->hasPermission('print.generate') ?? false)
                 ->modalHeading('Datenanalyse als PDF')
-                ->modalDescription('Enthält den Gruppenvergleich mit Kennzahlen, optional Schülerlisten mit Klarnamen.')
                 ->modalSubmitActionLabel('PDF erzeugen')
+                ->fillForm(fn () => [
+                    'views' => [$this->tab],
+                    'orientation' => 'portrait',
+                    'with_names' => $canNames() && app(CryptoService::class)->isUnlocked(),
+                    'with_lists' => true,
+                ])
                 ->form([
+                    CheckboxList::make('views')->label('Ansichten')
+                        ->options(AnalysisPdfRenderer::VIEWS)
+                        ->columns(3)->required(),
                     Radio::make('orientation')->label('Ausrichtung')
                         ->options(['portrait' => 'Hochformat', 'landscape' => 'Querformat'])
-                        ->default('portrait')->inline()->required(),
-                    Toggle::make('with_lists')->label('Schülerliste je Gruppe anhängen (Klarnamen)')
-                        ->default(fn () => auth()->user()?->hasPermission('print.generate_with_clearname') ?? false)
-                        ->disabled(fn () => ! (auth()->user()?->hasPermission('print.generate_with_clearname') ?? false))
+                        ->inline()->required(),
+                    Toggle::make('with_lists')->label('Schülerliste je Gruppe anhängen'),
+                    Toggle::make('with_names')->label('Mit Klarnamen (sonst Schülercodes)')
+                        ->disabled(fn () => ! $canNames())
                         ->helperText('Erfordert entsperrte Klarnamen. Der Export wird protokolliert.'),
                 ])
-                ->action(fn (array $data) => $this->exportPdf((string) ($data['orientation'] ?? 'portrait'), (bool) ($data['with_lists'] ?? false))),
+                ->action(fn (array $data) => $this->exportPdf([
+                    'views' => array_values((array) ($data['views'] ?? ['vergleich'])),
+                    'orientation' => (string) ($data['orientation'] ?? 'portrait'),
+                    'with_lists' => (bool) ($data['with_lists'] ?? false),
+                    'with_names' => (bool) ($data['with_names'] ?? false),
+                ])),
             Action::make('exportCsv')
                 ->label('CSV')
                 ->icon('heroicon-o-table-cells')
@@ -252,6 +327,49 @@ class DataAnalysisPage extends Page implements HasForms
                 ])
                 ->action(fn (array $data) => $this->exportCsv((bool) ($data['with_values'] ?? false), (bool) ($data['with_names'] ?? false))),
         ];
+    }
+
+    public function savePreset(string $name, bool $shared): void
+    {
+        AnalysisPreset::create([
+            'user_id' => auth()->id(),
+            'name' => $name,
+            'is_shared' => $shared,
+            'settings' => [
+                'filters' => $this->filter()->toArray(),
+                'view' => $this->tab,
+                'show_bands' => $this->showBands,
+                'by_gender' => $this->byGender,
+                'dev_from' => $this->devFrom,
+                'dev_to' => $this->devTo,
+            ],
+        ]);
+        Notification::make()->success()->title('Auswertung „'.$name.'“ gespeichert')->send();
+    }
+
+    public function loadPreset(int $id): void
+    {
+        $preset = AnalysisPreset::query()->visibleTo(auth()->user())->find($id);
+        if ($preset === null) {
+            Notification::make()->warning()->title('Auswertung nicht gefunden')->send();
+
+            return;
+        }
+        $settings = (array) $preset->settings;
+        $this->form->fill(AnalysisFilter::fromArray((array) ($settings['filters'] ?? []))->toArray());
+        $this->setTab((string) ($settings['view'] ?? 'vergleich'));
+        $this->showBands = (bool) ($settings['show_bands'] ?? false);
+        $this->byGender = (bool) ($settings['by_gender'] ?? false);
+        $this->devFrom = $settings['dev_from'] ?? null;
+        $this->devTo = $settings['dev_to'] ?? null;
+        $this->unmountAction();
+        Notification::make()->success()->title('Auswertung „'.$preset->name.'“ geladen')->send();
+    }
+
+    public function deletePreset(int $id): void
+    {
+        // Nur eigene Auswertungen löschen
+        AnalysisPreset::query()->where('user_id', auth()->id())->whereKey($id)->delete();
     }
 
     /**
@@ -288,10 +406,14 @@ class DataAnalysisPage extends Page implements HasForms
         ];
     }
 
-    public function exportPdf(string $orientation, bool $withLists): ?StreamedResponse
+    /**
+     * @param  array{views: list<string>, orientation: string, with_lists: bool, with_names: bool}  $options
+     */
+    public function exportPdf(array $options): ?StreamedResponse
     {
         $user = auth()->user();
-        if ($withLists) {
+        $withNames = $options['with_names'];
+        if ($withNames) {
             if (! $user->hasPermission('print.generate_with_clearname')) {
                 Notification::make()->danger()->title('Keine Berechtigung für Klarnamen-Druck')->send();
 
@@ -300,7 +422,7 @@ class DataAnalysisPage extends Page implements HasForms
             if (! app(CryptoService::class)->isUnlocked()) {
                 Notification::make()->danger()
                     ->title('Klarnamen-Session gesperrt')
-                    ->body('Bitte zuerst unter „Klarnamen → Entsperren" entsperren, dann erneut exportieren – oder ohne Schülerlisten drucken.')
+                    ->body('Bitte zuerst unter „Klarnamen → Entsperren" entsperren, dann erneut exportieren – oder ohne Klarnamen drucken.')
                     ->persistent()->send();
 
                 return null;
@@ -315,17 +437,19 @@ class DataAnalysisPage extends Page implements HasForms
             return null;
         }
 
-        return self::runPrintAction(function () use ($filter, $rows, $user, $orientation, $withLists) {
+        return self::runPrintAction(function () use ($filter, $rows, $user, $options, $withNames) {
             $renderer = app(AnalysisPdfRenderer::class);
-            $html = $renderer->html($filter, $rows, $user, $orientation, $withLists, [
+            $html = $renderer->html($filter, $user, $options + [
                 'show_bands' => $this->showBands,
                 'by_gender' => $this->byGender,
+                'dev_from' => $this->devFrom,
+                'dev_to' => $this->devTo,
             ]);
             $pdf = app(GotenbergClient::class)->htmlToPdf(
                 $html,
                 null,
                 ['preferCssPageSize' => 'true', 'printBackground' => 'true'],
-                ['footer.html' => $renderer->footer($withLists)],
+                ['footer.html' => $renderer->footer($withNames)],
             );
 
             $fileName = 'datenanalyse-'.now()->format('Ymd-Hi').'.pdf';
@@ -336,7 +460,7 @@ class DataAnalysisPage extends Page implements HasForms
                 'file_path' => $path,
                 'mime_type' => 'application/pdf',
                 'size_bytes' => strlen($pdf),
-                'includes_clearnames' => $withLists,
+                'includes_clearnames' => $withNames,
                 'sha256' => hash('sha256', $pdf),
                 'expires_at' => now()->addDays((int) config('lsp.pdf.document_retention_days', 30)),
                 'created_by_user_id' => $user->id,
@@ -345,9 +469,10 @@ class DataAnalysisPage extends Page implements HasForms
             app(AuditLogger::class)->logUser($user, 'analysis.export_pdf', 'generated_document', $doc->id, [
                 'filter' => $filter->toArray(),
                 'students' => $rows->pluck('student_id')->unique()->count(),
-                'orientation' => $orientation,
-                'student_lists' => $withLists,
-            ], includesClearnames: $withLists);
+                'views' => $options['views'],
+                'orientation' => $options['orientation'],
+                'student_lists' => $options['with_lists'],
+            ], includesClearnames: $withNames);
 
             return response()->streamDownload(fn () => print ($pdf), $fileName, ['Content-Type' => 'application/pdf']);
         }, 'PDF-Export');
@@ -375,7 +500,8 @@ class DataAnalysisPage extends Page implements HasForms
         }
 
         $dist = app(AnalysisReport::class)->groupedDistribution($rows, $filter->groupBy, $filter->secondaryGroupBy);
-        $csv = app(AnalysisCsvExporter::class)->toCsv($dist, $filter->describe(), $withValues, $withNames);
+        $dev = $this->tab === 'entwicklung' ? $this->development($filter) : null;
+        $csv = app(AnalysisCsvExporter::class)->toCsv($dist, $filter->describe(), $withValues, $withNames, $dev);
 
         app(AuditLogger::class)->logUser($user, 'analysis.export_csv', null, null, [
             'filter' => $filter->toArray(),

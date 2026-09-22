@@ -12,8 +12,9 @@ final class AnalysisCsvExporter
 {
     /**
      * @param  array<string, mixed>  $dist  AnalysisReport::groupedDistribution()
+     * @param  array<string, mixed>|null  $dev  AnalysisReport::development() – hängt Δ-Kennzahlen und -Werte an
      */
-    public function toCsv(array $dist, string $filterText, bool $withValues, bool $withNames): string
+    public function toCsv(array $dist, string $filterText, bool $withValues, bool $withNames, ?array $dev = null): string
     {
         $fh = fopen('php://temp', 'r+');
         fwrite($fh, "\xEF\xBB\xBF");
@@ -65,6 +66,27 @@ final class AnalysisCsvExporter
                         $r['test_run_name'], $r['assessment_type'], $r['parallel_form'] ?? '',
                         $r['submitted_at']?->format('d.m.Y'), $r['lq'], $r['raw'] ?? '', $r['answered_count'], $r['severity_label'],
                     ]);
+                }
+            }
+        }
+
+        if ($dev !== null && ($dev['enough'] ?? false)) {
+            $put([]);
+            $put(['Entwicklung', $dev['from_label'].' → '.$dev['to_label']]);
+            $put(['Gruppe', 'n (beide Erhebungen)', 'MW Δ', 'Median Δ', 'verbessert', 'verschlechtert', 'auffällig verschlechtert']);
+            foreach ([...$dev['delta_groups'], $dev['delta_total']] as $g) {
+                $put([$g['label'], $g['n'], $num($g['summary']['mean'] ?? null), $num($g['summary']['median'] ?? null), $g['improved'], $g['declined'], $g['flagged']]);
+            }
+            if ($withValues) {
+                $put([]);
+                $put(['Verschlechterungen je Schüler']);
+                $put(array_values(array_filter(['Schülercode', $withNames ? 'Name' : null, 'Lerngruppe', 'LQ '.$dev['from_label'], 'LQ '.$dev['to_label'], 'Δ', 'auffällig'])));
+                foreach ($dev['declines'] as $r) {
+                    $line = [$r['student_code']];
+                    if ($withNames) {
+                        $line[] = $r['name'];
+                    }
+                    $put([...$line, $r['learning_group_name'], $r['lq_from'], $r['lq'], $r['delta'], $r['flagged'] ? 'ja' : 'nein']);
                 }
             }
         }

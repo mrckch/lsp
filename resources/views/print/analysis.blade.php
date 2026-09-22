@@ -51,23 +51,41 @@
         @endforeach
     </div>
 
-    <h2>Vergleich der Gruppen (LQ)</h2>
-    <x-analysis.boxplot
-        :groups="$dist['groups']"
-        :labels="true"
-        :domain="$dist['domain']"
-        :bands="$dist['bands']"
-        :threshold="$dist['threshold']"
-        :threshold-label="$dist['threshold_label']"
-        :show-bands="$showBands"
-        :by-gender="$byGender"
-        :gender-info="$genderInfo"
-        :print="true"
-    />
-    <p class="note">Box = mittlere 50 % (Q1–Q3), Strich = Median, Linien = Whisker (1,5 × IQR), Punkte = einzelne Schüler:innen.</p>
+    @foreach($views as $i => $view)
+        @if($i > 0)<div class="page-break"></div>@endif
 
-    <h3>Kennzahlen</h3>
-    <x-analysis.stats-table :groups="$dist['groups']" :total="$dist['total']" :bands="$dist['bands']" :print="true" />
+        @if($view === 'vergleich')
+            <h2>Vergleich der Gruppen (LQ)</h2>
+            <x-analysis.boxplot
+                :groups="$dist['groups']"
+                :labels="true"
+                :domain="$dist['domain']"
+                :bands="$dist['bands']"
+                :threshold="$dist['threshold']"
+                :threshold-label="$dist['threshold_label']"
+                :show-bands="$showBands"
+                :by-gender="$byGender"
+                :gender-info="$genderInfo"
+                :print="true"
+            />
+            <p class="note">Box = mittlere 50 % (Q1–Q3), Strich = Median, Linien = Whisker (1,5 × IQR), Punkte = einzelne Schüler:innen.</p>
+
+            <h3>Kennzahlen</h3>
+            <x-analysis.stats-table :groups="$dist['groups']" :total="$dist['total']" :bands="$dist['bands']" :print="true" />
+        @elseif($view === 'foerderbereiche')
+            <h2>Förderbereiche je Gruppe</h2>
+            <x-analysis.stacked-bands :groups="$dist['groups']" :total="$dist['total']" :bands="$dist['bands']" :print="true" />
+            <p class="note">Anteil der Schüler:innen je Förderbereich (Grenzen aus den aktiven Förderbedarfsschwellen); Zahl im Balken = Anzahl.</p>
+        @elseif($view === 'entwicklung')
+            <h2>Entwicklung über die Erhebungen</h2>
+            @if(! $dev['enough'])
+                <p class="note">Für eine Entwicklung werden Daten aus mindestens zwei Erhebungen benötigt – bitte den Filter erweitern (z. B. Erhebungstyp „alle“).</p>
+            @else
+                <x-analysis.development :dev="$dev" :threshold="$dist['threshold']" :threshold-label="$dist['threshold_label']" :print="true" />
+                <x-analysis.delta-details :dev="$dev" :print="true" :names="$withNames" />
+            @endif
+        @endif
+    @endforeach
 
     @if($studentLists !== [])
         <div class="page-break"></div>
@@ -79,7 +97,7 @@
                 <table class="list">
                     <thead>
                         <tr>
-                            <th>Name</th>
+                            <th>{{ $withNames ? 'Name' : 'Schülercode' }}</th>
                             <th>Klasse</th>
                             <th>Geschlecht</th>
                             <th>Testdurchlauf</th>
@@ -91,7 +109,7 @@
                     <tbody>
                         @foreach($list['students'] as $s)
                             <tr>
-                                <td>{{ $s['name'] !== '' ? $s['name'] : $s['student_code'] }}</td>
+                                <td>{{ $withNames && $s['name'] !== '' ? $s['name'] : $s['student_code'] }}</td>
                                 <td>{{ $s['learning_group_name'] }}</td>
                                 <td>{{ $s['gender_label'] }}</td>
                                 <td>{{ $s['test_run_name'] }}</td>

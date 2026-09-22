@@ -8,10 +8,12 @@ use App\Domain\Analytics\AnalysisCsvExporter;
 use App\Domain\Analytics\AnalysisDataset;
 use App\Domain\Analytics\AnalysisFilter;
 use App\Domain\Analytics\AnalysisReport;
+use App\Domain\Analytics\Models\AnalysisPreset;
 use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Crypto\CryptoService;
 use App\Domain\PrintJob\GotenbergClient;
 use App\Domain\PrintJob\Models\GeneratedDocument;
+use App\Domain\TestRun\Models\AssessmentType;
 use App\Filament\Pages\DataAnalysisPage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -124,7 +126,7 @@ class DataAnalysisPageTest extends TestCase
     public function pdf_with_student_lists_is_stored_and_audited(): void
     {
         Livewire::test(DataAnalysisPage::class)
-            ->callAction('exportPdf', ['orientation' => 'landscape', 'with_lists' => true])
+            ->callAction('exportPdf', ['views' => ['vergleich'], 'orientation' => 'landscape', 'with_lists' => true, 'with_names' => true])
             ->assertHasNoActionErrors()
             ->assertFileDownloaded('datenanalyse-20261005-1015.pdf');
 
@@ -147,17 +149,20 @@ class DataAnalysisPageTest extends TestCase
         app(CryptoService::class)->lock();
 
         Livewire::test(DataAnalysisPage::class)
-            ->callAction('exportPdf', ['orientation' => 'portrait', 'with_lists' => true])
+            ->callAction('exportPdf', ['views' => ['vergleich'], 'orientation' => 'portrait', 'with_lists' => true, 'with_names' => true])
             ->assertNotified('Klarnamen-Session gesperrt');
 
         $this->assertNull($this->captured['html']);
         $this->assertSame(0, GeneratedDocument::query()->count());
 
-        // Ohne Schülerlisten geht es auch gesperrt
+        // Ohne Klarnamen geht es auch gesperrt – Listen dann mit Schülercodes
         Livewire::test(DataAnalysisPage::class)
-            ->callAction('exportPdf', ['orientation' => 'portrait', 'with_lists' => false])
+            ->callAction('exportPdf', ['views' => ['vergleich'], 'orientation' => 'portrait', 'with_lists' => true, 'with_names' => false])
             ->assertFileDownloaded();
-        $this->assertStringNotContainsString('Schülerlisten je Gruppe', $this->captured['html']);
+        $this->assertStringContainsString('Schülerlisten je Gruppe', $this->captured['html']);
+        $this->assertStringContainsString($this->students['Clara']->student_code, $this->captured['html']);
+        $this->assertStringNotContainsString('Clara Test', $this->captured['html']);
+        $this->assertStringNotContainsString('enthält Klarnamen', $this->captured['files']['footer.html']);
         $this->assertFalse(GeneratedDocument::query()->sole()->includes_clearnames);
     }
 
@@ -178,5 +183,102 @@ class DataAnalysisPageTest extends TestCase
         $this->assertStringContainsString('5b;;3;88,3;', $csv);
         $this->assertStringContainsString('Gesamt;;5;89,0;', $csv);
         $this->assertStringNotContainsString('Clara Test', $csv);   // ohne Namen nur Codes
+    }
+
+    private function addSpringWave(): void
+    {
+        $spring = $this->makeRun('Frühjahr 5', AssessmentType::create(['key' => 'fj', 'label' => 'Frühjahr', 'sort_order' => 2]), [$this->g5a, $this->g5b]);
+        foreach (['Anna' => 70, 'Clara' => 45, 'Ben' => 108] as $name => $lq) {
+            $this->attempt($this->students[$name], $spring, $lq, submittedAt: now()->toDateTimeString());
+        }
+    }
+
+    #[Test]
+    public function tabs_show_support_bands_and_development(): void
+    {
+        $this->addSpringWave();
+
+        Livewire::test(DataAnalysisPage::class)
+            ->call('setTab', 'foerderbereiche')
+            ->assertSet('tab', 'foerderbereiche')
+            ->assertSee('Förderbereiche je Gruppe')
+            ->assertSee('Anteile der Förderbereiche je Gruppe', false)
+            ->call('setTab', 'entwicklung')
+            ->assertSee('Entwicklung über die Erhebungen')
+            ->assertSee('Stärkste Verschlechterungen')
+            ->assertSee('Clara Test')
+            ->assertSee('Herbst 26/27')
+            ->assertSee('Frühjahr 26/27')
+            ->call('setTab', 'unsinn')
+            ->assertSet('tab', 'vergleich');
+    }
+
+    #[Test]
+    public function development_needs_two_waves(): void
+    {
+        Livewire::withQueryParams(['ansicht' => 'entwicklung'])
+            ->test(DataAnalysisPage::class)
+            ->assertSee('mindestens zwei Erhebungen');
+    }
+
+    #[Test]
+    public function pdf_can_contain_all_views(): void
+    {
+        $this->addSpringWave();
+
+        Livewire::test(DataAnalysisPage::class)
+            ->callAction('exportPdf', ['views' => ['vergleich', 'foerderbereiche', 'entwicklung'], 'orientation' => 'portrait', 'with_lists' => false, 'with_names' => true])
+            ->assertFileDownloaded();
+
+        $html = $this->captured['html'];
+        $this->assertStringContainsString('Vergleich der Gruppen (LQ)', $html);
+        $this->assertStringContainsString('Förderbereiche je Gruppe', $html);
+        $this->assertStringContainsString('Entwicklung über die Erhebungen', $html);
+        $this->assertStringContainsString('Clara Test', $html);   // Verschlechterungen mit Namen
+        $this->assertStringNotContainsString('Schülerlisten je Gruppe', $html);
+        $this->assertSame(['vergleich', 'foerderbereiche', 'entwicklung'], AuditLog::query()->where('action', 'analysis.export_pdf')->sole()->context['views']);
+    }
+
+    #[Test]
+    public function presets_are_saved_shared_loaded_and_only_deleted_by_owner(): void
+    {
+        Livewire::withQueryParams(['f' => ['group_by' => 'gender'], 'ansicht' => 'foerderbereiche'])
+            ->test(DataAnalysisPage::class)
+            ->callAction('savePreset', ['name' => 'Mädchen/Jungen', 'is_shared' => true])
+            ->assertHasNoActionErrors();
+
+        $preset = AnalysisPreset::query()->sole();
+        $this->assertSame('gender', $preset->settings['filters']['group_by']);
+        $this->assertSame('foerderbereiche', $preset->settings['view']);
+
+        // Lehrkraft lädt die freigegebene Auswertung, darf sie aber nicht löschen
+        $this->actingAs($this->teacher);
+        Livewire::test(DataAnalysisPage::class)
+            ->mountAction('presets')
+            ->assertSee('Mädchen/Jungen')
+            ->call('loadPreset', $preset->id)
+            ->assertSet('filters.group_by', 'gender')
+            ->assertSet('tab', 'foerderbereiche')
+            ->call('deletePreset', $preset->id);
+        $this->assertTrue(AnalysisPreset::query()->whereKey($preset->id)->exists());
+
+        $this->actingAs($this->admin);
+        Livewire::test(DataAnalysisPage::class)->call('deletePreset', $preset->id);
+        $this->assertFalse(AnalysisPreset::query()->whereKey($preset->id)->exists());
+    }
+
+    #[Test]
+    public function private_presets_are_invisible_to_others(): void
+    {
+        Livewire::test(DataAnalysisPage::class)
+            ->callAction('savePreset', ['name' => 'Nur für mich', 'is_shared' => false]);
+        $id = AnalysisPreset::query()->sole()->id;
+
+        $this->actingAs($this->teacher);
+        Livewire::test(DataAnalysisPage::class)
+            ->mountAction('presets')
+            ->assertDontSee('Nur für mich')
+            ->call('loadPreset', $id)
+            ->assertNotified('Auswertung nicht gefunden');
     }
 }

@@ -25,6 +25,8 @@
         .dark .da-kpi { background: rgb(var(--gray-900)); border-color: rgba(255,255,255,.1); }
         .dark .da-kpi .v { color: #fff; }
         .da-empty { color: rgb(var(--gray-500)); padding: 1rem 0; }
+        .da-waves { display: flex; flex-wrap: wrap; gap: .5rem 1rem; }
+        .da-waves label { display: flex; align-items: center; gap: .4rem; font-size: .875rem; color: rgb(var(--gray-500)); }
     </style>
 
     <div class="da-presets">
@@ -71,42 +73,108 @@
             @endforeach
         </div>
 
-        <x-filament::section>
-            <x-slot name="heading">Vergleich</x-slot>
-            <x-slot name="description">
-                {{ count($dist['groups']) }} {{ count($dist['groups']) === 1 ? 'Gruppe' : 'Gruppen' }} ·
-                Klick auf einen Gruppennamen öffnet die Schülerliste.
-            </x-slot>
-            <x-slot name="headerEnd">
-                <div style="display:flex; flex-wrap:wrap; gap:.5rem; justify-content:flex-end;">
-                    <x-filament::button size="sm" :color="$showBands ? 'primary' : 'gray'" :outlined="! $showBands"
-                                        icon="heroicon-m-adjustments-horizontal" wire:click="$toggle('showBands')">
-                        Förderbereiche
-                    </x-filament::button>
-                    <x-filament::button size="sm" :color="$byGender ? 'primary' : 'gray'" :outlined="! $byGender"
-                                        icon="heroicon-m-user-group" wire:click="$toggle('byGender')">
-                        Nach Geschlecht
-                    </x-filament::button>
+        <x-filament::tabs label="Ansicht">
+            <x-filament::tabs.item :active="$tab === 'vergleich'" icon="heroicon-m-chart-bar" wire:click="setTab('vergleich')">
+                Vergleich
+            </x-filament::tabs.item>
+            <x-filament::tabs.item :active="$tab === 'foerderbereiche'" icon="heroicon-m-bars-3-center-left" wire:click="setTab('foerderbereiche')">
+                Förderbereiche
+            </x-filament::tabs.item>
+            <x-filament::tabs.item :active="$tab === 'entwicklung'" icon="heroicon-m-arrow-trending-up" wire:click="setTab('entwicklung')">
+                Entwicklung
+            </x-filament::tabs.item>
+        </x-filament::tabs>
+
+        @if($tab === 'vergleich')
+            <x-filament::section>
+                <x-slot name="heading">Vergleich</x-slot>
+                <x-slot name="description">
+                    {{ count($dist['groups']) }} {{ count($dist['groups']) === 1 ? 'Gruppe' : 'Gruppen' }} ·
+                    Klick auf einen Gruppennamen öffnet die Schülerliste.
+                </x-slot>
+                <x-slot name="headerEnd">
+                    <div style="display:flex; flex-wrap:wrap; gap:.5rem; justify-content:flex-end;">
+                        <x-filament::button size="sm" :color="$showBands ? 'primary' : 'gray'" :outlined="! $showBands"
+                                            icon="heroicon-m-adjustments-horizontal" wire:click="$toggle('showBands')">
+                            Förderbereiche
+                        </x-filament::button>
+                        <x-filament::button size="sm" :color="$byGender ? 'primary' : 'gray'" :outlined="! $byGender"
+                                            icon="heroicon-m-user-group" wire:click="$toggle('byGender')">
+                            Nach Geschlecht
+                        </x-filament::button>
+                    </div>
+                </x-slot>
+
+                <x-analysis.boxplot
+                    :groups="$dist['groups']"
+                    :labels="true"
+                    :domain="$dist['domain']"
+                    :bands="$dist['bands']"
+                    :threshold="$dist['threshold']"
+                    :threshold-label="$dist['threshold_label']"
+                    :show-bands="$showBands"
+                    :by-gender="$byGender"
+                    :gender-info="$v['genderInfo']"
+                    :drilldown="true"
+                />
+
+                <div style="margin-top:1rem;">
+                    <x-analysis.stats-table :groups="$dist['groups']" :total="$dist['total']" :bands="$dist['bands']" :drilldown="true" />
                 </div>
-            </x-slot>
+            </x-filament::section>
+        @elseif($tab === 'foerderbereiche')
+            <x-filament::section>
+                <x-slot name="heading">Förderbereiche je Gruppe</x-slot>
+                <x-slot name="description">
+                    Anteil der Schüler:innen je Förderbereich (Grenzen aus den aktiven Förderbedarfsschwellen). Klick auf eine Gruppe öffnet die Schülerliste.
+                </x-slot>
+                <x-analysis.stacked-bands :groups="$dist['groups']" :total="$dist['total']" :bands="$dist['bands']" :drilldown="true" />
+            </x-filament::section>
+        @else
+            @php $dev = $v['dev']; @endphp
+            <x-filament::section>
+                <x-slot name="heading">Entwicklung über die Erhebungen</x-slot>
+                <x-slot name="description">
+                    Median und mittlere 50 % je Erhebung; darunter die Veränderung je Schüler:in zwischen zwei Erhebungen.
+                    @if($filter->secondaryGroupBy) Die zusätzliche Aufteilung wird hier nicht verwendet. @endif
+                </x-slot>
 
-            <x-analysis.boxplot
-                :groups="$dist['groups']"
-                :labels="true"
-                :domain="$dist['domain']"
-                :bands="$dist['bands']"
-                :threshold="$dist['threshold']"
-                :threshold-label="$dist['threshold_label']"
-                :show-bands="$showBands"
-                :by-gender="$byGender"
-                :gender-info="$v['genderInfo']"
-                :drilldown="true"
-            />
+                @if(! $dev['enough'])
+                    <p class="da-empty">
+                        Für eine Entwicklung werden Daten aus mindestens zwei Erhebungen benötigt
+                        (gefunden: {{ count($dev['waves']) }}). Bitte im Filter mehrere Erhebungstypen bzw. Schuljahre zulassen.
+                    </p>
+                @else
+                    <x-slot name="headerEnd">
+                        <div class="da-waves">
+                            <label>
+                                <span>von</span>
+                                <x-filament::input.wrapper>
+                                    <x-filament::input.select wire:model.live="devFrom">
+                                        @foreach($dev['waves'] as $w)
+                                            <option value="{{ $w['key'] }}" @selected($w['key'] === $dev['from'])>{{ $w['label'] }}</option>
+                                        @endforeach
+                                    </x-filament::input.select>
+                                </x-filament::input.wrapper>
+                            </label>
+                            <label>
+                                <span>bis</span>
+                                <x-filament::input.wrapper>
+                                    <x-filament::input.select wire:model.live="devTo">
+                                        @foreach($dev['waves'] as $w)
+                                            <option value="{{ $w['key'] }}" @selected($w['key'] === $dev['to'])>{{ $w['label'] }}</option>
+                                        @endforeach
+                                    </x-filament::input.select>
+                                </x-filament::input.wrapper>
+                            </label>
+                        </div>
+                    </x-slot>
 
-            <div style="margin-top:1rem;">
-                <x-analysis.stats-table :groups="$dist['groups']" :total="$dist['total']" :bands="$dist['bands']" :drilldown="true" />
-            </div>
-        </x-filament::section>
+                    <x-analysis.development :dev="$dev" :threshold="$dist['threshold']" :threshold-label="$dist['threshold_label']" />
+                    <x-analysis.delta-details :dev="$dev" :names="$v['canSeeNames']" style="margin-top:1rem;" />
+                @endif
+            </x-filament::section>
+        @endif
     @endif
 
 </x-filament-panels::page>
