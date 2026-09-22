@@ -15,6 +15,16 @@ if [ "$(id -u)" = "0" ]; then
     chown -R lsp:lsp storage bootstrap/cache 2>/dev/null || true
     chmod -R 775 storage bootstrap/cache 2>/dev/null || true
 
+    # .env muss vom Container-User lsp (uid/gid 1000) lesbar sein. queue/scheduler
+    # wechseln gleich per gosu zu lsp und würden sonst config:cache mit LEEREM
+    # APP_KEY schreiben — bootstrap/cache ist per Bind-Mount von allen Containern
+    # geteilt, der leere Key clobbert dann den korrekten. Wir setzen NUR das
+    # Gruppen-Leserecht (Gruppe lsp), Secrets bleiben also nicht world-readable.
+    if [ -f .env ]; then
+        chgrp lsp .env 2>/dev/null || true
+        chmod g+r,o-rwx .env 2>/dev/null || true
+    fi
+
     case "${1:-}" in
         php-fpm|*php-fpm*) : ;;  # bleibt root, Worker switch via Pool-Config
         *) exec gosu lsp:lsp "$0" "$@" ;;
@@ -49,9 +59,18 @@ fi
 
 # Cache for production
 if [ "${APP_ENV:-local}" = "production" ]; then
-    php artisan config:cache  || true
-    php artisan route:cache   || true
-    php artisan view:cache    || true
+    # Nur cachen, wenn der APP_KEY wirklich verfügbar ist (aus der Umgebung oder
+    # einer lesbaren .env). Sonst würde ein config.php mit leerem Key in den
+    # geteilten bootstrap/cache geschrieben (Race zwischen app/queue/scheduler)
+    # und die Klarnamen-Krypto bräche mit „No application encryption key".
+    if [ -n "${APP_KEY:-}" ] || { [ -r .env ] && grep -q "^APP_KEY=base64:" .env; }; then
+        php artisan config:cache  || true
+        php artisan route:cache   || true
+        php artisan view:cache    || true
+    else
+        echo "[entrypoint] WARNUNG: APP_KEY nicht lesbar (.env-Rechte?) — überspringe config:cache und leere den Cache, um keinen leeren Key zu cachen." >&2
+        php artisan config:clear || true
+    fi
 fi
 
 exec "$@"

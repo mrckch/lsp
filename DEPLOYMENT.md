@@ -24,6 +24,10 @@ cp .env.production.example .env
 # .env editieren: alle <…>-Platzhalter ersetzen (APP_URL, DB-/Redis-Passwörter,
 # IP der NPM-VM, MAIL_*). Passwörter z. B. mit: openssl rand -base64 32
 
+# .env für den Container-User lsp (uid/gid 1000) lesbar machen — sonst cachen
+# die queue-/scheduler-Container einen leeren APP_KEY (siehe Hinweis unten).
+sudo chgrp 1000 .env && chmod 640 .env
+
 # 3. Stack bauen + starten (PHP 8.4-FPM, MariaDB 11, Redis 7, Caddy 2, Gotenberg 8)
 docker compose up -d --build
 
@@ -45,6 +49,18 @@ docker compose exec app php artisan lsp:selftest    # Diagnose: alles grün?
 `infra/app/Dockerfile`). Wurde `vendor/` lokal mit einer anderen PHP-Version erzeugt, kann der
 Container-Start fehlschlagen. Lösung: `vendor/` löschen oder `composer install` im Container ausführen.
 
+> **Warum `.env` für uid/gid 1000 lesbar sein muss.** `app` (PHP-FPM) läuft als root, aber die
+> `queue`- und `scheduler`-Container droppen im Entrypoint via `gosu` auf den User `lsp` (uid/gid 1000).
+> Bei `APP_ENV=production` baut jeder Container beim Start `config:cache` — im geteilten,
+> bind-gemounteten `bootstrap/cache`. Kann `lsp` die `.env` nicht lesen (z. B. `root:root 600`, wie es
+> bei `openssl`-generierten Secrets unter restriktiver umask leicht entsteht), cacht er einen **leeren
+> `APP_KEY`** und überschreibt damit den korrekten. Folge: `lsp:selftest` meldet *„crypto: No application
+> encryption key has been specified"* und die Klarnamen-Entschlüsselung bricht — reproduzierbar nach
+> jedem `docker compose restart app queue scheduler`. Der Entrypoint härtet das seit v1.46.2 zusätzlich
+> ab (setzt Gruppen-Leserecht selbst und cacht nie mehr einen leeren Key), aber ein `chmod 640` mit
+> Gruppe `1000` auf dem Host ist der saubere, explizite Weg. `640` statt `644`, damit die Secrets **nicht**
+> world-readable werden.
+
 ## Deploy-Variante: Portainer (Git-Repository-Stack)
 
 Wenn der Host mit Portainer verwaltet wird, sollte der Stack **als Git-Repository-Stack
@@ -64,6 +80,12 @@ ausgecheckt.
 
 Danach einmalig die Laravel-Init aus „Erstinstallation" Schritt 4 im `app`-Container
 ausführen (`composer install … --no-scripts`, `key:generate`, `migrate --seed`).
+
+> **`.env` in Portainer-Stacks:** Legt der Stack seine `.env` als Datei im Working-Dir an
+> (`/data/compose/<id>/.env`), gilt dieselbe Regel wie oben — sie muss für uid/gid 1000 lesbar
+> sein (`chgrp 1000 .env && chmod 640 .env` per SSH auf dem Host). Werden die Werte dagegen als
+> Portainer-*Environment variables* gesetzt und `APP_KEY` explizit übergeben, reicht das dem
+> Entrypoint bereits (er cacht dann aus der Umgebung).
 
 **Update auf neuen Tag:**
 1. Portainer → Stack → **Editor**
@@ -325,6 +347,20 @@ docker compose exec app php artisan migrate --seed --force
 
 **Schüler bekommen „Too Many Requests" (429)**: Stimmt die NPM-IP in `LSP_CADDY_TRUSTED_PROXIES`?
 Sonst zählen alle Anfragen unter einer IP. Limits ggf. über `LSP_STUDENT_*` anpassen.
+
+**`lsp:selftest` meldet „crypto: No application encryption key has been specified"** (obwohl `APP_KEY`
+in der `.env` steht): Die `queue`-/`scheduler`-Container (User `lsp`, uid/gid 1000) konnten die `.env`
+nicht lesen und haben einen leeren Key in den geteilten `bootstrap/cache` gecacht. Fix auf dem Host:
+
+```bash
+chgrp 1000 .env && chmod 640 .env
+docker compose exec app php artisan config:clear
+docker compose restart app queue scheduler
+docker compose exec app php artisan lsp:selftest
+```
+
+Ab v1.46.2 verhindert der Entrypoint das doppelt (Gruppen-Leserecht + kein Cachen leerer Keys); auf
+älteren Ständen ist der `chmod` oben die Lösung.
 
 **Setup-Wizard zeigt sich nicht**: prüfen ob `is_initialized` in `app_settings` evtl. schon true ist.
 
