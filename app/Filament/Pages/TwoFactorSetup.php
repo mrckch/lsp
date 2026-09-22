@@ -82,6 +82,9 @@ class TwoFactorSetup extends Page implements HasForms
 
         app(AuditLogger::class)->logUser(auth()->user(), 'two_factor.enabled');
 
+        // Session gilt als 2FA-bestätigt (kein sofortiges Login-2FA-Re-Challenge).
+        session()->put('login_2fa_ok', true);
+
         Notification::make()->success()
             ->title('2FA aktiviert')
             ->body('Bitte bewahren Sie Ihre Recovery-Codes (im nächsten Schritt) sicher auf.')

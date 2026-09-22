@@ -55,7 +55,9 @@ class ForceTwoFactorTest extends TestCase
         $user->userGroups()->attach(UserGroup::where('name', 'Admin')->first()->id);
         $this->actingAs($user);
 
-        $this->get('/admin')->assertStatus(200);
+        // Login-2FA-Gate als bestätigt markieren — hier wird nur geprüft, dass ein
+        // bereits eingerichteter Admin NICHT erneut zur 2FA-Einrichtung geleitet wird.
+        $this->withSession(['login_2fa_ok' => true])->get('/admin')->assertStatus(200);
     }
 
     #[Test]
