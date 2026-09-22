@@ -12,7 +12,7 @@ Dieses Dokument fasst den Stand des Projekts so zusammen, dass eine neue Session
 - **Lizenz:** EUPL 1.2
 - **Sprache der Doku & UI:** Deutsch
 - **Stack:** Laravel 12 · Filament 3 · MariaDB · Redis · Gotenberg · Docker Compose · Caddy
-- **Aktueller Stand:** `main` (→ **`v1.46.2`**) · **322 PHPUnit-Tests / 1169 Assertions** + **10 Dusk-E2E-Tests / 36 Assertions** durchgehend grün · `composer lint` (Pint + PHPStan Level 5) sauber · CI-Pipeline (GitHub Actions) · `lsp:selftest`-Command · **erstes Live-Deployment auf Docker-VM hinter Nginx Proxy Manager (`https://lsp.lernix.site`) verifiziert**
+- **Aktueller Stand:** `main` (→ **`v1.47.0`**) · **394 PHPUnit-Tests / 1613 Assertions** + **10 Dusk-E2E-Tests / 36 Assertions** durchgehend grün · `composer lint` (Pint + PHPStan Level 5) sauber · CI-Pipeline (GitHub Actions) · `lsp:selftest`-Command · **erstes Live-Deployment auf Docker-VM hinter Nginx Proxy Manager (`https://lsp.lernix.site`) verifiziert**
 
 ---
 
@@ -161,7 +161,8 @@ infra/                – Dockerfile, Caddyfile, docker-compose.yml
 | v1.45.0 | Docker-Stack-Fixes: PHP 8.4, MariaDB-Index-Limit, Caddy-Pfade, Volume-Bind-Mounts, Entrypoint-Permissions |
 | v1.46.0 | Produktionsreife: Backup auf MariaDB + Binärdaten + SFTP + Scheduler + Pflicht-Passwort, Schüler-Rate-Limits pro Code/Versuch + Save-Retry im Test-UI, Override-Datei raus, NPM-Betrieb (Caddyfile/Trusted Proxies), manueller Fragen-Import CSV/JSON |
 | v1.46.1 | Hotfix: Normtabellen-CSV-Import importierte nie Zeilen (falscher Disk-Pfad) — jetzt über die Disk, Upload wird gelöscht, Excel-Encoding, Fehlermeldungen |
-| **v1.46.2** | **Live-Hotfixes: Schüler-Import-Disk-Pfad (wie v1.46.1, im ImportWizard), 500 auf Lerngruppen/Schüler/Testläufe (`modifyQueryUsing`-Closure-Parameter `$q`→`$query`), Import-Commit-Fehler-Notification, docker-compose `&app_env` vervollständigt** |
+| v1.46.2 | *(nie getaggt – Inhalt in v1.47.0 enthalten)* |
+| **v1.47.0** | **Auswertung → Datenanalyse (6 Ansichten, PDF/CSV, gespeicherte Auswertungen), Testdurchlauf-Übersicht + Dashboard-Kacheln, QR-Login-Karten, Fokus-Ansicht mit Vorabübung, Auto-Wertung, echtes Login-2FA, Import-Fortschritt/-Verlauf, Standard-Druckvorlagen/-Rückmeldeset; Fixes: Scheduler, leerer APP_KEY im Cache, Import-Pfad, 500er (`$query`/`$state`)** |
 
 ---
 
@@ -169,7 +170,7 @@ infra/                – Dockerfile, Caddyfile, docker-compose.yml
 
 Vom User explizit als „später" markiert oder am Ende der letzten Session vorgeschlagen, aber nicht angegangen:
 
-0. **v1.46.x live auf MariaDB verifizieren** — Backup/Restore-Roundtrip, SFTP-Upload und NPM-Proxy-Headers sind nur gegen SQLite bzw. Fakes getestet; einmal im echten Docker-Stack hinter NPM durchspielen (inkl. Klassen-Lasttest über Schul-WLAN).
+0. **v1.47.x live auf MariaDB verifizieren** — Backup/Restore-Roundtrip, SFTP-Upload und NPM-Proxy-Headers sind nur gegen SQLite bzw. Fakes getestet; einmal im echten Docker-Stack hinter NPM durchspielen (inkl. Klassen-Lasttest über Schul-WLAN).
 1. **Dusk-Test für Bulk-Action-Modal-Flow** — der eigentliche Bulk-Action-Klick (Multi-Row-Auswahl + Modal-Confirmation) ist in v1.36.0 bewusst weggelassen worden, weil Dusk + Livewire-Modals fragil. Wenn das gewünscht ist, müsste man Page-Objects in Filament-Style aufbauen.
 
 ---

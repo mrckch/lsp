@@ -17,7 +17,7 @@ Reverse-Proxy** (z. B. Nginx Proxy Manager auf eigener VM — Standard) oder der
 # 1. Repo auf festen Release-Tag klonen (nie 'main' in Produktion)
 git clone <repo-url> /opt/lsp
 cd /opt/lsp
-git checkout v1.46.2
+git checkout v1.47.0
 
 # 2. Konfiguration
 cp .env.production.example .env
@@ -56,7 +56,7 @@ Container-Start fehlschlagen. Lösung: `vendor/` löschen oder `composer install
 > bei `openssl`-generierten Secrets unter restriktiver umask leicht entsteht), cacht er einen **leeren
 > `APP_KEY`** und überschreibt damit den korrekten. Folge: `lsp:selftest` meldet *„crypto: No application
 > encryption key has been specified"* und die Klarnamen-Entschlüsselung bricht — reproduzierbar nach
-> jedem `docker compose restart app queue scheduler`. Der Entrypoint härtet das seit v1.46.2 zusätzlich
+> jedem `docker compose restart app queue scheduler`. Der Entrypoint härtet das seit v1.47.0 zusätzlich
 > ab (setzt Gruppen-Leserecht selbst und cacht nie mehr einen leeren Key), aber ein `chmod 640` mit
 > Gruppe `1000` auf dem Host ist der saubere, explizite Weg. `640` statt `644`, damit die Secrets **nicht**
 > world-readable werden.
@@ -72,7 +72,7 @@ ausgecheckt.
 **Stack anlegen:**
 1. Portainer → **Stacks → Add stack → Repository**
 2. Repository-URL: `<repo-url>`
-3. Reference name: konkreter Tag (`refs/tags/v1.46.2`), **nicht** `refs/heads/main`
+3. Reference name: konkreter Tag (`refs/tags/v1.47.0`), **nicht** `refs/heads/main`
 4. Compose path: `docker-compose.yml`
 5. Environment variables aus `.env.production.example` übernehmen und produktive Werte setzen
    (`APP_URL`, `DB_PASSWORD`, `REDIS_PASSWORD`, `LSP_CADDY_TRUSTED_PROXIES`, `TRUSTED_PROXIES`, …)
@@ -285,23 +285,25 @@ Production-System zieht.
 ```bash
 cd /opt/lsp
 
-# 1. Vor Update: Backup ziehen!
-docker compose exec app php artisan backup:run
+# 1. Vor Update: Backup ziehen! (Artisan immer als User lsp – als root angelegte
+#    Dateien in storage/ kann der Worker sonst nicht mehr schreiben)
+docker compose exec -u lsp app php artisan backup:run
 
 # 2. Neuen Tag holen
 git fetch --tags
-git checkout v1.46.2     # konkrete Version, nicht 'main'
+git checkout v1.47.0     # konkrete Version, nicht 'main'
 
 # 3. Container + Dependencies aktualisieren
 docker compose up -d --build --remove-orphans
 docker compose exec app composer install --no-dev --optimize-autoloader --no-scripts
-docker compose exec app php artisan migrate --force
-docker compose exec app php artisan config:cache
-docker compose exec app php artisan route:cache
+docker compose exec -u lsp app php artisan migrate --force
+docker compose exec -u lsp app php artisan config:cache
+docker compose exec -u lsp app php artisan route:cache
 docker compose restart app queue scheduler
 
-# 4. Diagnose
-docker compose exec app php artisan lsp:selftest
+# 4. Diagnose (Scheduler-Log zeigt, ob schedule:run minütlich läuft)
+docker compose exec -u lsp app php artisan lsp:selftest
+docker compose logs --tail=20 scheduler
 ```
 
 ### Rollback bei Problemen
@@ -359,7 +361,7 @@ docker compose restart app queue scheduler
 docker compose exec app php artisan lsp:selftest
 ```
 
-Ab v1.46.2 verhindert der Entrypoint das doppelt (Gruppen-Leserecht + kein Cachen leerer Keys); auf
+Ab v1.47.0 verhindert der Entrypoint das doppelt (Gruppen-Leserecht + kein Cachen leerer Keys); auf
 älteren Ständen ist der `chmod` oben die Lösung.
 
 **Setup-Wizard zeigt sich nicht**: prüfen ob `is_initialized` in `app_settings` evtl. schon true ist.
