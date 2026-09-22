@@ -580,6 +580,7 @@ class DataAnalysisPage extends Page implements HasForms
             ->mapWithKeys(fn (LearningGroup $g) => [$g->id => $g->name.($g->group_type === 'kurs' ? ' (Kurs)' : '')])->all();
     }
 
+    /** @return Builder<LearningGroup> */
     private function visibleGroups(mixed $schoolYearId): Builder
     {
         $allowed = app(AnalysisDataset::class)->allowedGroupIds(auth()->user());

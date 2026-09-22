@@ -178,7 +178,11 @@ final class AnalysisDataset
         return $groups[0] ?? null;
     }
 
-    /** @param  list<int>  $groupIds */
+    /**
+     * @param  Builder<TestAttempt>  $q
+     * @param  list<int>  $groupIds
+     * @return Builder<TestAttempt>
+     */
     private function whereMemberOf(Builder $q, array $groupIds): Builder
     {
         return $q->whereExists(fn ($sub) => $sub->selectRaw('1')
