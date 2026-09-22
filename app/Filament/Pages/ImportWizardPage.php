@@ -12,7 +12,6 @@ use App\Domain\Import\Models\ImportJob;
 use App\Domain\Import\Models\ImportSource;
 use App\Domain\School\Models\SchoolYear;
 use App\Filament\Concerns\AuthorizedPage;
-use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -58,6 +57,12 @@ class ImportWizardPage extends Page implements HasForms
     public ?array $data = [];
 
     public ?int $jobId = null;
+
+    public bool $committing = false;
+
+    public int $processed = 0;
+
+    public int $total = 0;
 
     public function mount(): void
     {
@@ -113,14 +118,6 @@ class ImportWizardPage extends Page implements HasForms
                     ->columnSpanFull(),
             ]),
         ])->statePath('data');
-    }
-
-    public function analyzeAction(): Action
-    {
-        return Action::make('analyze')
-            ->label('Analysieren (Dry-Run)')
-            ->icon('heroicon-o-magnifying-glass')
-            ->action('analyze');
     }
 
     public function analyze(): void
@@ -187,6 +184,11 @@ class ImportWizardPage extends Page implements HasForms
             ))->send();
     }
 
+    public function clearnameUnlocked(): bool
+    {
+        return app(CryptoService::class)->isUnlocked();
+    }
+
     public function getDiffEntries()
     {
         if (! $this->jobId) {
@@ -195,7 +197,7 @@ class ImportWizardPage extends Page implements HasForms
 
         return ImportDiffEntry::query()
             ->where('import_job_id', $this->jobId)
-            ->orderByRaw("FIELD(action, 'error', 'archive', 'create', 'update', 'skip')")
+            ->orderByRaw("CASE action WHEN 'error' THEN 0 WHEN 'archive' THEN 1 WHEN 'create' THEN 2 WHEN 'update' THEN 3 WHEN 'skip' THEN 4 ELSE 5 END")
             ->orderBy('row_number')
             ->get();
     }
@@ -211,37 +213,46 @@ class ImportWizardPage extends Page implements HasForms
         ]);
     }
 
-    public function commitAction(): Action
-    {
-        return Action::make('commit')
-            ->label('Import durchführen')
-            ->icon('heroicon-o-check-circle')
-            ->color('success')
-            ->requiresConfirmation()
-            ->modalDescription('Die bestätigten Aktionen werden in einer Transaktion ausgeführt. Archivierungen werden vorgenommen.')
-            ->action('commit')
-            ->visible(fn () => $this->jobId !== null);
-    }
-
-    public function commit(): void
+    /**
+     * Startet den Import: prüft die Klarnamen-Session und schaltet auf die
+     * Fortschrittsanzeige. Die eigentliche Verarbeitung läuft chunk-weise in
+     * processCommitChunk() (per wire:poll), damit jeder Request die entsperrte
+     * Session trägt und der Fortschritt sichtbar ist.
+     */
+    public function startImport(): void
     {
         if (! $this->jobId) {
             return;
         }
 
-        $entries = ImportDiffEntry::where('import_job_id', $this->jobId)->get();
-        $decisions = [];
-        foreach ($entries as $e) {
-            $decisions[$e->id] = $e->admin_decision;
+        if (! app(CryptoService::class)->isUnlocked()) {
+            Notification::make()->danger()
+                ->title('Klarnamen-Session muss entsperrt sein')
+                ->body('Bitte Klarnamen entsperren und den Import erneut starten.')
+                ->persistent()
+                ->send();
+
+            return;
+        }
+
+        $this->total = ImportDiffEntry::where('import_job_id', $this->jobId)->count();
+        $this->processed = 0;
+        $this->committing = true;
+    }
+
+    public function processCommitChunk(): void
+    {
+        if (! $this->committing || ! $this->jobId) {
+            return;
         }
 
         $job = ImportJob::query()->find($this->jobId);
         $sourceKey = $job?->import_source_id ? 'svws_api' : 'schild_csv';
 
         try {
-            $result = app(ImporterFactory::class)->make($sourceKey)
-                ->commit($this->jobId, $decisions);
+            $progress = app(ImporterFactory::class)->make($sourceKey)->commitChunk($this->jobId, 50);
         } catch (\Throwable $e) {
+            $this->committing = false;
             Notification::make()->danger()
                 ->title('Import fehlgeschlagen')
                 ->body($e->getMessage())
@@ -251,28 +262,31 @@ class ImportWizardPage extends Page implements HasForms
             return;
         }
 
-        Notification::make()->success()
-            ->title('Import abgeschlossen')
-            ->body(sprintf(
-                '%d angelegt, %d aktualisiert, %d archiviert, %d übersprungen, %d fehlgeschlagen.',
-                $result->imported, $result->updated, $result->archived,
-                $result->skipped, $result->failed,
-            ))->send();
+        $this->processed = $progress['processed'];
+        $this->total = $progress['total'];
 
-        $this->jobId = null;
+        if ($progress['done']) {
+            $this->committing = false;
+            $c = $progress['counts'];
+            Notification::make()->success()
+                ->title('Import abgeschlossen')
+                ->body(sprintf(
+                    '%d angelegt, %d aktualisiert, %d archiviert, %d übersprungen, %d fehlgeschlagen.',
+                    $c['imported'], $c['updated'], $c['archived'], $c['skipped'], $c['failed'],
+                ))
+                ->persistent()
+                ->send();
+
+            $this->jobId = null;
+        }
     }
 
-    public function cancelAction(): Action
+    public function discardAnalysis(): void
     {
-        return Action::make('cancel')
-            ->label('Analyse verwerfen')
-            ->color('gray')
-            ->action(function () {
-                if ($this->jobId) {
-                    ImportJob::query()->where('id', $this->jobId)->update(['status' => 'aborted']);
-                    $this->jobId = null;
-                }
-            })
-            ->visible(fn () => $this->jobId !== null);
+        if ($this->jobId) {
+            ImportJob::query()->where('id', $this->jobId)->update(['status' => 'aborted']);
+            $this->jobId = null;
+        }
+        $this->committing = false;
     }
 }

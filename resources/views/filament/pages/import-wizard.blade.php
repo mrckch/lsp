@@ -2,12 +2,35 @@
     <form wire:submit="analyze">
         {{ $this->form }}
         <div style="margin-top:1rem; display:flex; gap:0.5rem;">
-            {{ $this->analyzeAction }}
-            {{ $this->cancelAction }}
+            <button type="submit" wire:loading.attr="disabled"
+                    style="background:#2563eb; color:#fff; padding:0.5rem 1rem; border:0; border-radius:6px; cursor:pointer; font-weight:600;">
+                Analysieren (Dry-Run)
+            </button>
+            @if($jobId)
+                <button type="button" wire:click="discardAnalysis"
+                        style="background:#6b7280; color:#fff; padding:0.5rem 1rem; border:0; border-radius:6px; cursor:pointer;">
+                    Analyse verwerfen
+                </button>
+            @endif
         </div>
     </form>
 
-    @php $entries = $this->getDiffEntries(); @endphp
+    @if($committing)
+        <x-filament::section wire:poll.700ms="processCommitChunk">
+            <x-slot name="heading">Import läuft …</x-slot>
+            <x-slot name="description">Die Seite bitte geöffnet lassen, bis der Import abgeschlossen ist.</x-slot>
+
+            @php $pct = $total > 0 ? (int) floor($processed / $total * 100) : 0; @endphp
+            <div style="margin-bottom:0.5rem; font-weight:600;">
+                {{ number_format($processed, 0, ',', '.') }} von {{ number_format($total, 0, ',', '.') }} verarbeitet ({{ $pct }} %)
+            </div>
+            <div style="width:100%; height:1.25rem; background:#e5e7eb; border-radius:9999px; overflow:hidden;">
+                <div style="width:{{ $pct }}%; height:100%; background:#16a34a; transition:width 0.3s ease;"></div>
+            </div>
+        </x-filament::section>
+    @endif
+
+    @php $entries = $committing ? collect() : $this->getDiffEntries(); @endphp
 
     @if($entries->isNotEmpty())
         <x-filament::section>
@@ -36,6 +59,25 @@
                 <span style="background:#fecaca; color:#7f1d1d; padding:0.25rem 0.75rem; border-radius:9999px;">
                     Fehler: {{ $by['error'] ?? 0 }}
                 </span>
+            </div>
+
+            @unless($this->clearnameUnlocked())
+                <div style="background:#fee2e2; border:1px solid #fca5a5; color:#991b1b; padding:0.75rem 1rem; border-radius:6px; margin-bottom:1rem;">
+                    <strong>Klarnamen-Session ist gesperrt.</strong> Der Import verschlüsselt die Schülernamen und
+                    benötigt die entsperrte Session. Bitte links unter <strong>Klarnamen&nbsp;→&nbsp;Entsperren</strong>
+                    entsperren und danach „Import durchführen" klicken.
+                </div>
+            @endunless
+
+            <div style="margin-bottom:1rem; display:flex; gap:0.5rem;">
+                <button type="button" wire:click="startImport"
+                        style="background:#16a34a; color:#fff; padding:0.5rem 1rem; border:0; border-radius:6px; cursor:pointer; font-weight:600;">
+                    Import durchführen
+                </button>
+                <button type="button" wire:click="discardAnalysis"
+                        style="background:#6b7280; color:#fff; padding:0.5rem 1rem; border:0; border-radius:6px; cursor:pointer;">
+                    Analyse verwerfen
+                </button>
             </div>
 
             <div style="max-height:60vh; overflow-y:auto; border:1px solid #e5e7eb; border-radius:6px;">
@@ -88,11 +130,6 @@
                         @endforeach
                     </tbody>
                 </table>
-            </div>
-
-            <div style="margin-top:1rem; display:flex; gap:0.5rem;">
-                {{ $this->commitAction }}
-                {{ $this->cancelAction }}
             </div>
         </x-filament::section>
     @endif
