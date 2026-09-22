@@ -17,7 +17,7 @@ Reverse-Proxy** (z. B. Nginx Proxy Manager auf eigener VM — Standard) oder der
 # 1. Repo auf festen Release-Tag klonen (nie 'main' in Produktion)
 git clone <repo-url> /opt/lsp
 cd /opt/lsp
-git checkout v1.46.1
+git checkout v1.46.2
 
 # 2. Konfiguration
 cp .env.production.example .env
@@ -72,7 +72,7 @@ ausgecheckt.
 **Stack anlegen:**
 1. Portainer → **Stacks → Add stack → Repository**
 2. Repository-URL: `<repo-url>`
-3. Reference name: konkreter Tag (`refs/tags/v1.46.1`), **nicht** `refs/heads/main`
+3. Reference name: konkreter Tag (`refs/tags/v1.46.2`), **nicht** `refs/heads/main`
 4. Compose path: `docker-compose.yml`
 5. Environment variables aus `.env.production.example` übernehmen und produktive Werte setzen
    (`APP_URL`, `DB_PASSWORD`, `REDIS_PASSWORD`, `LSP_CADDY_TRUSTED_PROXIES`, `TRUSTED_PROXIES`, …)
@@ -290,7 +290,7 @@ docker compose exec app php artisan backup:run
 
 # 2. Neuen Tag holen
 git fetch --tags
-git checkout v1.46.1     # konkrete Version, nicht 'main'
+git checkout v1.46.2     # konkrete Version, nicht 'main'
 
 # 3. Container + Dependencies aktualisieren
 docker compose up -d --build --remove-orphans
@@ -308,7 +308,7 @@ docker compose exec app php artisan lsp:selftest
 
 ```bash
 # Zurück auf den vorherigen Tag
-git checkout v1.46.0
+git checkout v1.46.1
 docker compose up -d --build
 
 # Wenn auch DB-Schema rückwärts nötig: aus dem Pre-Update-Backup wiederherstellen
