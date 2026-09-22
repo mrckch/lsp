@@ -20,6 +20,7 @@ use App\Domain\Student\Models\Student;
 use App\Domain\TestRun\Models\TestRun;
 use App\Filament\Resources\TestRunResource;
 use App\Filament\Resources\TestRunResource\Pages\MonitorTestRun;
+use App\Filament\Resources\TestRunResource\Widgets\TestRunLqBoxplot;
 use App\Filament\Widgets\ActiveTestRunsOverview;
 use App\Filament\Widgets\AuditStats;
 use App\Models\AppSetting;
@@ -264,6 +265,39 @@ class MonitorTestRunTest extends TestCase
         $this->assertSame('system', $attempt->ended_by);
         $this->assertSame('verbraucht', $this->code5a->refresh()->status);
         $this->assertSame('gestartet', $running->refresh()->status);
+    }
+
+    #[Test]
+    public function boxplot_stats_use_inclusive_quartiles_and_tukey_whiskers(): void
+    {
+        $s = TestRunLqBoxplot::stats([70, 80, 85, 90, 95, 100, 160]);
+
+        $this->assertSame(90.0, $s['median']);
+        $this->assertSame(82.5, $s['q1']);
+        $this->assertSame(97.5, $s['q3']);
+        $this->assertSame(70.0, $s['lo']);
+        $this->assertSame(100.0, $s['hi']);   // 160 ist Ausreißer (> Q3 + 1,5 × IQR)
+        $this->assertSame(2, $s['below']);    // 70 und 80 unter 85
+    }
+
+    #[Test]
+    public function boxplot_widget_renders_scoped_values(): void
+    {
+        foreach ([$this->code5a, $this->code5b] as $i => $code) {
+            $a = $this->startedAttempt($code);
+            $a->update(['status' => 'abgegeben', 'lq_current' => 80 + $i * 20, 'score_raw' => 40]);
+        }
+        $this->actingAs($this->teacher);
+
+        Livewire::test(TestRunLqBoxplot::class, ['record' => $this->run])
+            ->assertSee('Verteilung LQ')
+            ->assertSee('n = 1')                 // nur 5a im Scope
+            ->assertSee('Anna Alpha: LQ 80', false)
+            ->assertDontSee('Bert Beta')
+            ->assertDontSee('Mädchen: n')
+            ->toggle('byGender')
+            ->assertSee('Mädchen:')
+            ->assertSee('n = 1 · Median 80', false);
     }
 
     #[Test]

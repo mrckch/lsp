@@ -13,6 +13,7 @@ use App\Domain\Permission\ScopeFilter;
 use App\Domain\PrintJob\LoginCardSheetGenerator;
 use App\Domain\TestRun\Models\TestRun;
 use App\Filament\Resources\TestRunResource;
+use App\Filament\Resources\TestRunResource\Widgets\TestRunLqBoxplot;
 use App\Filament\Resources\TestRunResource\Widgets\TestRunMonitorStats;
 use Filament\Actions\Action as PageAction;
 use Filament\Forms\Components\Textarea;
@@ -107,7 +108,7 @@ class MonitorTestRun extends Page implements HasTable
 
     protected function getHeaderWidgets(): array
     {
-        return [TestRunMonitorStats::class];
+        return [TestRunMonitorStats::class, TestRunLqBoxplot::class];
     }
 
     public function getWidgetData(): array

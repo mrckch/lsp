@@ -32,15 +32,20 @@ final class TestRunProgress
             TestAttempt::query()->where('test_run_id', $run->id),
             $user,
         );
-        $finished = (clone $attempts)->whereIn('status', ['abgegeben', 'zeit_abgelaufen']);
-        $avgLq = (clone $finished)->whereNotNull('lq_current')->avg('lq_current');
-        $avgScore = (clone $finished)->avg('score_raw');
+        // Je Schüler nur der letzte gewertete Versuch
+        $finished = (clone $attempts)
+            ->whereIn('status', ['abgegeben', 'zeit_abgelaufen'])
+            ->orderByDesc('id')
+            ->get(['id', 'student_id', 'lq_current', 'score_raw'])
+            ->unique('student_id');
+        $avgLq = $finished->whereNotNull('lq_current')->avg('lq_current');
+        $avgScore = $finished->avg('score_raw');
 
         return [
             'total' => $codes->count(),
             'not_started' => $codes->filter(fn ($s) => $s === 'aktiv')->count(),
             'running' => (clone $attempts)->where('status', 'gestartet')->count(),
-            'finished' => (clone $finished)->count(),
+            'finished' => $finished->count(),
             'avg_lq' => $avgLq !== null ? (int) round((float) $avgLq) : null,
             'avg_score' => $avgScore !== null ? (float) $avgScore : null,
         ];
