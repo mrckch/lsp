@@ -17,12 +17,16 @@ Reverse-Proxy** (z. B. Nginx Proxy Manager auf eigener VM — Standard) oder der
 # 1. Repo auf festen Release-Tag klonen (nie 'main' in Produktion)
 git clone <repo-url> /opt/lsp
 cd /opt/lsp
-git checkout v1.46.1
+git checkout v1.46.2
 
 # 2. Konfiguration
 cp .env.production.example .env
 # .env editieren: alle <…>-Platzhalter ersetzen (APP_URL, DB-/Redis-Passwörter,
 # IP der NPM-VM, MAIL_*). Passwörter z. B. mit: openssl rand -base64 32
+
+# .env für den Container-User lsp (uid/gid 1000) lesbar machen — sonst cachen
+# die queue-/scheduler-Container einen leeren APP_KEY (siehe Hinweis unten).
+sudo chgrp 1000 .env && chmod 640 .env
 
 # 3. Stack bauen + starten (PHP 8.4-FPM, MariaDB 11, Redis 7, Caddy 2, Gotenberg 8)
 docker compose up -d --build
@@ -45,6 +49,18 @@ docker compose exec app php artisan lsp:selftest    # Diagnose: alles grün?
 `infra/app/Dockerfile`). Wurde `vendor/` lokal mit einer anderen PHP-Version erzeugt, kann der
 Container-Start fehlschlagen. Lösung: `vendor/` löschen oder `composer install` im Container ausführen.
 
+> **Warum `.env` für uid/gid 1000 lesbar sein muss.** `app` (PHP-FPM) läuft als root, aber die
+> `queue`- und `scheduler`-Container droppen im Entrypoint via `gosu` auf den User `lsp` (uid/gid 1000).
+> Bei `APP_ENV=production` baut jeder Container beim Start `config:cache` — im geteilten,
+> bind-gemounteten `bootstrap/cache`. Kann `lsp` die `.env` nicht lesen (z. B. `root:root 600`, wie es
+> bei `openssl`-generierten Secrets unter restriktiver umask leicht entsteht), cacht er einen **leeren
+> `APP_KEY`** und überschreibt damit den korrekten. Folge: `lsp:selftest` meldet *„crypto: No application
+> encryption key has been specified"* und die Klarnamen-Entschlüsselung bricht — reproduzierbar nach
+> jedem `docker compose restart app queue scheduler`. Der Entrypoint härtet das seit v1.46.2 zusätzlich
+> ab (setzt Gruppen-Leserecht selbst und cacht nie mehr einen leeren Key), aber ein `chmod 640` mit
+> Gruppe `1000` auf dem Host ist der saubere, explizite Weg. `640` statt `644`, damit die Secrets **nicht**
+> world-readable werden.
+
 ## Deploy-Variante: Portainer (Git-Repository-Stack)
 
 Wenn der Host mit Portainer verwaltet wird, sollte der Stack **als Git-Repository-Stack
@@ -56,7 +72,7 @@ ausgecheckt.
 **Stack anlegen:**
 1. Portainer → **Stacks → Add stack → Repository**
 2. Repository-URL: `<repo-url>`
-3. Reference name: konkreter Tag (`refs/tags/v1.46.1`), **nicht** `refs/heads/main`
+3. Reference name: konkreter Tag (`refs/tags/v1.46.2`), **nicht** `refs/heads/main`
 4. Compose path: `docker-compose.yml`
 5. Environment variables aus `.env.production.example` übernehmen und produktive Werte setzen
    (`APP_URL`, `DB_PASSWORD`, `REDIS_PASSWORD`, `LSP_CADDY_TRUSTED_PROXIES`, `TRUSTED_PROXIES`, …)
@@ -64,6 +80,12 @@ ausgecheckt.
 
 Danach einmalig die Laravel-Init aus „Erstinstallation" Schritt 4 im `app`-Container
 ausführen (`composer install … --no-scripts`, `key:generate`, `migrate --seed`).
+
+> **`.env` in Portainer-Stacks:** Legt der Stack seine `.env` als Datei im Working-Dir an
+> (`/data/compose/<id>/.env`), gilt dieselbe Regel wie oben — sie muss für uid/gid 1000 lesbar
+> sein (`chgrp 1000 .env && chmod 640 .env` per SSH auf dem Host). Werden die Werte dagegen als
+> Portainer-*Environment variables* gesetzt und `APP_KEY` explizit übergeben, reicht das dem
+> Entrypoint bereits (er cacht dann aus der Umgebung).
 
 **Update auf neuen Tag:**
 1. Portainer → Stack → **Editor**
@@ -268,7 +290,7 @@ docker compose exec app php artisan backup:run
 
 # 2. Neuen Tag holen
 git fetch --tags
-git checkout v1.46.1     # konkrete Version, nicht 'main'
+git checkout v1.46.2     # konkrete Version, nicht 'main'
 
 # 3. Container + Dependencies aktualisieren
 docker compose up -d --build --remove-orphans
@@ -286,7 +308,7 @@ docker compose exec app php artisan lsp:selftest
 
 ```bash
 # Zurück auf den vorherigen Tag
-git checkout v1.46.0
+git checkout v1.46.1
 docker compose up -d --build
 
 # Wenn auch DB-Schema rückwärts nötig: aus dem Pre-Update-Backup wiederherstellen
@@ -325,6 +347,20 @@ docker compose exec app php artisan migrate --seed --force
 
 **Schüler bekommen „Too Many Requests" (429)**: Stimmt die NPM-IP in `LSP_CADDY_TRUSTED_PROXIES`?
 Sonst zählen alle Anfragen unter einer IP. Limits ggf. über `LSP_STUDENT_*` anpassen.
+
+**`lsp:selftest` meldet „crypto: No application encryption key has been specified"** (obwohl `APP_KEY`
+in der `.env` steht): Die `queue`-/`scheduler`-Container (User `lsp`, uid/gid 1000) konnten die `.env`
+nicht lesen und haben einen leeren Key in den geteilten `bootstrap/cache` gecacht. Fix auf dem Host:
+
+```bash
+chgrp 1000 .env && chmod 640 .env
+docker compose exec app php artisan config:clear
+docker compose restart app queue scheduler
+docker compose exec app php artisan lsp:selftest
+```
+
+Ab v1.46.2 verhindert der Entrypoint das doppelt (Gruppen-Leserecht + kein Cachen leerer Keys); auf
+älteren Ständen ist der `chmod` oben die Lösung.
 
 **Setup-Wizard zeigt sich nicht**: prüfen ob `is_initialized` in `app_settings` evtl. schon true ist.
 
