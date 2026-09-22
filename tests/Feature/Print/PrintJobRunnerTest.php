@@ -145,7 +145,7 @@ class PrintJobRunnerTest extends TestCase
 
         $broken = new class('http://x') extends GotenbergClient
         {
-            public function htmlToPdf(string $html, ?string $css = null, array $options = []): string
+            public function htmlToPdf(string $html, ?string $css = null, array $options = [], array $extraFiles = []): string
             {
                 throw new \RuntimeException('Gotenberg down');
             }
@@ -166,7 +166,7 @@ class PrintJobRunnerTest extends TestCase
                 parent::__construct($url);
             }
 
-            public function htmlToPdf(string $html, ?string $css = null, array $options = []): string
+            public function htmlToPdf(string $html, ?string $css = null, array $options = [], array $extraFiles = []): string
             {
                 return $this->body;
             }

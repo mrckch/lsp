@@ -218,7 +218,10 @@ Typische Voreinstellungen als Schnellwahl-Buttons über der Filterzeile:
 
 ## 6. Umsetzung in Phasen
 
-### Phase 1 – Kern (Klassen- & Geschlechtervergleich, PDF)
+### Phase 1 – Kern (Klassen- & Geschlechtervergleich, PDF) — ✅ umgesetzt (Branch `feat/data-analysis`)
+> Abweichungen: Tabs erst ab Phase 2 (Phase 1 zeigt nur „Vergleich“). Lehrkräfte **ohne**
+> Lerngruppen-Zuweisung sehen hier nichts (strenger als `ScopeFilter`, der „keine Zuweisung“
+> als „alles“ wertet). PDF ohne Schülerlisten geht auch bei gesperrten Klarnamen.
 1. `DistributionStats` extrahieren, `TestRunLqBoxplot` darauf umstellen (Tests grün).
 2. `AnalysisFilter`, `AnalysisDataset` (+ Tests: Scope, latest_per_student, Gruppenzuordnung).
 3. Komponenten `boxplot` (mehrzeilig) + `stats-table`; Monitor-Widget nutzt `boxplot`.
@@ -226,14 +229,21 @@ Typische Voreinstellungen als Schnellwahl-Buttons über der Filterzeile:
 5. PDF-Export (Vergleich + Tabelle + Schülerlisten) und CSV.
 6. Berechtigungen/Scope-Tests (Lehrkraft sieht nur eigene Klassen; Schulleitung alles).
 
-### Phase 2 – Förderbereiche & Entwicklung
+### Phase 2 – Förderbereiche & Entwicklung — ✅ umgesetzt (Branch `feat/data-analysis`)
+> Umsetzung: Welle = Erhebungstyp im Schuljahr (ohne Typ: der einzelne Run). Δ-Schwelle aus der aktiven
+> `lq_delta`-Förderschwelle (Standard Δ < −10). Bei mehr als 2 Linien keine Q1–Q3-Bänder (unleserlich),
+> ab 7 Gruppen nur die Gesamtlinie. Presets speichern `settings` = {filters, view, show_bands, by_gender, dev_from, dev_to}.
 7. `stacked-bands` + Tab **Förderbereiche** (inkl. PDF).
 8. Tab **Entwicklung** (Herbst → Frühjahr) mit `development`-Komponente; Δ-Liste
    „stärkste Verschlechterungen“ (mit Namen) für Förderkonferenzen.
 9. **Gespeicherte Auswertungen**: Tabelle `analysis_presets` (id, user_id, name,
    filter JSON, is_shared bool, timestamps); eigene + geteilte Presets laden.
 
-### Phase 3 – Vertiefung
+### Phase 3 – Vertiefung — ✅ umgesetzt (Branch `feat/data-analysis`)
+> Umsetzung: Fehlerquote = (bearbeitet − Rohwert) / bearbeitet (Rohwert = Anzahl richtig). „Erreicht“ = bis zum
+> letzten beantworteten Satz gekommen; „übersprungen“ = davor ausgelassen. „Schwierig“ = Lösungsquote < 70 % bei
+> mind. 3 Antworten. Satzanalyse wertet einen Fragebogen aus (Standard: der häufigste, wählbar). Der Hinweis zur
+> geschlechtsspezifischen LQ-Normierung (§9) ist umgesetzt.
 10. **Verteilung vs. Norm** (Histogramm + N(100,15)).
 11. **Tempo & Genauigkeit** (Scatter; Quadranten „langsam & genau“, „schnell & fehlerhaft“ …).
 12. **Satzanalyse** (Lösungsquote je Satz, „nicht erreicht“-Anteil).
