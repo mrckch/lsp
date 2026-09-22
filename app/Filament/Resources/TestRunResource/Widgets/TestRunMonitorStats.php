@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\TestRunResource\Widgets;
 
-use App\Domain\Attempt\Models\StudentLoginCode;
-use App\Domain\Attempt\Models\TestAttempt;
-use App\Domain\Permission\ScopeFilter;
+use App\Domain\TestRun\TestRunProgress;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Database\Eloquent\Model;
@@ -26,48 +24,30 @@ class TestRunMonitorStats extends StatsOverviewWidget
 
     protected function getStats(): array
     {
-        if ($this->record === null) {
+        if ($this->record === null || auth()->user() === null) {
             return [];
         }
 
-        $user = auth()->user();
-        $scope = app(ScopeFilter::class);
-
-        $codes = $scope->applyToLoginCodes(
-            StudentLoginCode::query()->where('test_run_id', $this->record->getKey()),
-            $user,
-        )->pluck('status');
-
-        $attempts = $scope->applyToAttempts(
-            TestAttempt::query()->where('test_run_id', $this->record->getKey()),
-            $user,
-        );
-        $running = (clone $attempts)->where('status', 'gestartet')->count();
-        $finished = (clone $attempts)->whereIn('status', ['abgegeben', 'zeit_abgelaufen']);
-        $finishedCount = (clone $finished)->count();
-        $avgScore = (clone $finished)->avg('score_raw');
-        $avgLq = (clone $finished)->whereNotNull('lq_current')->avg('lq_current');
-
-        $total = $codes->count();
-        $notStarted = $codes->filter(fn ($s) => $s === 'aktiv')->count();
+        $p = app(TestRunProgress::class)->summarize($this->record, auth()->user());
+        $total = $p['total'];
 
         return [
             Stat::make('Schüler/innen', (string) $total)
-                ->description($notStarted.' noch nicht angemeldet')
+                ->description($p['not_started'].' noch nicht angemeldet')
                 ->descriptionIcon('heroicon-m-user-group')
                 ->color('gray'),
-            Stat::make('Läuft gerade', (string) $running)
+            Stat::make('Läuft gerade', (string) $p['running'])
                 ->descriptionIcon('heroicon-m-play-circle')
                 ->description('angemeldet, noch nicht abgegeben')
-                ->color($running > 0 ? 'info' : 'gray'),
-            Stat::make('Fertig', $finishedCount.' / '.$total)
-                ->description($total > 0 ? round($finishedCount / $total * 100).' %' : '–')
+                ->color($p['running'] > 0 ? 'info' : 'gray'),
+            Stat::make('Fertig', $p['finished'].' / '.$total)
+                ->description($total > 0 ? round($p['finished'] / $total * 100).' %' : '–')
                 ->descriptionIcon('heroicon-m-check-circle')
-                ->color($total > 0 && $finishedCount === $total ? 'success' : 'primary'),
-            Stat::make('Ø LQ', $avgLq !== null ? (string) (int) round((float) $avgLq) : '–')
-                ->description('Ø Rohwert '.($avgScore !== null ? number_format((float) $avgScore, 1, ',', '') : '–'))
+                ->color($total > 0 && $p['finished'] === $total ? 'success' : 'primary'),
+            Stat::make('Ø LQ', $p['avg_lq'] !== null ? (string) $p['avg_lq'] : '–')
+                ->description('Ø Rohwert '.($p['avg_score'] !== null ? number_format($p['avg_score'], 1, ',', '') : '–'))
                 ->descriptionIcon('heroicon-m-chart-bar')
-                ->color($avgLq === null ? 'gray' : ((float) $avgLq < 85 ? 'warning' : 'success')),
+                ->color($p['avg_lq'] === null ? 'gray' : ($p['avg_lq'] < 85 ? 'warning' : 'success')),
         ];
     }
 }

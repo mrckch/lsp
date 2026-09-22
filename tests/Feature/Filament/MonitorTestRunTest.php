@@ -18,7 +18,9 @@ use App\Domain\School\Models\LearningGroup;
 use App\Domain\School\Models\SchoolYear;
 use App\Domain\Student\Models\Student;
 use App\Domain\TestRun\Models\TestRun;
+use App\Filament\Resources\TestRunResource;
 use App\Filament\Resources\TestRunResource\Pages\MonitorTestRun;
+use App\Filament\Widgets\ActiveTestRunsOverview;
 use App\Filament\Widgets\AuditStats;
 use App\Models\AppSetting;
 use App\Models\User;
@@ -228,6 +230,40 @@ class MonitorTestRunTest extends TestCase
             ->mountTableAction('showCode', $this->code5a)
             ->assertSee($this->code5a->login_code)
             ->assertSee('<svg', false);
+    }
+
+    #[Test]
+    public function dashboard_shows_one_tile_per_active_run_in_scope(): void
+    {
+        $this->startedAttempt($this->code5a);
+        $this->actingAs($this->teacher);
+
+        Livewire::test(ActiveTestRunsOverview::class)
+            ->assertSee('Run')
+            ->assertSee('0 / 1 fertig')          // Lehrkraft zählt nur 5a
+            ->assertSee('1 laufen gerade')
+            ->assertSee(TestRunResource::getUrl('monitor', ['record' => $this->run]))
+            ->assertDontSee('Fremd');            // 5c liegt außerhalb des Scopes
+
+        $this->actingAs($this->admin);
+        Livewire::test(ActiveTestRunsOverview::class)
+            ->assertSee('0 / 2 fertig')
+            ->assertSee('Fremd');
+    }
+
+    #[Test]
+    public function expired_unsubmitted_attempts_are_finalized_by_command(): void
+    {
+        $attempt = $this->startedAttempt($this->code5a);
+        $running = $this->startedAttempt($this->code5b);
+        $attempt->update(['main_started_at' => now()->subSeconds(180 + TestEngine::ANSWER_GRACE_SECONDS + 1)]);
+
+        $this->artisan('attempts:finalize-expired')->assertSuccessful();
+
+        $this->assertSame('zeit_abgelaufen', $attempt->refresh()->status);
+        $this->assertSame('system', $attempt->ended_by);
+        $this->assertSame('verbraucht', $this->code5a->refresh()->status);
+        $this->assertSame('gestartet', $running->refresh()->status);
     }
 
     #[Test]

@@ -156,67 +156,48 @@ class MonitorTestRun extends Page implements HasTable
             ->defaultPaginationPageOption(50)
             ->emptyStateHeading('Noch keine Login-Codes')
             ->emptyStateDescription('Login-Codes werden über „Aktionen → Login-Codes erzeugen“ in der Liste der Testdurchläufe angelegt.')
+            // Kompakt für iPad quer (Sidebar sichtbar): 4 Spalten, Details als zweite Zeile
             ->columns([
-                TextColumn::make('name')->label('Name')
+                TextColumn::make('name')->label('Schüler/in')
                     ->getStateUsing(fn (StudentLoginCode $r) => trim(($r->student?->first_name_encrypted ?? '').' '.($r->student?->last_name_encrypted ?? '')))
-                    ->description(fn (StudentLoginCode $r) => $r->student?->student_code),
-                TextColumn::make('group')->label('Gruppe')
-                    ->getStateUsing(fn (StudentLoginCode $r) => TestRunResource::studentGroupLabel($r->student, $runGroupIds)),
+                    ->description(fn (StudentLoginCode $r) => implode(' · ', array_filter([
+                        $r->student?->student_code,
+                        TestRunResource::studentGroupLabel($r->student, $runGroupIds),
+                    ])))
+                    ->wrap(),
                 TextColumn::make('login_code')->label('Login-Code')
                     ->fontFamily('mono')->copyable()->copyMessage('Code kopiert')
+                    ->description(fn (StudentLoginCode $r) => self::CODE_STATUS[$r->status] ?? $r->status)
                     ->visible($canSeeCodes),
-                TextColumn::make('status')->label('Code')->badge()
-                    ->formatStateUsing(fn (string $state) => self::CODE_STATUS[$state] ?? $state)
-                    ->color(fn (string $state) => match ($state) {
-                        'aktiv' => 'gray',
-                        'in_bearbeitung' => 'info',
-                        'verbraucht' => 'success',
-                        'gesperrt' => 'danger',
-                        default => 'gray',
-                    }),
-                TextColumn::make('attempt_status')->label('Versuch')->badge()
-                    ->getStateUsing(fn (StudentLoginCode $r) => $this->attemptPhase($r->latestAttempt))
+                TextColumn::make('phase')->label('Status')->badge()
+                    ->getStateUsing(fn (StudentLoginCode $r) => $r->status === 'gesperrt'
+                        ? 'gesperrt'
+                        : $this->attemptPhase($r->latestAttempt))
                     ->color(fn (string $state) => match ($state) {
                         'läuft' => 'info',
                         'Hinweise/Übung' => 'warning',
                         'abgegeben' => 'success',
                         'Zeit abgelaufen' => 'warning',
-                        'zurückgesetzt', 'abgebrochen' => 'danger',
+                        'gesperrt', 'zurückgesetzt', 'abgebrochen' => 'danger',
                         default => 'gray',
-                    }),
-                TextColumn::make('progress')->label('Beantwortet')
-                    ->getStateUsing(fn (StudentLoginCode $r) => $r->latestAttempt
-                        ? $r->latestAttempt->answers_count.' / '.$this->questionCount()
-                        : '–'),
-                TextColumn::make('remaining')->label('Restzeit')
-                    ->getStateUsing(function (StudentLoginCode $r) {
-                        $a = $r->latestAttempt;
-                        if ($a === null || $a->status !== 'gestartet' || $a->main_started_at === null) {
-                            return '–';
-                        }
-                        $s = $a->remainingSeconds();
-
-                        return intdiv($s, 60).':'.str_pad((string) ($s % 60), 2, '0', STR_PAD_LEFT);
-                    }),
-                TextColumn::make('latestAttempt.score_raw')->label('Rohwert')->toggleable()
-                    ->getStateUsing(fn (StudentLoginCode $r) => $this->isFinished($r->latestAttempt) ? $r->latestAttempt->score_raw : null)
-                    ->placeholder('–'),
-                TextColumn::make('latestAttempt.lq_current')->label('LQ')
+                    })
+                    ->description(fn (StudentLoginCode $r) => $this->progressLine($r->latestAttempt)),
+                TextColumn::make('result')->label('LQ')
                     ->getStateUsing(fn (StudentLoginCode $r) => $this->isFinished($r->latestAttempt) ? $r->latestAttempt->lq_current : null)
                     ->placeholder('–')
+                    ->weight('bold')
                     ->color(fn ($state) => $state !== null && (int) $state < 85 ? 'warning' : null)
-                    ->weight('bold'),
-                TextColumn::make('times')->label('Start / Abgabe')->toggleable()
-                    ->getStateUsing(function (StudentLoginCode $r) {
-                        $a = $r->latestAttempt;
-                        if ($a === null) {
-                            return '–';
+                    ->description(function (StudentLoginCode $r) {
+                        $parts = [];
+                        if ($this->isFinished($r->latestAttempt)) {
+                            $parts[] = 'Rohwert '.$r->latestAttempt->score_raw;
                         }
-                        $start = ($a->main_started_at ?? $a->started_at)?->format('H:i');
+                        if ((int) $r->attempts_total > 1) {
+                            $parts[] = $r->attempts_total.' Versuche';
+                        }
 
-                        return ($start ?? '–').' / '.($a->submitted_at?->format('H:i') ?? '–');
+                        return $parts === [] ? null : implode(' · ', $parts);
                     }),
-                TextColumn::make('attempts_total')->label('Versuche')->alignCenter()->toggleable(),
             ])
             ->filters([
                 SelectFilter::make('status')->label('Code-Status')->options(self::CODE_STATUS)
@@ -232,7 +213,7 @@ class MonitorTestRun extends Page implements HasTable
                     $this->endAttemptAction(),
                     $this->toggleLockAction(),
                     $this->historyAction(),
-                ])->label('Aktionen')->button()->size('sm'),
+                ])->tooltip('Aktionen'),
             ]);
     }
 
@@ -423,8 +404,38 @@ class MonitorTestRun extends Page implements HasTable
         if ($a->status === 'gestartet' && $a->main_started_at === null) {
             return 'Hinweise/Übung';
         }
+        if ($a->status === 'gestartet' && $a->remainingSeconds() === 0) {
+            return 'Zeit abgelaufen'; // wird minütlich automatisch gewertet
+        }
 
         return self::ATTEMPT_STATUS[$a->status] ?? $a->status;
+    }
+
+    /**
+     * Zweite Zeile der Status-Spalte: Fortschritt plus Restzeit bzw. Start–Abgabe.
+     */
+    private function progressLine(?TestAttempt $a): ?string
+    {
+        if ($a === null) {
+            return null;
+        }
+        $line = $a->answers_count.' / '.$this->questionCount();
+
+        if ($a->status === 'gestartet' && $a->main_started_at !== null) {
+            $s = $a->remainingSeconds();
+            if ($s === 0) {
+                return $line.' · wird gewertet …';
+            }
+
+            return $line.' · noch '.intdiv($s, 60).':'.str_pad((string) ($s % 60), 2, '0', STR_PAD_LEFT);
+        }
+        if ($a->submitted_at !== null) {
+            $start = ($a->main_started_at ?? $a->started_at)?->format('H:i');
+
+            return $line.' · '.($start !== null ? $start.'–' : '').$a->submitted_at->format('H:i');
+        }
+
+        return $line;
     }
 
     private function isFinished(?TestAttempt $a): bool

@@ -179,6 +179,32 @@ final class TestEngine
     }
 
     /**
+     * Wertet laufende Versuche, deren Zeit (plus Kulanz) abgelaufen ist, aber die
+     * der Browser nie abgegeben hat (Tab geschlossen, Akku leer …).
+     *
+     * @return int Anzahl gewerteter Versuche
+     */
+    public function finalizeExpiredAttempts(): int
+    {
+        $count = 0;
+        TestAttempt::query()
+            ->where('status', 'gestartet')
+            ->whereNotNull('main_started_at')
+            ->where('main_started_at', '<', now()->subSeconds(self::ANSWER_GRACE_SECONDS))
+            ->chunkById(100, function ($attempts) use (&$count) {
+                foreach ($attempts as $attempt) {
+                    $elapsed = (int) $attempt->main_started_at->diffInSeconds(now(), true);
+                    if ($elapsed > $attempt->time_limit_seconds + self::ANSWER_GRACE_SECONDS) {
+                        $this->submitAttempt($attempt, 'system');
+                        $count++;
+                    }
+                }
+            });
+
+        return $count;
+    }
+
+    /**
      * Setzt einen Versuch zurück (Admin/Lehrkraft) – Antworten werden gelöscht,
      * Schüler kann mit gleichem Code neu starten.
      */
