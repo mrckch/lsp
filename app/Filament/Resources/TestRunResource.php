@@ -17,6 +17,7 @@ use App\Domain\PrintJob\LoginCardSheetGenerator;
 use App\Domain\Questionnaire\Models\Questionnaire;
 use App\Domain\School\Models\LearningGroup;
 use App\Domain\School\Models\SchoolYear;
+use App\Domain\Student\Models\Student;
 use App\Domain\TestRun\Models\AssessmentType;
 use App\Domain\TestRun\Models\TestRun;
 use App\Filament\Concerns\AuthorizedResource;
@@ -44,6 +45,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TestRunResource extends Resource
 {
@@ -212,8 +214,13 @@ class TestRunResource extends Resource
                 ]),
                 SelectFilter::make('school_year_id')->label('Schuljahr')->relationship('schoolYear', 'label'),
             ])
+            ->recordUrl(fn (TestRun $record) => self::getUrl('monitor', ['record' => $record]))
             ->actions([
                 ActionGroup::make([
+                    Action::make('monitor')
+                        ->label('Übersicht & Ergebnisse')
+                        ->icon('heroicon-o-presentation-chart-bar')
+                        ->url(fn (TestRun $record) => self::getUrl('monitor', ['record' => $record])),
                     EditAction::make(),
                     Action::make('issueCodes')
                         ->label('Login-Codes erzeugen')
@@ -228,60 +235,7 @@ class TestRunResource extends Resource
                         ->label('Login-Karten drucken (QR-PDF)')
                         ->icon('heroicon-o-qr-code')
                         ->visible(fn () => auth()->user()?->hasPermission('print.generate_with_clearname') ?? false)
-                        ->action(function (TestRun $record) {
-                            if (! app(CryptoService::class)->isUnlocked()) {
-                                Notification::make()->danger()
-                                    ->title('Klarnamen-Session gesperrt')
-                                    ->body('Bitte zuerst unter „Klarnamen → Entsperren" entsperren, dann erneut drucken.')
-                                    ->persistent()->send();
-
-                                return null;
-                            }
-
-                            $groupNames = $record->learningGroups->pluck('name')->implode(', ');
-                            $cards = StudentLoginCode::query()
-                                ->with('student')
-                                ->where('test_run_id', $record->id)
-                                ->get()
-                                ->map(fn (StudentLoginCode $c) => [
-                                    'name' => trim(($c->student->first_name_encrypted ?? '').' '.($c->student->last_name_encrypted ?? '')),
-                                    'group' => $groupNames,
-                                    'code' => $c->login_code,
-                                ])
-                                ->sortBy('name')->values()->all();
-
-                            if ($cards === []) {
-                                Notification::make()->warning()
-                                    ->title('Keine Login-Codes vorhanden')
-                                    ->body('Bitte zuerst „Login-Codes erzeugen".')->send();
-
-                                return null;
-                            }
-
-                            $html = app(LoginCardSheetGenerator::class)->html(
-                                AppSetting::singleton()->school_name ?? 'Schule',
-                                $record->name,
-                                $cards,
-                                (string) config('app.url'),
-                            );
-
-                            try {
-                                $pdf = app(GotenbergClient::class)->htmlToPdf($html);
-                            } catch (\Throwable $e) {
-                                Notification::make()->danger()
-                                    ->title('PDF-Erzeugung fehlgeschlagen')
-                                    ->body($e->getMessage())
-                                    ->persistent()->send();
-
-                                return null;
-                            }
-
-                            return response()->streamDownload(
-                                fn () => print ($pdf),
-                                'login-karten-'.$record->short_code.'.pdf',
-                                ['Content-Type' => 'application/pdf'],
-                            );
-                        }),
+                        ->action(fn (TestRun $record) => self::downloadLoginCards($record)),
                     Action::make('regenerateCodes')
                         ->label('Aktive Codes neu rotieren')
                         ->icon('heroicon-o-arrow-path')
@@ -365,11 +319,89 @@ class TestRunResource extends Resource
             ]);
     }
 
+    /**
+     * Login-Kartenblatt (QR-PDF) für einen Testdurchlauf – alle Codes im Scope
+     * des Users oder nur einen einzelnen Code (Nachdruck für eine verlorene Karte).
+     */
+    public static function downloadLoginCards(TestRun $record, ?int $onlyCodeId = null): ?StreamedResponse
+    {
+        if (! app(CryptoService::class)->isUnlocked()) {
+            Notification::make()->danger()
+                ->title('Klarnamen-Session gesperrt')
+                ->body('Bitte zuerst unter „Klarnamen → Entsperren" entsperren, dann erneut drucken.')
+                ->persistent()->send();
+
+            return null;
+        }
+
+        $runGroupIds = $record->learningGroups->pluck('id')->all();
+        $codes = StudentLoginCode::query()
+            ->with('student.learningGroups')
+            ->where('test_run_id', $record->id)
+            ->when($onlyCodeId !== null, fn (Builder $q) => $q->whereKey($onlyCodeId));
+        $cards = app(ScopeFilter::class)->applyToLoginCodes($codes, auth()->user())
+            ->get()
+            ->map(fn (StudentLoginCode $c) => [
+                'name' => trim(($c->student->first_name_encrypted ?? '').' '.($c->student->last_name_encrypted ?? '')),
+                'group' => self::studentGroupLabel($c->student, $runGroupIds),
+                'code' => $c->login_code,
+            ])
+            ->sortBy([['group', 'asc'], ['name', 'asc']])->values()->all();
+
+        if ($cards === []) {
+            Notification::make()->warning()
+                ->title('Keine Login-Codes vorhanden')
+                ->body('Bitte zuerst „Login-Codes erzeugen".')->send();
+
+            return null;
+        }
+
+        $html = app(LoginCardSheetGenerator::class)->html(
+            AppSetting::singleton()->school_name ?? 'Schule',
+            $record->name,
+            $cards,
+            (string) config('app.url'),
+        );
+
+        try {
+            $pdf = app(GotenbergClient::class)->htmlToPdf($html);
+        } catch (\Throwable $e) {
+            Notification::make()->danger()
+                ->title('PDF-Erzeugung fehlgeschlagen')
+                ->body($e->getMessage())
+                ->persistent()->send();
+
+            return null;
+        }
+
+        $suffix = $onlyCodeId !== null ? '-'.$cards[0]['code'] : '';
+
+        return response()->streamDownload(
+            fn () => print ($pdf),
+            'login-karten-'.$record->short_code.$suffix.'.pdf',
+            ['Content-Type' => 'application/pdf'],
+        );
+    }
+
+    /**
+     * Lerngruppe(n) eines Schülers, die an diesem Run teilnehmen (z. B. „5a“).
+     *
+     * @param  list<int>  $runGroupIds
+     */
+    public static function studentGroupLabel(?Student $student, array $runGroupIds): string
+    {
+        return $student?->learningGroups
+            ->whereIn('id', $runGroupIds)
+            ->pluck('name')
+            ->implode(', ') ?? '';
+    }
+
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListTestRuns::route('/'),
             'create' => Pages\CreateTestRun::route('/create'),
+            'monitor' => Pages\MonitorTestRun::route('/{record}/uebersicht'),
             'edit' => Pages\EditTestRun::route('/{record}/edit'),
         ];
     }

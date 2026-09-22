@@ -20,6 +20,9 @@ use Illuminate\Support\Facades\DB;
  */
 final class TestEngine
 {
+    /** Sekunden nach Zeitablauf, in denen noch Antworten angenommen werden. */
+    public const ANSWER_GRACE_SECONDS = 5;
+
     public function __construct(private readonly LqResolver $lqResolver) {}
 
     /**
@@ -82,12 +85,32 @@ final class TestEngine
     }
 
     /**
+     * Startet den Haupttest-Timer (idempotent). Bis dahin laufen Hinweise und
+     * Vorabübung ohne Zeitabzug.
+     */
+    public function beginMain(TestAttempt $attempt): void
+    {
+        if ($attempt->status === 'gestartet' && $attempt->main_started_at === null) {
+            $attempt->update(['main_started_at' => now()]);
+        }
+    }
+
+    /**
      * Speichert oder aktualisiert eine Antwort.
      */
     public function saveAnswer(TestAttempt $attempt, int $questionId, string $answer): bool
     {
         if ($attempt->status !== 'gestartet') {
             return false;
+        }
+
+        // Nach Zeitablauf nichts mehr annehmen (kurze Kulanz für Antworten, die
+        // in den letzten Sekunden noch unterwegs waren).
+        if ($attempt->main_started_at !== null) {
+            $elapsed = (int) $attempt->main_started_at->diffInSeconds(now(), true);
+            if ($elapsed > $attempt->time_limit_seconds + self::ANSWER_GRACE_SECONDS) {
+                return false;
+            }
         }
 
         $question = QuestionnaireQuestion::query()->find($questionId);

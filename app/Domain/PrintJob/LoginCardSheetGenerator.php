@@ -82,7 +82,7 @@ final class LoginCardSheetGenerator
      */
     private function card(array $card, float $x, float $y, float $w, float $h, string $schoolName, string $runName, string $base, Writer $qr): string
     {
-        $url = $base.'/t?code='.rawurlencode($card['code']);
+        $url = self::loginUrl($base, $card['code']);
         $svg = $this->qrSvg($qr, $url);
         $name = e($card['name'] !== '' ? $card['name'] : '—');
         $group = e($card['group']);
@@ -128,6 +128,22 @@ final class LoginCardSheetGenerator
         }
 
         return $marks;
+    }
+
+    /**
+     * Direkt-Login-URL eines Codes (Ziel des QR-Codes).
+     */
+    public static function loginUrl(string $appUrl, string $code): string
+    {
+        return rtrim($appUrl, '/').'/t?code='.rawurlencode($code);
+    }
+
+    /**
+     * Einzelner QR-Code als Inline-SVG (z. B. für die Code-Anzeige am Bildschirm).
+     */
+    public function qrSvgForUrl(string $url): string
+    {
+        return $this->qrSvg($this->qrWriter(), $url);
     }
 
     private function qrWriter(): Writer

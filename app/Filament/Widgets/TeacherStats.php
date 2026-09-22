@@ -10,6 +10,9 @@ use App\Domain\Permission\ScopeFilter;
 use App\Domain\School\Models\LearningGroup;
 use App\Domain\Student\Models\Student;
 use App\Domain\TestRun\Models\TestRun;
+use App\Filament\Resources\LearningGroupResource;
+use App\Filament\Resources\StudentResource;
+use App\Filament\Resources\TestRunResource;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -77,21 +80,35 @@ class TeacherStats extends StatsOverviewWidget
 
         $scopeLabel = $scopes === null ? 'alle Lerngruppen' : count($scopes).' zugewiesene Gruppen';
 
+        // Kacheln verlinken auf die passende Seite – nur wenn der User sie öffnen darf
+        $canRuns = TestRunResource::canViewAny();
+        $groupsUrl = LearningGroupResource::canViewAny() ? LearningGroupResource::getUrl('index') : null;
+        $studentsUrl = StudentResource::canViewAny() ? StudentResource::getUrl('index') : null;
+        $runsUrl = $canRuns
+            ? TestRunResource::getUrl('index', ['tableFilters' => ['status' => ['value' => 'aktiv']]])
+            : null;
+        $lastRunUrl = $canRuns && $lastRun !== null
+            ? TestRunResource::getUrl('monitor', ['record' => $lastRun])
+            : null;
+
         return [
             Stat::make('Lerngruppen', (string) $groupCount)
                 ->description($scopeLabel)
                 ->descriptionIcon('heroicon-m-academic-cap')
-                ->color('primary'),
+                ->color('primary')
+                ->url($groupsUrl),
 
             Stat::make('Aktive Schüler/innen', (string) $studentCount)
                 ->description('im sichtbaren Bereich')
                 ->descriptionIcon('heroicon-m-user-group')
-                ->color('primary'),
+                ->color('primary')
+                ->url($studentsUrl),
 
             Stat::make('Aktive Erhebungen', (string) $activeRuns)
                 ->description('Status = aktiv')
                 ->descriptionIcon('heroicon-m-play-circle')
-                ->color($activeRuns > 0 ? 'success' : 'gray'),
+                ->color($activeRuns > 0 ? 'success' : 'gray')
+                ->url($runsUrl),
 
             Stat::make(
                 'Ø LQ letzte Erhebung',
@@ -99,7 +116,8 @@ class TeacherStats extends StatsOverviewWidget
             )
                 ->description($lastRun?->name ?? 'keine Erhebung gefunden')
                 ->descriptionIcon('heroicon-m-chart-bar')
-                ->color($avgLq === null ? 'gray' : ($avgLq < 85 ? 'warning' : 'success')),
+                ->color($avgLq === null ? 'gray' : ($avgLq < 85 ? 'warning' : 'success'))
+                ->url($lastRunUrl),
         ];
     }
 }

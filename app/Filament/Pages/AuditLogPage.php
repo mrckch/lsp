@@ -17,6 +17,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Livewire\Attributes\Url;
 
 class AuditLogPage extends Page implements HasTable
 {
@@ -39,6 +40,10 @@ class AuditLogPage extends Page implements HasTable
     protected static ?string $navigationLabel = 'Audit-Log';
 
     protected static string $view = 'filament.pages.audit-log';
+
+    /** Filter per URL vorbelegbar (z. B. aus den Dashboard-Kacheln). */
+    #[Url]
+    public ?array $tableFilters = null;
 
     public function table(Table $table): Table
     {
@@ -63,10 +68,20 @@ class AuditLogPage extends Page implements HasTable
                     'user' => 'User', 'system' => 'System', 'student' => 'Student', 'external' => 'Extern',
                 ]),
                 Filter::make('action')->form([
-                    TextInput::make('action')->label('Aktion enthält'),
-                ])->query(fn (Builder $q, array $data) => isset($data['action']) && $data['action'] !== ''
-                        ? $q->where('action', 'like', '%'.$data['action'].'%')
-                        : $q),
+                    TextInput::make('action')->label('Aktion enthält')
+                        ->helperText('Mehrere Alternativen mit | trennen, z. B. students.delete|students.archive'),
+                ])->query(function (Builder $q, array $data) {
+                    $terms = array_filter(array_map('trim', explode('|', (string) ($data['action'] ?? ''))));
+                    if ($terms === []) {
+                        return $q;
+                    }
+
+                    return $q->where(function (Builder $w) use ($terms) {
+                        foreach ($terms as $term) {
+                            $w->orWhere('action', 'like', '%'.$term.'%');
+                        }
+                    });
+                }),
                 Filter::make('clearnames')->label('Nur Klarname-Aktionen')
                     ->query(fn (Builder $q) => $q->where('includes_clearnames', true))
                     ->toggle(),

@@ -111,23 +111,111 @@ class StudentFlowTest extends TestCase
         // 2. Hinweise sehen
         $this->get('/t/hinweise')->assertOk()->assertSee('Hinweise');
 
-        // 3. Aufgaben sehen
+        // 3. Vor „Test starten“ keine Aufgaben, Timer läuft noch nicht
+        $this->get('/t/aufgaben')->assertRedirect(route('student-test.instructions'));
+        $this->assertNull(TestAttempt::query()->latest('id')->first()->main_started_at);
+
+        // 4. Test starten → Timer läuft, Aufgaben sichtbar
+        $this->post('/t/starten')->assertRedirect(route('student-test.questions'));
+        $this->assertNotNull(TestAttempt::query()->latest('id')->first()->main_started_at);
         $this->get('/t/aufgaben')->assertOk()->assertSee('Test 1');
 
-        // 4. Antwort abgeben (eine richtig, eine falsch)
+        // 5. Antwort abgeben (eine richtig, eine falsch)
         $attempt = TestAttempt::query()->latest('id')->first();
         $questions = $attempt->questionnaire->questions;
         $this->post('/t/antwort', ['question_id' => $questions[0]->id, 'answer' => 'richtig'])->assertOk();
         $this->post('/t/antwort', ['question_id' => $questions[1]->id, 'answer' => 'richtig'])->assertOk(); // falsch
 
-        // 5. Submit
+        // 6. Submit
         $this->post('/t/abgeben')->assertRedirect(route('student-test.result'));
 
-        // 6. Result – LQ wird angezeigt (1 Punkt → female 85)
+        // 7. Result – LQ wird angezeigt (1 Punkt → female 85)
         $this->get('/t/ergebnis')->assertOk()->assertSee('85');
 
         $attempt->refresh();
         $this->assertEquals('abgegeben', $attempt->status);
         $this->assertEquals(1, $attempt->score_raw);
+    }
+
+    #[Test]
+    public function root_shows_student_code_login_with_staff_link(): void
+    {
+        $this->get('/')->assertOk()
+            ->assertSee('Willkommen zum Lese-Test')
+            ->assertSee('/admin/login', false);
+    }
+
+    #[Test]
+    public function practice_is_skipped_without_practice_questions(): void
+    {
+        $this->post('/t/login', ['login_code' => $this->loginCode->login_code]);
+
+        $this->get('/t/hinweise')->assertOk()
+            ->assertDontSee('Übung starten')
+            ->assertSee('Test starten');
+        $this->get('/t/uebung')->assertRedirect(route('student-test.instructions'));
+    }
+
+    #[Test]
+    public function practice_shows_questions_and_does_not_start_main_timer(): void
+    {
+        $attemptQ = TestAttempt::query();
+        $questionnaire = Questionnaire::query()->firstOrFail();
+        $questionnaire->practiceQuestions()->create([
+            'sort_order' => 1, 'question_text' => 'Übungssatz Eins', 'correct_answer' => 'richtig',
+        ]);
+
+        $this->post('/t/login', ['login_code' => $this->loginCode->login_code]);
+
+        $this->get('/t/hinweise')->assertOk()->assertSee('Übung starten');
+        $this->get('/t/uebung')->assertOk()
+            ->assertSee('Übungssatz Eins')
+            ->assertSee('Test starten');
+
+        $attempt = $attemptQ->latest('id')->firstOrFail();
+        $this->assertNull($attempt->main_started_at);
+        $this->assertSame(0, $attempt->answers()->count());
+
+        // Antworten vor „Test starten“ werden abgelehnt
+        $q = $attempt->questionnaire->questions->first();
+        $this->postJson('/t/antwort', ['question_id' => $q->id, 'answer' => 'richtig'])->assertStatus(422);
+
+        $this->post('/t/starten')->assertRedirect(route('student-test.questions'));
+        $this->get('/t/uebung')->assertRedirect(route('student-test.questions'));
+    }
+
+    #[Test]
+    public function answers_after_time_limit_are_rejected_and_page_auto_submits(): void
+    {
+        $this->post('/t/login', ['login_code' => $this->loginCode->login_code]);
+        $this->post('/t/starten');
+
+        $attempt = TestAttempt::query()->latest('id')->firstOrFail();
+        $attempt->update(['main_started_at' => now()->subSeconds(180 + TestEngine::ANSWER_GRACE_SECONDS + 1)]);
+        $q = $attempt->questionnaire->questions->first();
+
+        $this->postJson('/t/antwort', ['question_id' => $q->id, 'answer' => 'richtig'])
+            ->assertOk()->assertJson(['ok' => false, 'ended' => true]);
+
+        $this->get('/t/aufgaben')->assertRedirect(route('student-test.result'));
+        $this->assertSame('zeit_abgelaufen', $attempt->refresh()->status);
+    }
+
+    #[Test]
+    public function reset_attempt_ends_student_session_and_allows_relogin(): void
+    {
+        $this->post('/t/login', ['login_code' => $this->loginCode->login_code]);
+        $this->post('/t/starten');
+        $attempt = TestAttempt::query()->latest('id')->firstOrFail();
+
+        app(TestEngine::class)->resetAttempt($attempt, 1, 'Tablet abgestürzt');
+
+        $this->get('/t/aufgaben')->assertRedirect(route('student-test.start'));
+        $this->post('/t/login', ['login_code' => $this->loginCode->login_code])
+            ->assertRedirect(route('student-test.instructions'));
+
+        $new = TestAttempt::query()->latest('id')->firstOrFail();
+        $this->assertNotSame($attempt->id, $new->id);
+        $this->assertNull($new->main_started_at);
     }
 }
