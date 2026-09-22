@@ -10,6 +10,13 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+// Minütlich: Test-Versuche mit abgelaufener Zeit werten, die der Browser nie
+// abgegeben hat (Tab geschlossen o. ä.) – sonst fehlt ihr LQ.
+Schedule::command('attempts:finalize-expired')
+    ->everyMinute()
+    ->onOneServer()
+    ->withoutOverlapping(5);
+
 // Täglich Backup aller aktiven Backup-Ziele (lokale Kopie + ggf. SFTP-Upload).
 Schedule::command('backup:run')
     ->dailyAt((string) config('lsp.backup.schedule_time', '02:30'))

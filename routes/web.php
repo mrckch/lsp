@@ -21,6 +21,8 @@ Route::prefix('t')->name('student-test.')->group(function () {
         ->middleware('throttle:student-login') // pro Code + großzügig pro IP
         ->name('login');
     Route::get('/hinweise', [StudentTestController::class, 'instructions'])->name('instructions');
+    Route::get('/uebung', [StudentTestController::class, 'practice'])->name('practice');
+    Route::post('/starten', [StudentTestController::class, 'begin'])->name('begin');
     Route::get('/aufgaben', [StudentTestController::class, 'questions'])->name('questions');
     // AJAX-Antworten: typisch ~30/Minute pro Schüler → Limit pro laufendem Versuch
     Route::post('/antwort', [StudentTestController::class, 'answer'])
@@ -30,7 +32,6 @@ Route::prefix('t')->name('student-test.')->group(function () {
     Route::get('/ergebnis', [StudentTestController::class, 'result'])->name('result');
 });
 
-// Default-Redirect
-Route::get('/', function () {
-    return redirect('/admin');
-});
+// Startseite = Code-Anmeldung für Schüler/innen. Lehrkräfte und Verwaltung
+// melden sich unter /admin an (Link auf der Startseite).
+Route::get('/', [StudentTestController::class, 'start'])->name('home');

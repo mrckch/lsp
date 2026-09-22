@@ -98,7 +98,7 @@ services:
     image: lsp/app:dev
     restart: unless-stopped
     # Führt u. a. das tägliche backup:run aus (siehe routes/console.php)
-    command: ["sh","-c","while true; do php artisan schedule:run --no-interaction >> /dev/stdout 2>&1; sleep 60; done"]
+    command: ["sh","-c","while true; do php artisan schedule:run --no-interaction; sleep 60; done"]
     environment: *app_env
     volumes:
       - ./:/var/www/html

@@ -6,6 +6,7 @@ namespace App\Filament\Widgets;
 
 use App\Domain\Audit\Models\AuditLog;
 use App\Domain\Permission\PermissionResolver;
+use App\Filament\Pages\AuditLogPage;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -90,7 +91,26 @@ class AuditStats extends StatsOverviewWidget
         return Stat::make($label, (string) $today)
             ->description("$week in den letzten 7 Tagen")
             ->descriptionIcon($icon)
-            ->color($color);
+            ->color($color)
+            ->url(self::auditLogUrl($actions, $onlyClearname));
+    }
+
+    /**
+     * Audit-Log, vorgefiltert auf die Aktionen der Kachel.
+     *
+     * @param  array<int,string>|null  $actions
+     */
+    public static function auditLogUrl(?array $actions, bool $onlyClearname = false): string
+    {
+        $filters = [];
+        if ($actions !== null) {
+            $filters['action'] = ['action' => implode('|', $actions)];
+        }
+        if ($onlyClearname) {
+            $filters['clearnames'] = ['isActive' => true];
+        }
+
+        return AuditLogPage::getUrl($filters === [] ? [] : ['tableFilters' => $filters]);
     }
 
     private function countQuery(?array $actions, \DateTimeInterface $since, bool $onlyClearname): int
