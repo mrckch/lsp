@@ -68,11 +68,16 @@
         return r.top <= mid && r.bottom >= mid;
     }
 
+    // Solange wir selbst scrollen, greift das eigene Einrasten nicht
+    let programmaticUntil = 0;
+
     function center(card, behavior) {
         if (!card) return;
         const b = behavior || smooth;
         clearTimeout(fallbackTimer);
+        clearTimeout(snapTimer);
         setActive(card);
+        programmaticUntil = performance.now() + (b === 'smooth' ? 900 : 150);
         const startY = window.scrollY;
         card.scrollIntoView({ block: 'center', behavior: b });
         if (b === 'smooth') {
@@ -85,6 +90,42 @@
             }, 800);
         }
     }
+    // Eigenes Einrasten statt CSS-Scroll-Snap (siehe layout.blade.php): nach manuellem
+    // Scrollen – Finger losgelassen, Scrollen zur Ruhe gekommen – die Karte in der
+    // Mitte zentrieren. Automatisches Weiterscrollen hat immer Vorrang.
+    let snapTimer = null;
+    let touching = false;
+    function scheduleSnap() {
+        clearTimeout(snapTimer);
+        snapTimer = setTimeout(snapToNearest, 180);
+    }
+    function snapToNearest() {
+        if (touching || advanceTimer || performance.now() < programmaticUntil) return;
+        const mid = (window.innerHeight + bar.offsetHeight) / 2;
+        let best = null;
+        let bestDist = Infinity;
+        cards.forEach(c => {
+            const r = c.getBoundingClientRect();
+            const d = Math.abs((r.top + r.bottom) / 2 - mid);
+            if (d < bestDist) { bestDist = d; best = c; }
+        });
+        if (!best) return;
+        if (bestDist > 6) {
+            center(best);
+        } else {
+            setActive(best);
+        }
+    }
+    window.addEventListener('touchstart', () => { touching = true; clearTimeout(snapTimer); }, { passive: true });
+    ['touchend', 'touchcancel'].forEach(ev => window.addEventListener(ev, () => {
+        touching = false;
+        scheduleSnap();
+    }, { passive: true }));
+    window.addEventListener('scroll', () => {
+        if (performance.now() < programmaticUntil) return;
+        scheduleSnap(); // läuft nach dem letzten Scroll-Ereignis (auch nach Schwung-Scrollen)
+    }, { passive: true });
+
     function scheduleNext(card, delay) {
         cancelAutoScroll();
         advanceTimer = setTimeout(() => {

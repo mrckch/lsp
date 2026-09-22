@@ -33,7 +33,9 @@
         .footer-link a { color:#475569; }
 
         /* ── Fokus-Ansicht (Übung + Test): eine Aussage im Mittelpunkt ───────── */
-        html.focus { scroll-snap-type: y mandatory; scroll-padding-top: var(--bar-h); }
+        /* Kein CSS-Scroll-Snap: WebKit (iPad/iPhone) rastet sonst nach jeder Layoutänderung
+           auf die zuletzt von Hand angesteuerte Karte zurück. Einrasten übernimmt partials/focus-script. */
+        html.focus { scroll-padding-top: var(--bar-h); }
         html.focus .wrap { padding-top:0; }
         .bar { position:sticky; top:0; z-index:10; min-height:var(--bar-h); margin:0 -1rem; padding:0.5rem 1rem;
                background:#1e3a8a; color:#fff; display:flex; flex-wrap:wrap; align-items:center; gap:0.25rem 1rem;
@@ -52,7 +54,7 @@
         }
         .save-status { flex-basis:100%; background:#fef3c7; color:#92400e; padding:0.35rem 0.75rem; border-radius:6px; text-align:center; font-weight:600; font-size:0.9rem; }
 
-        .q-card { scroll-snap-align:center; scroll-snap-stop:always; position:relative;
+        .q-card { position:relative;
                   min-height:calc(100vh - var(--bar-h) - 2rem); min-height:calc(100dvh - var(--bar-h) - 2rem);
                   margin:1rem 0; padding:1.5rem; background:#fff; border-radius:16px; box-shadow:0 1px 4px rgba(15,23,42,.08);
                   display:flex; flex-direction:column; justify-content:center; gap:1.5rem;
