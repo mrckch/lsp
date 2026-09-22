@@ -239,76 +239,180 @@ abstract class AbstractStudentImporter implements StudentImporter
         $job = ImportJob::query()->findOrFail($importJobId);
         $entries = ImportDiffEntry::query()->where('import_job_id', $importJobId)->get();
 
-        $imported = $updated = $archived = $skipped = $failed = 0;
         $shortName = AppSetting::singleton()->school_short_name ?: 'LSP';
         $sourceKey = $this->key();
+        $counts = ['imported' => 0, 'updated' => 0, 'archived' => 0, 'skipped' => 0, 'failed' => 0];
 
-        DB::transaction(function () use ($job, $entries, $decisions, $shortName, $sourceKey, &$imported, &$updated, &$archived, &$skipped, &$failed) {
+        DB::transaction(function () use ($job, $entries, $decisions, $shortName, $sourceKey, &$counts) {
             foreach ($entries as $entry) {
-                $decision = $decisions[$entry->id] ?? $entry->admin_decision;
-
-                if ($decision === 'exclude' || $entry->action === 'error' || $entry->action === 'skip') {
-                    $skipped++;
-
-                    continue;
-                }
-
-                $payload = $entry->payload ?? [];
-                $row = $payload['row'] ?? null;
-
-                try {
-                    match ($entry->action) {
-                        'create' => $this->doCreate($entry, $row, $job, $shortName) && $imported++,
-                        'update' => $this->doUpdate($entry, $row, $job) && $updated++,
-                        'archive' => $this->doArchive($entry, $sourceKey) && $archived++,
-                        default => null,
-                    };
-                } catch (\Throwable $e) {
-                    $failed++;
-                    report($e);
-                }
+                $decision = $decisions[$entry->id] ?? $entry->admin_decision ?? 'confirm';
+                $outcome = $this->processEntry($entry, $decision, $job, $shortName, $sourceKey);
+                $counts[$outcome]++;
+                $entry->update(['committed_at' => now(), 'commit_outcome' => $outcome]);
             }
 
-            $job->update([
-                'status' => 'committed',
-                'committed_at' => now(),
-                'stats' => [
-                    ...$job->stats ?? [],
-                    'committed' => [
-                        'imported' => $imported,
-                        'updated' => $updated,
-                        'archived' => $archived,
-                        'skipped' => $skipped,
-                        'failed' => $failed,
-                    ],
-                ],
-            ]);
-
-            DB::table('student_imports')->insert([
-                'import_job_id' => $job->id,
-                'school_year_id' => $job->school_year_id,
-                'filename' => $job->filename ?? $sourceKey,
-                'source_key' => $sourceKey,
-                'rows_total' => $entries->count(),
-                'rows_imported' => $imported,
-                'rows_updated' => $updated,
-                'rows_archived' => $archived,
-                'rows_skipped' => $skipped,
-                'imported_by_user_id' => auth()->id() ?? $job->started_by_user_id,
-                'imported_at' => now(),
-            ]);
+            $this->writeCommitSummary($job, $entries->count(), $counts, $sourceKey);
         });
 
+        $this->logCommitAudit($job, $counts, $sourceKey);
+
+        return new CommitResult($counts['imported'], $counts['updated'], $counts['archived'], $counts['skipped'], $counts['failed']);
+    }
+
+    /**
+     * Verarbeitet die nächsten $limit noch nicht committeten Einträge chunk-weise
+     * (ohne umschließende Transaktion) — für den UI-getriebenen Import mit
+     * Fortschrittsanzeige. Jeder Poll-Request trägt die entsperrte Klarnamen-Session,
+     * daher läuft die Verschlüsselung hier (nicht in einem Queue-Job). Nutzt die je
+     * Eintrag gespeicherte admin_decision; finalisiert beim letzten Chunk.
+     *
+     * @return array{done: bool, processed: int, total: int, counts: array<string, int>}
+     */
+    public function commitChunk(int $importJobId, int $limit = 50): array
+    {
+        if (! $this->crypto->isUnlocked()) {
+            throw new \RuntimeException('Klarnamen-Session muss entsperrt sein.');
+        }
+
+        $job = ImportJob::query()->findOrFail($importJobId);
+        $sourceKey = $this->key();
+
+        // Bereits abgeschlossen: idempotenter No-op (z. B. doppelter wire:poll-Tick).
+        if ($job->status === 'committed') {
+            return [
+                'done' => true,
+                'processed' => (int) $job->processed_count,
+                'total' => (int) ($job->total_count ?? $job->processed_count),
+                'counts' => $this->outcomeCounts($job->id),
+            ];
+        }
+
+        // Erster Chunk: Zähler initialisieren.
+        if ($job->status !== 'committing') {
+            $job->update([
+                'status' => 'committing',
+                'total_count' => ImportDiffEntry::query()->where('import_job_id', $job->id)->count(),
+                'processed_count' => 0,
+            ]);
+        }
+
+        $shortName = AppSetting::singleton()->school_short_name ?: 'LSP';
+
+        $batch = ImportDiffEntry::query()
+            ->where('import_job_id', $job->id)
+            ->whereNull('committed_at')
+            ->orderBy('id')
+            ->limit(max(1, $limit))
+            ->get();
+
+        foreach ($batch as $entry) {
+            $outcome = $this->processEntry($entry, $entry->admin_decision ?? 'confirm', $job, $shortName, $sourceKey);
+            $entry->update(['committed_at' => now(), 'commit_outcome' => $outcome]);
+        }
+
+        $job->increment('processed_count', $batch->count());
+
+        $done = ! ImportDiffEntry::query()
+            ->where('import_job_id', $job->id)
+            ->whereNull('committed_at')
+            ->exists();
+
+        $counts = $this->outcomeCounts($job->id);
+
+        if ($done && $job->status !== 'committed') {
+            $total = ImportDiffEntry::query()->where('import_job_id', $job->id)->count();
+            $this->writeCommitSummary($job, $total, $counts, $sourceKey);
+            $this->logCommitAudit($job, $counts, $sourceKey);
+        }
+
+        return [
+            'done' => $done,
+            'processed' => (int) $job->processed_count,
+            'total' => (int) ($job->total_count ?? 0),
+            'counts' => $counts,
+        ];
+    }
+
+    /**
+     * Wendet einen einzelnen Diff-Eintrag an und gibt das Ergebnis als Label zurück
+     * (imported|updated|archived|skipped|failed). Wirft nicht — Fehler → 'failed'.
+     */
+    private function processEntry(ImportDiffEntry $entry, string $decision, ImportJob $job, string $shortName, string $sourceKey): string
+    {
+        if ($decision === 'exclude' || $entry->action === 'error' || $entry->action === 'skip') {
+            return 'skipped';
+        }
+
+        $payload = $entry->payload ?? [];
+        $row = $payload['row'] ?? null;
+
+        try {
+            return match ($entry->action) {
+                'create' => $this->doCreate($entry, $row, $job, $shortName) ? 'imported' : 'failed',
+                'update' => $this->doUpdate($entry, $row, $job) ? 'updated' : 'failed',
+                'archive' => $this->doArchive($entry, $sourceKey) ? 'archived' : 'failed',
+                default => 'skipped',
+            };
+        } catch (\Throwable $e) {
+            report($e);
+
+            return 'failed';
+        }
+    }
+
+    /** @return array<string, int> */
+    private function outcomeCounts(int $jobId): array
+    {
+        $base = ['imported' => 0, 'updated' => 0, 'archived' => 0, 'skipped' => 0, 'failed' => 0];
+        $rows = ImportDiffEntry::query()
+            ->where('import_job_id', $jobId)
+            ->whereNotNull('commit_outcome')
+            ->selectRaw('commit_outcome, count(*) as c')
+            ->groupBy('commit_outcome')
+            ->pluck('c', 'commit_outcome')
+            ->toArray();
+
+        return array_merge($base, array_map('intval', $rows));
+    }
+
+    /** @param array<string, int> $counts */
+    private function writeCommitSummary(ImportJob $job, int $rowsTotal, array $counts, string $sourceKey): void
+    {
+        $job->update([
+            'status' => 'committed',
+            'committed_at' => now(),
+            'stats' => [
+                ...$job->stats ?? [],
+                'committed' => $counts,
+            ],
+        ]);
+
+        DB::table('student_imports')->insert([
+            'import_job_id' => $job->id,
+            'school_year_id' => $job->school_year_id,
+            'filename' => $job->filename ?? $sourceKey,
+            'source_key' => $sourceKey,
+            'rows_total' => $rowsTotal,
+            'rows_imported' => $counts['imported'],
+            'rows_updated' => $counts['updated'],
+            'rows_archived' => $counts['archived'],
+            'rows_skipped' => $counts['skipped'],
+            'imported_by_user_id' => auth()->id() ?? $job->started_by_user_id,
+            'imported_at' => now(),
+        ]);
+    }
+
+    /** @param array<string, int> $counts */
+    private function logCommitAudit(ImportJob $job, array $counts, string $sourceKey): void
+    {
         $this->audit->logUser(
             auth()->user() ?? User::find($job->started_by_user_id),
             action: 'import.committed',
             entityType: 'import_job',
             entityId: $job->id,
-            context: compact('imported', 'updated', 'archived', 'skipped', 'failed') + ['source' => $sourceKey],
+            context: $counts + ['source' => $sourceKey],
             includesClearnames: true,
         );
-
-        return new CommitResult($imported, $updated, $archived, $skipped, $failed);
     }
 
     // ── Shared helpers ───────────────────────────────────────────────────────

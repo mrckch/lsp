@@ -77,7 +77,7 @@ class LearningGroupResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $q) => app(ScopeFilter::class)->applyToLearningGroups($q, auth()->user()))
+            ->modifyQueryUsing(fn (Builder $query) => app(ScopeFilter::class)->applyToLearningGroups($query, auth()->user()))
             ->columns([
                 TextColumn::make('schoolYear.label')->label('Schuljahr')->sortable(),
                 TextColumn::make('name')->sortable()->searchable(),

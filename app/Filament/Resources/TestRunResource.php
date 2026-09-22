@@ -180,7 +180,7 @@ class TestRunResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $q) => app(ScopeFilter::class)->applyToTestRuns($q, auth()->user()))
+            ->modifyQueryUsing(fn (Builder $query) => app(ScopeFilter::class)->applyToTestRuns($query, auth()->user()))
             ->columns([
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('short_code')->label('Code')->badge(),
