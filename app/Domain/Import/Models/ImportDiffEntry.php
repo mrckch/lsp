@@ -22,6 +22,8 @@ class ImportDiffEntry extends Model
         'errors',
         'admin_decision',
         'admin_decision_reason',
+        'committed_at',
+        'commit_outcome',
     ];
 
     protected function casts(): array
@@ -30,6 +32,7 @@ class ImportDiffEntry extends Model
             'payload' => 'array',
             'errors' => 'array',
             'created_at' => 'datetime',
+            'committed_at' => 'datetime',
         ];
     }
 
