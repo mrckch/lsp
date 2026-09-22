@@ -68,7 +68,8 @@ class GeneratedDocumentResource extends Resource
                 TextColumn::make('file_name')->label('Datei')->searchable(),
                 TextColumn::make('mime_type')->label('Typ')->badge(),
                 TextColumn::make('size_bytes')->label('Größe')
-                    ->formatStateUsing(fn (int $s) => self::formatBytes($s)),
+                    // Filament injiziert Closure-Parameter per Name → muss $state heißen
+                    ->formatStateUsing(fn ($state) => self::formatBytes((int) $state)),
                 IconColumn::make('includes_clearnames')->label('Klarnamen')->boolean(),
                 TextColumn::make('expires_at')->label('Läuft ab')->date('d.m.Y'),
                 TextColumn::make('createdBy.username')->label('Erstellt von'),
