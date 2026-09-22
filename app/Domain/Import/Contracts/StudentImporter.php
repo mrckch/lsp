@@ -31,4 +31,12 @@ interface StudentImporter
      * @param  array<int,string>  $decisions  diff_entry_id => 'confirm'|'exclude'
      */
     public function commit(int $importJobId, array $decisions): CommitResult;
+
+    /**
+     * Wendet die nächsten $limit noch offenen Einträge an (chunk-weise, für UI mit
+     * Fortschrittsanzeige). Nutzt die je Eintrag gespeicherte admin_decision.
+     *
+     * @return array{done: bool, processed: int, total: int, counts: array<string, int>}
+     */
+    public function commitChunk(int $importJobId, int $limit = 50): array;
 }

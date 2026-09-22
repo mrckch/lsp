@@ -80,7 +80,7 @@ class StudentResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $q) => app(ScopeFilter::class)->applyToStudents($q, auth()->user()))
+            ->modifyQueryUsing(fn (Builder $query) => app(ScopeFilter::class)->applyToStudents($query, auth()->user()))
             ->columns([
                 TextColumn::make('student_code')->label('Code')->searchable()->sortable(),
                 TextColumn::make('first_name_encrypted')->label('Vorname'),

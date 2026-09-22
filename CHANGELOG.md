@@ -10,6 +10,24 @@ Alle nennenswerten Änderungen in diesem Projekt sind hier dokumentiert. Das For
 
 ### Changed
 - Panel nutzt eine eigene Login-Page (`App\Filament\Pages\Auth\Login`); frischer Login setzt das Login-2FA-Gate zurück. Frisch eingerichtetes 2FA (Setup-Seiten) gilt für die laufende Session sofort als bestätigt.
+- **Basis-Druckvorlagen als Bestand**: Neuinstallationen bringen je eine Vorlage pro Template-Typ mit (Rückmeldebogen, Zugangsdaten-Liste, Lese-Verlauf, Förderbedarfs-Liste, Klassenergebnis, Benutzer-Zugangsdaten). `DefaultPrintTemplatesSeeder`, idempotent — bestehende (auch bearbeitete) Vorlagen bleiben unangetastet, alles wie bisher editier-/versionier-/löschbar. Läuft auch beim Erst-Seed vor dem Setup (System-Bestand ohne Ersteller).
+
+### Changed
+- Druckvorlagen-Renderer: Array-Variablen (`rows`, `students`, `history`, `stats`) werden jetzt als HTML-Tabellen gerendert (Liste von Datensätzen → Tabelle, Kennzahlen-Map → Feld/Wert-Tabelle) statt als JSON-Dump.
+- `print_template_versions.created_by_user_id` ist nullable (system-gesäte Default-Vorlagen haben keinen menschlichen Ersteller).
+- **Default-Rückmeldeset als Bestand**: Neuinstallationen bringen ein aktives Set „SLS-Standardrückmeldung (LQ)" mit drei LQ-Bändern mit, abgestimmt auf die Default-Förderbedarfs-Schwellen (LQ&nbsp;<&nbsp;70 Förderbedarf, 70–84 auffällig, ab&nbsp;85 Normbereich). `DefaultFeedbackSetsSeeder`, idempotent — bestehende (auch bearbeitete) Sets bleiben unangetastet, alles wie bisher editier-/löschbar.
+
+### Changed
+- `feedback_sets.created_by_user_id` ist nullable (system-gesäte Default-Sets haben keinen menschlichen Ersteller; der Seeder läuft bei Erstinstallation vor dem Setup-Wizard).
+## [1.46.2] – 2026-09-16
+
+Produktions-Hotfixes aus dem ersten Live-Deployment (Docker-VM hinter NPM).
+
+### Fixed
+- **Schüler-Import „Datei nicht gefunden"**: Die hochgeladene CSV wurde unter `storage/app/…` gesucht, die `local`-Disk liegt aber unter `storage/app/private` → der Dry-Run brach immer ab. Zugriff jetzt über `Storage::disk('local')->path(...)` (gleicher Bug wie v1.46.1 bei den Normtabellen, hier im `ImportWizardPage` nachgezogen)
+- **500-Fehler auf den Listen Lerngruppen / Schüler / Testläufe**: Tabellen mit einem `modifyQueryUsing`-Scope **und** Filtern stürzten mit „Cannot use ::class on null" ab. Filament reicht die Query per Parameternamen `query` in die Closure; der Parameter hieß `$q`, wurde daher nicht befüllt und ein model-loser Builder lief in den Filter-Formularaufbau. Parameter auf `$query` umbenannt (`LearningGroupResource`, `StudentResource`, `TestRunResource`)
+- **Import-Commit ohne Rückmeldung**: Lief die Klarnamen-Re-Auth während der Diff-Prüfung ab, warf `commit()` unbemerkt eine Exception (kein try/catch). Jetzt kommt eine persistente Fehler-Notification, analog zum Dry-Run
+- **docker-compose**: `queue`- und `scheduler`-Service teilten sich per Bind-Mount denselben `bootstrap/cache/config.php` mit `app`, hatten aber ein unvollständiges `environment` (ohne `DB_CONNECTION`, `CACHE_STORE`, `SESSION_DRIVER` …). Jeder Neustart überschrieb den Config-Cache mit falschen Defaults (App fiel auf `sqlite` zurück). `&app_env`-Anchor an das `app`-Environment angeglichen
 
 ## [1.46.1] – 2026-09-15
 

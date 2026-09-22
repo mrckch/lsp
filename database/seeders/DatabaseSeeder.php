@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             DefaultUserGroupsSeeder::class,
             DefaultAssessmentTypesSeeder::class,
             DefaultSupportThresholdsSeeder::class,
+            DefaultFeedbackSetsSeeder::class,
             DefaultPrintTemplatesSeeder::class,
         ]);
     }

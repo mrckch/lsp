@@ -22,6 +22,8 @@ class ImportJob extends Model
         'status',
         'mapping',
         'stats',
+        'total_count',
+        'processed_count',
         'started_by_user_id',
         'started_at',
         'validated_at',
