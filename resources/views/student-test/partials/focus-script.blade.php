@@ -48,30 +48,60 @@
     }, { rootMargin: '-45% 0px -45% 0px' });
     cards.forEach(c => observer.observe(c));
 
+    // Es gibt immer nur EIN ausstehendes automatisches Scrollen. Jede neue
+    // Antwort und jede Berührung durch den Schüler bricht ältere Timer ab –
+    // sonst kann ein veralteter Timer auf eine schon gelöste Karte zurückspringen.
+    let advanceTimer = null;
+    let fallbackTimer = null;
+    function cancelAutoScroll() {
+        clearTimeout(advanceTimer);
+        clearTimeout(fallbackTimer);
+        advanceTimer = fallbackTimer = null;
+    }
+    ['touchstart', 'wheel'].forEach(ev =>
+        window.addEventListener(ev, () => clearTimeout(fallbackTimer), { passive: true }));
+
+    // Liegt die Karte auf der Mittellinie des sichtbaren Bereichs (unter der Leiste)?
+    function isCentered(card) {
+        const r = card.getBoundingClientRect();
+        const mid = (window.innerHeight + bar.offsetHeight) / 2;
+        return r.top <= mid && r.bottom >= mid;
+    }
+
     function center(card, behavior) {
         if (!card) return;
         const b = behavior || smooth;
+        clearTimeout(fallbackTimer);
         setActive(card);
+        const startY = window.scrollY;
         card.scrollIntoView({ block: 'center', behavior: b });
         if (b === 'smooth') {
-            // Fallback, falls der Browser das weiche Scrollen nicht ausführt
-            setTimeout(() => {
-                const r = card.getBoundingClientRect();
-                const mid = (window.innerHeight + bar.offsetHeight) / 2;
-                if (r.top > mid || r.bottom < mid) card.scrollIntoView({ block: 'center' });
+            // Fallback nur, wenn der Browser das weiche Scrollen gar nicht ausgeführt hat
+            fallbackTimer = setTimeout(() => {
+                fallbackTimer = null;
+                if (Math.abs(window.scrollY - startY) < 2 && !isCentered(card)) {
+                    card.scrollIntoView({ block: 'center' });
+                }
             }, 800);
         }
     }
-    function goNext(card) {
-        center(cards[cards.indexOf(card) + 1]);
+    function scheduleNext(card, delay) {
+        cancelAutoScroll();
+        advanceTimer = setTimeout(() => {
+            advanceTimer = null;
+            center(cards[cards.indexOf(card) + 1]);
+        }, delay);
     }
 
-    // Tablet quer: Tipp auf eine unscharfe Nachbar-Karte holt sie in die Mitte
+    // Tablet quer: Tipp auf eine unscharfe Nachbar-Karte holt sie in die Mitte.
+    // Maßgeblich ist die tatsächliche Position – nicht die „aktiv“-Markierung,
+    // die während einer Scroll-Animation schon der Zielkarte gehört.
     cards.forEach(card => {
         card.addEventListener('click', e => {
-            if (landscape.matches && !card.classList.contains('is-active')) {
+            if (landscape.matches && !isCentered(card)) {
                 e.preventDefault();
                 e.stopPropagation();
+                cancelAutoScroll();
                 center(card);
             }
         }, true);
@@ -198,7 +228,9 @@
                 }
 
                 if (autoBox.checked) {
-                    setTimeout(() => goNext(card), MODE === 'practice' ? 1200 : 300);
+                    scheduleNext(card, MODE === 'practice' ? 1200 : 300);
+                } else {
+                    cancelAutoScroll();
                 }
             });
         });
@@ -221,6 +253,7 @@
             document.body.classList.add('locked');
             const final = cards[cards.length - 1];
             final.querySelector('[data-expired]')?.removeAttribute('hidden');
+            cancelAutoScroll();
             center(final);
         }
     }
