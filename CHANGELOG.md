@@ -5,6 +5,11 @@ Alle nennenswerten Änderungen in diesem Projekt sind hier dokumentiert. Das For
 ## [Unreleased]
 
 ### Added
+- **Basis-Druckvorlagen als Bestand**: Neuinstallationen bringen je eine Vorlage pro Template-Typ mit (Rückmeldebogen, Zugangsdaten-Liste, Lese-Verlauf, Förderbedarfs-Liste, Klassenergebnis, Benutzer-Zugangsdaten). `DefaultPrintTemplatesSeeder`, idempotent — bestehende (auch bearbeitete) Vorlagen bleiben unangetastet, alles wie bisher editier-/versionier-/löschbar. Läuft auch beim Erst-Seed vor dem Setup (System-Bestand ohne Ersteller).
+
+### Changed
+- Druckvorlagen-Renderer: Array-Variablen (`rows`, `students`, `history`, `stats`) werden jetzt als HTML-Tabellen gerendert (Liste von Datensätzen → Tabelle, Kennzahlen-Map → Feld/Wert-Tabelle) statt als JSON-Dump.
+- `print_template_versions.created_by_user_id` ist nullable (system-gesäte Default-Vorlagen haben keinen menschlichen Ersteller).
 - **Default-Rückmeldeset als Bestand**: Neuinstallationen bringen ein aktives Set „SLS-Standardrückmeldung (LQ)" mit drei LQ-Bändern mit, abgestimmt auf die Default-Förderbedarfs-Schwellen (LQ&nbsp;<&nbsp;70 Förderbedarf, 70–84 auffällig, ab&nbsp;85 Normbereich). `DefaultFeedbackSetsSeeder`, idempotent — bestehende (auch bearbeitete) Sets bleiben unangetastet, alles wie bisher editier-/löschbar.
 
 ### Changed

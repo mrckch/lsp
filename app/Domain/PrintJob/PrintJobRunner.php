@@ -66,22 +66,70 @@ final class PrintJobRunner
     }
 
     /**
-     * Sehr einfaches {{var}}-Replacement.
-     * Verschachtelte Strukturen (Listen) als JSON dump in Container.
+     * Einfaches {{var}}-Replacement. Skalare werden escaped eingesetzt; Arrays
+     * werden zu HTML-Tabellen gerendert (Liste von Maps → Tabelle mit Spalten
+     * aus den Schlüsseln, assoziative Map → Feld/Wert-Tabelle, Skalar-Liste → Liste).
      */
     public function renderTemplate(string $html, array $vars): string
     {
         return preg_replace_callback('/{{\s*([a-zA-Z0-9_.]+)\s*}}/', function ($m) use ($vars) {
-            $key = $m[1];
-            $value = data_get($vars, $key);
+            $value = data_get($vars, $m[1]);
             if ($value === null) {
                 return '';
             }
             if (is_array($value)) {
-                return e(json_encode($value, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+                return $this->arrayToHtml($value);
             }
 
             return e((string) $value);
         }, $html) ?? $html;
+    }
+
+    /**
+     * @param  array<mixed>  $value
+     */
+    private function arrayToHtml(array $value): string
+    {
+        if ($value === []) {
+            return '';
+        }
+
+        $cell = fn ($v) => is_array($v)
+            ? e((string) json_encode($v, JSON_UNESCAPED_UNICODE))
+            : e((string) $v);
+
+        // Liste von Maps → Tabelle mit Spaltenüberschriften aus den Schlüsseln
+        if (array_is_list($value) && is_array($value[0] ?? null)) {
+            $cols = array_keys($value[0]);
+            $head = implode('', array_map(fn ($c) => '<th>'.e((string) $c).'</th>', $cols));
+            $body = '';
+            foreach ($value as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $cells = '';
+                foreach ($cols as $c) {
+                    $cells .= '<td>'.$cell($row[$c] ?? '').'</td>';
+                }
+                $body .= '<tr>'.$cells.'</tr>';
+            }
+
+            return '<table class="tpl-table"><thead><tr>'.$head.'</tr></thead><tbody>'.$body.'</tbody></table>';
+        }
+
+        // Skalar-Liste → einfache Aufzählung
+        if (array_is_list($value)) {
+            return '<ul class="tpl-list">'
+                .implode('', array_map(fn ($v) => '<li>'.$cell($v).'</li>', $value))
+                .'</ul>';
+        }
+
+        // Assoziative Map → Feld/Wert-Tabelle
+        $body = '';
+        foreach ($value as $k => $v) {
+            $body .= '<tr><th>'.e((string) $k).'</th><td>'.$cell($v).'</td></tr>';
+        }
+
+        return '<table class="tpl-table tpl-kv"><tbody>'.$body.'</tbody></table>';
     }
 }

@@ -59,6 +59,43 @@ class PrintJobRunnerTest extends TestCase
     }
 
     #[Test]
+    public function it_renders_a_list_of_maps_as_a_table(): void
+    {
+        $runner = new PrintJobRunner($this->fakeGotenberg());
+        $html = $runner->renderTemplate('{{rows}}', ['rows' => [
+            ['name' => 'Anna', 'lq' => 102],
+            ['name' => 'Ben', 'lq' => 88],
+        ]]);
+
+        $this->assertStringContainsString('<table class="tpl-table">', $html);
+        $this->assertStringContainsString('<th>name</th>', $html);
+        $this->assertStringContainsString('<td>Anna</td>', $html);
+        $this->assertStringContainsString('<td>102</td>', $html);
+        $this->assertStringNotContainsString('[', $html); // kein JSON-Dump mehr
+    }
+
+    #[Test]
+    public function it_renders_an_associative_map_as_key_value_table(): void
+    {
+        $runner = new PrintJobRunner($this->fakeGotenberg());
+        $html = $runner->renderTemplate('{{stats}}', ['stats' => ['avg' => 96, 'count' => 22]]);
+
+        $this->assertStringContainsString('tpl-kv', $html);
+        $this->assertStringContainsString('<th>avg</th>', $html);
+        $this->assertStringContainsString('<td>96</td>', $html);
+    }
+
+    #[Test]
+    public function it_escapes_cell_values_in_tables(): void
+    {
+        $runner = new PrintJobRunner($this->fakeGotenberg());
+        $html = $runner->renderTemplate('{{rows}}', ['rows' => [['x' => '<script>']]]);
+
+        $this->assertStringNotContainsString('<script>', $html);
+        $this->assertStringContainsString('&lt;script&gt;', $html);
+    }
+
+    #[Test]
     public function run_creates_generated_document_and_marks_done(): void
     {
         $tpl = PrintTemplate::create(['key' => 't', 'name' => 'Test', 'type' => 'feedback', 'is_system' => false]);
