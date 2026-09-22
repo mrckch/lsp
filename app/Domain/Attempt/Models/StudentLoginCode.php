@@ -32,11 +32,13 @@ class StudentLoginCode extends Model
         ];
     }
 
+    /** @return BelongsTo<Student, $this> */
     public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class);
     }
 
+    /** @return BelongsTo<TestRun, $this> */
     public function testRun(): BelongsTo
     {
         return $this->belongsTo(TestRun::class);
@@ -45,6 +47,8 @@ class StudentLoginCode extends Model
     /**
      * Jüngster Versuch dieses Schülers in diesem Run. Nur verfügbar, wenn die
      * Query über {@see scopeWithAttemptInfo()} die Spalte `latest_attempt_id` lädt.
+     *
+     * @return BelongsTo<TestAttempt, $this>
      */
     public function latestAttempt(): BelongsTo
     {

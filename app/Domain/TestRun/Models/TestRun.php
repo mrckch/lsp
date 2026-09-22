@@ -58,6 +58,7 @@ class TestRun extends Model
         return $this->belongsTo(AssessmentType::class);
     }
 
+    /** @return BelongsTo<Questionnaire, $this> */
     public function questionnaire(): BelongsTo
     {
         return $this->belongsTo(Questionnaire::class);

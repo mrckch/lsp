@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\TestRunResource\Widgets;
 
+use App\Domain\TestRun\Models\TestRun;
 use App\Domain\TestRun\TestRunProgress;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -24,7 +25,7 @@ class TestRunMonitorStats extends StatsOverviewWidget
 
     protected function getStats(): array
     {
-        if ($this->record === null || auth()->user() === null) {
+        if (! $this->record instanceof TestRun || auth()->user() === null) {
             return [];
         }
 

@@ -82,7 +82,7 @@ class TestRunLqBoxplot extends Widget
         foreach (array_keys(self::GENDER_LABELS) as $g) {
             $groupLqs = array_column(array_filter($values, fn ($v) => $v['gender'] === $g), 'lq');
             if ($groupLqs !== []) {
-                $groups[$g] = ['n' => count($groupLqs), 'median' => self::quantile(array_values($groupLqs), 0.5)];
+                $groups[$g] = ['n' => count($groupLqs), 'median' => self::quantile($groupLqs, 0.5)];
             }
         }
 
@@ -126,8 +126,8 @@ class TestRunLqBoxplot extends Widget
             ->get();
         foreach ($thresholds as $t) {
             $cut = (int) floor((float) $t->value) + ($t->operator === 'le' ? 1 : 0);
-            $rank = self::SEVERITY_RANK[$t->severity] ?? 0;
-            if (! isset($cuts[$cut]) || $rank > (self::SEVERITY_RANK[$cuts[$cut]] ?? 0)) {
+            $rank = self::SEVERITY_RANK[$t->severity];
+            if (! isset($cuts[$cut]) || $rank > self::SEVERITY_RANK[$cuts[$cut]]) {
                 $cuts[$cut] = $t->severity;
             }
         }
@@ -136,7 +136,7 @@ class TestRunLqBoxplot extends Widget
         $bands = [];
         $from = null;
         foreach ($cuts as $cut => $severity) {
-            $bands[] = ['from' => $from, 'to' => $cut - 1, 'label' => self::SEVERITY_LABELS[$severity] ?? $severity, 'severity' => $severity];
+            $bands[] = ['from' => $from, 'to' => $cut - 1, 'label' => self::SEVERITY_LABELS[$severity], 'severity' => $severity];
             $from = $cut;
         }
         $bands[] = ['from' => $from, 'to' => null, 'label' => 'unauffällig', 'severity' => 'none'];

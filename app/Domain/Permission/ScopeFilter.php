@@ -6,6 +6,7 @@ namespace App\Domain\Permission;
 
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Wendet die User-Scope-Einschränkung (auf Lerngruppen) auf Queries an.
@@ -44,6 +45,11 @@ final class ScopeFilter
 
     /**
      * Filtert eine Student-Query auf die Lerngruppen, die der User sehen darf.
+     *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
      */
     public function applyToStudents(Builder $query, User $user): Builder
     {
@@ -59,6 +65,11 @@ final class ScopeFilter
 
     /**
      * Filtert eine LearningGroup-Query auf die zugewiesenen Gruppen.
+     *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
      */
     public function applyToLearningGroups(Builder $query, User $user): Builder
     {
@@ -68,6 +79,11 @@ final class ScopeFilter
     /**
      * Filtert eine TestRun-Query: ein Run ist sichtbar, wenn er mit mind. einer
      * scope-Lerngruppe verknüpft ist.
+     *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
      */
     public function applyToTestRuns(Builder $query, User $user): Builder
     {
@@ -83,6 +99,11 @@ final class ScopeFilter
 
     /**
      * Filtert eine TestAttempt-Query auf Versuche von SuS in scope-Lerngruppen.
+     *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
      */
     public function applyToAttempts(Builder $query, User $user): Builder
     {
@@ -98,6 +119,11 @@ final class ScopeFilter
 
     /**
      * Filtert eine StudentLoginCode-Query analog zu attempts.
+     *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
      */
     public function applyToLoginCodes(Builder $query, User $user): Builder
     {
@@ -113,6 +139,11 @@ final class ScopeFilter
 
     /**
      * Hilfsmethode: gemeinsame Behandlung der Scope-Sentinel-Werte.
+     *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
      */
     private function whenScoped(Builder $query, User $user, callable $apply): Builder
     {
