@@ -5,7 +5,7 @@
     $W = 800; $padL = 20; $padR = 20;
     $x = fn ($v) => round($padL + ($v - $d0) / max(1, $d1 - $d0) * ($W - $padL - $padR), 1);
     $fmt = fn ($v) => rtrim(rtrim(number_format($v, 1, ',', ''), '0'), ',');
-    $threshold = \App\Filament\Resources\TestRunResource\Widgets\TestRunLqBoxplot::THRESHOLD;
+    $threshold = $data['threshold'];
     $norm = \App\Filament\Resources\TestRunResource\Widgets\TestRunLqBoxplot::NORM_MEAN;
 @endphp
 
@@ -24,15 +24,21 @@
 
         @if($s)
             <x-slot name="headerEnd">
-                <x-filament::button size="sm" :color="$byGender ? 'primary' : 'gray'" :outlined="! $byGender"
-                                    icon="heroicon-m-user-group" wire:click="$toggle('byGender')">
-                    Nach Geschlecht
-                </x-filament::button>
+                <div style="display:flex; flex-wrap:wrap; gap:.5rem; justify-content:flex-end;">
+                    <x-filament::button size="sm" :color="$showBands ? 'primary' : 'gray'" :outlined="! $showBands"
+                                        icon="heroicon-m-adjustments-horizontal" wire:click="$toggle('showBands')">
+                        Förderbereiche
+                    </x-filament::button>
+                    <x-filament::button size="sm" :color="$byGender ? 'primary' : 'gray'" :outlined="! $byGender"
+                                        icon="heroicon-m-user-group" wire:click="$toggle('byGender')">
+                        Nach Geschlecht
+                    </x-filament::button>
+                </div>
             </x-slot>
         @endif
 
         <style>
-            .lq-plot text { fill: rgb(var(--gray-500)); font-size: 13px; }
+            .lq-plot text { fill: rgb(var(--gray-500)); font-size: 14px; }
             .lq-plot .axis { stroke: rgb(var(--gray-300)); }
             .lq-plot .grid { stroke: rgb(var(--gray-200)); }
             .lq-plot .whisker { stroke: rgb(var(--gray-500)); stroke-width: 2; }
@@ -60,7 +66,34 @@
             .dark .lq-plot .dot.g-m, .dark .lq-legend .g-m { fill: #d95926; }
             .lq-legend { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; font-size: .875rem; margin-bottom: .25rem; }
             .lq-legend span { display: inline-flex; align-items: center; gap: .4rem; }
+            /* Förderbereiche: Status-Töne als dezente Flächen, immer mit Beschriftung in der Legende */
+            .lq-band.sev-foerderbedarf, .lq-legend .sev-foerderbedarf { fill: rgba(var(--danger-500), .12); }
+            .lq-band.sev-auffaellig, .lq-legend .sev-auffaellig { fill: rgba(var(--warning-500), .14); }
+            .lq-band.sev-hinweis, .lq-legend .sev-hinweis { fill: rgba(var(--info-500), .12); }
+            .lq-band.sev-none, .lq-legend .sev-none { fill: rgba(var(--success-500), .08); }
+            .lq-legend rect.swatch { stroke: rgb(var(--gray-300)); }
+            .dark .lq-band.sev-foerderbedarf, .dark .lq-legend .sev-foerderbedarf { fill: rgba(var(--danger-400), .18); }
+            .dark .lq-band.sev-auffaellig, .dark .lq-legend .sev-auffaellig { fill: rgba(var(--warning-400), .18); }
+            .dark .lq-band.sev-none, .dark .lq-legend .sev-none { fill: rgba(var(--success-400), .10); }
         </style>
+
+        @if($s && $showBands)
+            <div class="lq-legend text-gray-600 dark:text-gray-300">
+                @foreach($data['bands'] as $band)
+                    <span>
+                        <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+                            <rect class="swatch sev-{{ $band['severity'] }}" x="0.5" y="0.5" width="13" height="13" rx="3" />
+                        </svg>
+                        <span>
+                            {{ $band['label'] }}
+                            ({{ $band['from'] === null ? '< '.($band['to'] + 1) : ($band['to'] === null ? '≥ '.$band['from'] : $band['from'].'–'.$band['to']) }}):
+                            <strong>{{ $band['count'] }}</strong> SuS
+                            <span style="opacity:.7;">({{ $data['n'] > 0 ? round($band['count'] / $data['n'] * 100) : 0 }} %)</span>
+                        </span>
+                    </span>
+                @endforeach
+            </div>
+        @endif
 
         @if($s && $byGender)
             <div class="lq-legend text-gray-600 dark:text-gray-300">
@@ -81,6 +114,21 @@
         <svg class="lq-plot" viewBox="0 0 {{ $W }} 150" width="100%" role="img"
              aria-label="Boxplot der LQ-Werte{{ $s ? ': Median '.$fmt($s['median']).', Quartile '.$fmt($s['q1']).' bis '.$fmt($s['q3']) : '' }}"
              style="display:block; max-height:220px;">
+            {{-- Förderbereiche als Hintergrundflächen --}}
+            @if($showBands)
+                @foreach($data['bands'] as $band)
+                    @php
+                        $bx0 = $x(max($d0, $band['from'] ?? $d0));
+                        $bx1 = $x(min($d1, $band['to'] === null ? $d1 : $band['to'] + 1));
+                    @endphp
+                    @if($bx1 > $bx0)
+                        <rect class="lq-band sev-{{ $band['severity'] }}" x="{{ $bx0 }}" y="20" width="{{ $bx1 - $bx0 }}" height="98">
+                            <title>{{ $band['label'] }}: {{ $band['count'] }} SuS</title>
+                        </rect>
+                    @endif
+                @endforeach
+            @endif
+
             {{-- Raster + Achse --}}
             @for($t = $d0; $t <= $d1; $t += 10)
                 <line class="grid" x1="{{ $x($t) }}" x2="{{ $x($t) }}" y1="28" y2="118" />
@@ -90,7 +138,7 @@
 
             {{-- Referenzlinien --}}
             <line class="ref-threshold" x1="{{ $x($threshold) }}" x2="{{ $x($threshold) }}" y1="20" y2="118" />
-            <text x="{{ $x($threshold) - 4 }}" y="14" text-anchor="end">auffällig &lt; {{ $threshold }}</text>
+            <text x="{{ $x($threshold) - 4 }}" y="14" text-anchor="end">{{ $data['threshold_label'] }} &lt; {{ $threshold }}</text>
             <line class="ref-norm" x1="{{ $x($norm) }}" x2="{{ $x($norm) }}" y1="20" y2="118" />
             <text x="{{ $x($norm) + 4 }}" y="14">Normmittel {{ $norm }}</text>
 

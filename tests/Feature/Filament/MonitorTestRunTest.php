@@ -17,6 +17,7 @@ use App\Domain\Questionnaire\Models\QuestionnaireQuestion;
 use App\Domain\School\Models\LearningGroup;
 use App\Domain\School\Models\SchoolYear;
 use App\Domain\Student\Models\Student;
+use App\Domain\SupportThreshold\Models\SupportThreshold;
 use App\Domain\TestRun\Models\TestRun;
 use App\Filament\Resources\TestRunResource;
 use App\Filament\Resources\TestRunResource\Pages\MonitorTestRun;
@@ -25,6 +26,7 @@ use App\Filament\Widgets\ActiveTestRunsOverview;
 use App\Filament\Widgets\AuditStats;
 use App\Models\AppSetting;
 use App\Models\User;
+use Database\Seeders\DefaultSupportThresholdsSeeder;
 use Database\Seeders\DefaultUserGroupsSeeder;
 use Database\Seeders\PermissionCatalogSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -281,6 +283,21 @@ class MonitorTestRunTest extends TestCase
     }
 
     #[Test]
+    public function support_bands_come_from_active_lq_thresholds_with_counts(): void
+    {
+        $this->seed(DefaultSupportThresholdsSeeder::class); // < 85 auffällig, < 70 Förderbedarf, Δ-Regel
+        SupportThreshold::create(['name' => 'inaktiv', 'metric' => 'lq_absolute', 'operator' => 'lt', 'value' => 100, 'severity' => 'hinweis', 'is_active' => false]);
+        SupportThreshold::create(['name' => 'doppelt', 'metric' => 'lq_absolute', 'operator' => 'le', 'value' => 69, 'severity' => 'hinweis', 'is_active' => true]);
+
+        $bands = TestRunLqBoxplot::bands([60, 69, 70, 84, 85, 100]);
+
+        $this->assertSame(
+            [['Förderbedarf', null, 69, 2], ['auffällig', 70, 84, 2], ['unauffällig', 85, null, 2]],
+            array_map(fn ($b) => [$b['label'], $b['from'], $b['to'], $b['count']], $bands),
+        );
+    }
+
+    #[Test]
     public function boxplot_widget_renders_scoped_values(): void
     {
         foreach ([$this->code5a, $this->code5b] as $i => $code) {
@@ -297,7 +314,11 @@ class MonitorTestRunTest extends TestCase
             ->assertDontSee('Mädchen: n')
             ->toggle('byGender')
             ->assertSee('Mädchen:')
-            ->assertSee('n = 1 · Median 80', false);
+            ->assertSee('n = 1 · Median 80', false)
+            ->assertDontSee('SuS')
+            ->toggle('showBands')
+            ->assertSee('unauffällig')
+            ->assertSee('SuS');
     }
 
     #[Test]

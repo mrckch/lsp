@@ -6,6 +6,7 @@ namespace App\Filament\Resources\TestRunResource\Widgets;
 
 use App\Domain\Attempt\Models\TestAttempt;
 use App\Domain\Permission\ScopeFilter;
+use App\Domain\SupportThreshold\Models\SupportThreshold;
 use Filament\Widgets\Widget;
 use Illuminate\Database\Eloquent\Model;
 
@@ -25,8 +26,15 @@ class TestRunLqBoxplot extends Widget
 
     public ?Model $record = null;
 
+    public const SEVERITY_LABELS = ['foerderbedarf' => 'Förderbedarf', 'auffaellig' => 'auffällig', 'hinweis' => 'Hinweis'];
+
+    private const SEVERITY_RANK = ['foerderbedarf' => 3, 'auffaellig' => 2, 'hinweis' => 1];
+
     /** Punkte nach Geschlecht einfärben (per Schalter, bleibt beim Pollen erhalten) */
     public bool $byGender = false;
+
+    /** Förderbereiche (aus den Förderbedarfsschwellen) einblenden */
+    public bool $showBands = false;
 
     protected static string $view = 'filament.resources.test-run.lq-boxplot';
 
@@ -39,7 +47,7 @@ class TestRunLqBoxplot extends Widget
     protected int|string|array $columnSpan = 'full';
 
     /**
-     * @return array{n: int, values: list<array{lq: int, gender: string, label: string}>, stats: ?array{min: float, q1: float, median: float, q3: float, max: float, lo: float, hi: float, below: int}, domain: array{0: int, 1: int}, groups: array<string, array{n: int, median: float}>}
+     * @return array{n: int, values: list<array{lq: int, gender: string, label: string}>, stats: ?array{min: float, q1: float, median: float, q3: float, max: float, lo: float, hi: float, below: int}, domain: array{0: int, 1: int}, groups: array<string, array{n: int, median: float}>, bands: list<array{from: ?int, to: ?int, label: string, severity: string, count: int}>, threshold: int, threshold_label: string}
      */
     public function getData(): array
     {
@@ -78,13 +86,65 @@ class TestRunLqBoxplot extends Widget
             }
         }
 
+        $bands = self::bands($lqs);
+        // Oberste Grenze (z. B. „auffällig < 85“) als Referenzlinie; ohne Schwellen der Standardwert
+        $topCut = count($bands) > 1 ? $bands[count($bands) - 2] : null;
+        $threshold = $topCut !== null ? $topCut['to'] + 1 : self::THRESHOLD;
+        $stats = $lqs === [] ? null : self::stats($lqs);
+        if ($stats !== null) {
+            $stats['below'] = count(array_filter($lqs, fn ($v) => $v < $threshold));
+        }
+
         return [
             'n' => count($lqs),
             'values' => $values,
-            'stats' => $lqs === [] ? null : self::stats($lqs),
+            'stats' => $stats,
             'domain' => self::domain($lqs),
             'groups' => $groups,
+            'bands' => $bands,
+            'threshold' => $threshold,
+            'threshold_label' => $topCut['label'] ?? 'auffällig',
         ];
+    }
+
+    /**
+     * Bereiche aus den aktiven Förderbedarfsschwellen (Metrik „LQ absolut“,
+     * Operator < oder ≤), aufsteigend, plus Restbereich „unauffällig“.
+     * Je Bereich die Anzahl der Werte darin.
+     *
+     * @param  list<int>  $lqs
+     * @return list<array{from: ?int, to: ?int, label: string, severity: string, count: int}>
+     */
+    public static function bands(array $lqs): array
+    {
+        // Grenze (erster Wert, der NICHT mehr dazugehört) → höchste Schwere
+        $cuts = [];
+        $thresholds = SupportThreshold::query()
+            ->where('is_active', true)
+            ->where('metric', 'lq_absolute')
+            ->whereIn('operator', ['lt', 'le'])
+            ->get();
+        foreach ($thresholds as $t) {
+            $cut = (int) floor((float) $t->value) + ($t->operator === 'le' ? 1 : 0);
+            $rank = self::SEVERITY_RANK[$t->severity] ?? 0;
+            if (! isset($cuts[$cut]) || $rank > (self::SEVERITY_RANK[$cuts[$cut]] ?? 0)) {
+                $cuts[$cut] = $t->severity;
+            }
+        }
+        ksort($cuts);
+
+        $bands = [];
+        $from = null;
+        foreach ($cuts as $cut => $severity) {
+            $bands[] = ['from' => $from, 'to' => $cut - 1, 'label' => self::SEVERITY_LABELS[$severity] ?? $severity, 'severity' => $severity];
+            $from = $cut;
+        }
+        $bands[] = ['from' => $from, 'to' => null, 'label' => 'unauffällig', 'severity' => 'none'];
+
+        return array_map(fn ($b) => $b + ['count' => count(array_filter(
+            $lqs,
+            fn ($v) => ($b['from'] === null || $v >= $b['from']) && ($b['to'] === null || $v <= $b['to']),
+        ))], $bands);
     }
 
     /**
