@@ -18,6 +18,8 @@ final class DistributionStats
 
     public const NORM_MEAN = 100;
 
+    public const NORM_SD = 15;
+
     public const GENDER_LABELS = ['w' => 'Mädchen', 'm' => 'Jungen', 'other' => 'divers/unbekannt'];
 
     public const SEVERITY_LABELS = ['foerderbedarf' => 'Förderbedarf', 'auffaellig' => 'auffällig', 'hinweis' => 'Hinweis'];
@@ -152,6 +154,18 @@ final class DistributionStats
 
             return $t === null ? [-10, 'lt'] : [(int) $t->value, (string) $t->operator];
         });
+    }
+
+    /**
+     * Verteilungsfunktion der Normalverteilung (Abramowitz/Stegun 7.1.26, Fehler < 1,5e-7).
+     */
+    public static function normalCdf(float $x, float $mean = self::NORM_MEAN, float $sd = 15.0): float
+    {
+        $z = ($x - $mean) / ($sd * M_SQRT2);
+        $t = 1 / (1 + 0.3275911 * abs($z));
+        $erf = 1 - ((((1.061405429 * $t - 1.453152027) * $t + 1.421413741) * $t - 0.284496736) * $t + 0.254829592) * $t * exp(-$z * $z);
+
+        return 0.5 * (1 + ($z >= 0 ? $erf : -$erf));
     }
 
     /**

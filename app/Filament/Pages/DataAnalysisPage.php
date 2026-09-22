@@ -9,6 +9,7 @@ use App\Domain\Analytics\AnalysisDataset;
 use App\Domain\Analytics\AnalysisFilter;
 use App\Domain\Analytics\AnalysisPdfRenderer;
 use App\Domain\Analytics\AnalysisReport;
+use App\Domain\Analytics\ItemAnalysis;
 use App\Domain\Analytics\Models\AnalysisPreset;
 use App\Domain\Audit\AuditLogger;
 use App\Domain\Crypto\CryptoService;
@@ -83,7 +84,7 @@ class DataAnalysisPage extends Page implements HasForms
     #[Url(as: 'geschlecht')]
     public bool $byGender = false;
 
-    /** Ansicht (Tab): vergleich | foerderbereiche | entwicklung */
+    /** Ansicht (Tab), Schlüssel aus AnalysisPdfRenderer::VIEWS */
     #[Url(as: 'ansicht')]
     public string $tab = 'vergleich';
 
@@ -93,6 +94,10 @@ class DataAnalysisPage extends Page implements HasForms
 
     #[Url(as: 'bis')]
     public ?string $devTo = null;
+
+    /** Satzanalyse: gewählter Fragebogen (null = der häufigste) */
+    #[Url(as: 'fb')]
+    public ?int $questionnaireId = null;
 
     public function mount(): void
     {
@@ -230,11 +235,28 @@ class DataAnalysisPage extends Page implements HasForms
             'filter' => $filter,
             'dist' => $dist,
             'dev' => $this->tab === 'entwicklung' ? $this->development($filter) : null,
+            'hist' => $this->tab === 'verteilung' ? app(AnalysisReport::class)->histogram($rows) : null,
+            'sa' => $this->tab === 'tempo' ? app(AnalysisReport::class)->speedAccuracy($rows) : null,
+            'ia' => $this->tab === 'saetze' ? $this->itemAnalysis($rows) : null,
+            'genderNote' => AnalysisPdfRenderer::genderNote($filter),
             'kpis' => AnalysisPdfRenderer::kpis($rows, $dist),
             'genderInfo' => AnalysisPdfRenderer::genderInfo($rows),
             'noScope' => app(AnalysisDataset::class)->allowedGroupIds(auth()->user()) === [],
             'canSeeNames' => app(CryptoService::class)->isUnlocked(),
         ];
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return array<string, mixed>
+     */
+    private function itemAnalysis(Collection $rows): array
+    {
+        $ia = app(ItemAnalysis::class)->analyse($rows, $this->questionnaireId);
+        // Auswahlfeld zeigt den tatsächlich ausgewerteten Fragebogen
+        $this->questionnaireId = $ia['questionnaire_id'];
+
+        return $ia;
     }
 
     /** @return array<string, mixed> */
@@ -294,9 +316,9 @@ class DataAnalysisPage extends Page implements HasForms
                     'with_lists' => true,
                 ])
                 ->form([
-                    CheckboxList::make('views')->label('Ansichten')
+                    CheckboxList::make('views')->label('Ansichten (je eine Seite)')
                         ->options(AnalysisPdfRenderer::VIEWS)
-                        ->columns(3)->required(),
+                        ->columns(2)->required(),
                     Radio::make('orientation')->label('Ausrichtung')
                         ->options(['portrait' => 'Hochformat', 'landscape' => 'Querformat'])
                         ->inline()->required(),
@@ -342,6 +364,7 @@ class DataAnalysisPage extends Page implements HasForms
                 'by_gender' => $this->byGender,
                 'dev_from' => $this->devFrom,
                 'dev_to' => $this->devTo,
+                'questionnaire_id' => $this->questionnaireId,
             ],
         ]);
         Notification::make()->success()->title('Auswertung „'.$name.'“ gespeichert')->send();
@@ -362,6 +385,7 @@ class DataAnalysisPage extends Page implements HasForms
         $this->byGender = (bool) ($settings['by_gender'] ?? false);
         $this->devFrom = $settings['dev_from'] ?? null;
         $this->devTo = $settings['dev_to'] ?? null;
+        $this->questionnaireId = isset($settings['questionnaire_id']) ? (int) $settings['questionnaire_id'] : null;
         $this->unmountAction();
         Notification::make()->success()->title('Auswertung „'.$preset->name.'“ geladen')->send();
     }
@@ -444,6 +468,7 @@ class DataAnalysisPage extends Page implements HasForms
                 'by_gender' => $this->byGender,
                 'dev_from' => $this->devFrom,
                 'dev_to' => $this->devTo,
+                'questionnaire_id' => $this->questionnaireId,
             ]);
             $pdf = app(GotenbergClient::class)->htmlToPdf(
                 $html,

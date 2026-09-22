@@ -17,16 +17,20 @@ final class AnalysisPdfRenderer
     public function __construct(
         private readonly AnalysisReport $report,
         private readonly AnalysisDataset $dataset,
+        private readonly ItemAnalysis $items,
     ) {}
 
     public const VIEWS = [
         'vergleich' => 'Vergleich',
         'foerderbereiche' => 'Förderbereiche',
         'entwicklung' => 'Entwicklung',
+        'verteilung' => 'Verteilung vs. Norm',
+        'tempo' => 'Tempo & Genauigkeit',
+        'saetze' => 'Satzanalyse',
     ];
 
     /**
-     * @param  array{orientation?: string, views?: list<string>, with_lists?: bool, with_names?: bool, show_bands?: bool, by_gender?: bool, dev_from?: ?string, dev_to?: ?string}  $options
+     * @param  array{orientation?: string, views?: list<string>, with_lists?: bool, with_names?: bool, show_bands?: bool, by_gender?: bool, dev_from?: ?string, dev_to?: ?string, questionnaire_id?: ?int}  $options
      */
     public function html(AnalysisFilter $filter, User $user, array $options = []): string
     {
@@ -39,6 +43,10 @@ final class AnalysisPdfRenderer
             : null;
 
         return view('print.analysis', [
+            'hist' => in_array('verteilung', $views, true) ? $this->report->histogram($rows) : null,
+            'sa' => in_array('tempo', $views, true) ? $this->report->speedAccuracy($rows) : null,
+            'ia' => in_array('saetze', $views, true) ? $this->items->analyse($rows, $options['questionnaire_id'] ?? null) : null,
+            'genderNote' => self::genderNote($filter),
             'schoolName' => AppSetting::singleton()->school_name ?? 'Schule',
             'filterText' => $filter->describe(),
             'createdBy' => $user->display_name ?? $user->username,
@@ -56,6 +64,18 @@ final class AnalysisPdfRenderer
             'byGender' => (bool) ($options['by_gender'] ?? false),
             'genderInfo' => self::genderInfo($rows),
         ])->render();
+    }
+
+    /**
+     * Hinweis beim Geschlechtervergleich: der LQ ist geschlechtsspezifisch normiert.
+     */
+    public static function genderNote(AnalysisFilter $filter): ?string
+    {
+        return in_array('gender', [$filter->groupBy, $filter->secondaryGroupBy], true)
+            ? 'Hinweis: Der LQ wird geschlechtsspezifisch normiert – Mädchen und Jungen werden jeweils an ihrer eigenen '
+                .'Normgruppe gemessen. Gleiche LQ-Verteilungen bedeuten daher „gleich weit von der eigenen Norm entfernt“, '
+                .'nicht zwingend gleiche Rohleistung (dafür die Rohwerte in der Schülerliste bzw. im CSV heranziehen).'
+            : null;
     }
 
     /**

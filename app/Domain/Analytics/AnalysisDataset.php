@@ -147,6 +147,7 @@ final class AnalysisDataset
                 .str_pad((string) min((int) ($run->assessmentType->sort_order ?? 99999), 99999), 5, '0', STR_PAD_LEFT).'|'
                 .($run->scheduled_for?->toDateString() ?? ($a->submitted_at?->toDateString() ?? '')),
             'parallel_form' => $a->parallel_form,
+            'questionnaire_id' => $a->questionnaire_id,
             'lq' => (int) $a->lq_current,
             'raw' => (int) $a->score_raw,
             'answered_count' => (int) $a->answers_count,

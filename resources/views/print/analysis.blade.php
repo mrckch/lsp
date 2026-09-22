@@ -69,6 +69,7 @@
                 :print="true"
             />
             <p class="note">Box = mittlere 50 % (Q1–Q3), Strich = Median, Linien = Whisker (1,5 × IQR), Punkte = einzelne Schüler:innen.</p>
+            @if($genderNote)<p class="note">{{ $genderNote }}</p>@endif
 
             <h3>Kennzahlen</h3>
             <x-analysis.stats-table :groups="$dist['groups']" :total="$dist['total']" :bands="$dist['bands']" :print="true" />
@@ -83,6 +84,23 @@
             @else
                 <x-analysis.development :dev="$dev" :threshold="$dist['threshold']" :threshold-label="$dist['threshold_label']" :print="true" />
                 <x-analysis.delta-details :dev="$dev" :print="true" :names="$withNames" />
+            @endif
+        @elseif($view === 'verteilung')
+            <h2>Verteilung im Vergleich zur Norm</h2>
+            <x-analysis.histogram :hist="$hist" :threshold="$dist['threshold']" :threshold-label="$dist['threshold_label']" :print="true" />
+        @elseif($view === 'tempo')
+            <h2>Tempo &amp; Genauigkeit</h2>
+            @if($sa['n'] === 0)
+                <p class="note">Keine Versuche mit bearbeiteten Sätzen.</p>
+            @else
+                <x-analysis.scatter :sa="$sa" :by-gender="$byGender" :print="true" :names="$withNames" />
+            @endif
+        @elseif($view === 'saetze')
+            <h2>Satzanalyse</h2>
+            @if($ia['items'] === [])
+                <p class="note">Keine Antworten für eine Satzanalyse vorhanden.</p>
+            @else
+                <x-analysis.items :ia="$ia" :print="true" />
             @endif
         @endif
     @endforeach

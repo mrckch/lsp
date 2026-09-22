@@ -25,6 +25,7 @@
         .dark .da-kpi { background: rgb(var(--gray-900)); border-color: rgba(255,255,255,.1); }
         .dark .da-kpi .v { color: #fff; }
         .da-empty { color: rgb(var(--gray-500)); padding: 1rem 0; }
+        .da-note { font-size: .8rem; color: rgb(var(--gray-500)); margin-top: .75rem; }
         .da-waves { display: flex; flex-wrap: wrap; gap: .5rem 1rem; }
         .da-waves label { display: flex; align-items: center; gap: .4rem; font-size: .875rem; color: rgb(var(--gray-500)); }
     </style>
@@ -83,6 +84,15 @@
             <x-filament::tabs.item :active="$tab === 'entwicklung'" icon="heroicon-m-arrow-trending-up" wire:click="setTab('entwicklung')">
                 Entwicklung
             </x-filament::tabs.item>
+            <x-filament::tabs.item :active="$tab === 'verteilung'" icon="heroicon-m-chart-bar-square" wire:click="setTab('verteilung')">
+                Verteilung vs. Norm
+            </x-filament::tabs.item>
+            <x-filament::tabs.item :active="$tab === 'tempo'" icon="heroicon-m-bolt" wire:click="setTab('tempo')">
+                Tempo &amp; Genauigkeit
+            </x-filament::tabs.item>
+            <x-filament::tabs.item :active="$tab === 'saetze'" icon="heroicon-m-list-bullet" wire:click="setTab('saetze')">
+                Satzanalyse
+            </x-filament::tabs.item>
         </x-filament::tabs>
 
         @if($tab === 'vergleich')
@@ -121,6 +131,9 @@
                 <div style="margin-top:1rem;">
                     <x-analysis.stats-table :groups="$dist['groups']" :total="$dist['total']" :bands="$dist['bands']" :drilldown="true" />
                 </div>
+                @if($v['genderNote'])
+                    <p class="da-note">{{ $v['genderNote'] }}</p>
+                @endif
             </x-filament::section>
         @elseif($tab === 'foerderbereiche')
             <x-filament::section>
@@ -130,7 +143,7 @@
                 </x-slot>
                 <x-analysis.stacked-bands :groups="$dist['groups']" :total="$dist['total']" :bands="$dist['bands']" :drilldown="true" />
             </x-filament::section>
-        @else
+        @elseif($tab === 'entwicklung')
             @php $dev = $v['dev']; @endphp
             <x-filament::section>
                 <x-slot name="heading">Entwicklung über die Erhebungen</x-slot>
@@ -172,6 +185,59 @@
 
                     <x-analysis.development :dev="$dev" :threshold="$dist['threshold']" :threshold-label="$dist['threshold_label']" />
                     <x-analysis.delta-details :dev="$dev" :names="$v['canSeeNames']" style="margin-top:1rem;" />
+                @endif
+            </x-filament::section>
+        @elseif($tab === 'verteilung')
+            <x-filament::section>
+                <x-slot name="heading">Verteilung im Vergleich zur Norm</x-slot>
+                <x-slot name="description">
+                    Wie viele Schüler:innen liegen in welchem LQ-Bereich – und wie viele wären laut Norm (Mittel 100, SD 15) zu erwarten?
+                </x-slot>
+                <x-analysis.histogram :hist="$v['hist']" :threshold="$dist['threshold']" :threshold-label="$dist['threshold_label']" />
+            </x-filament::section>
+        @elseif($tab === 'tempo')
+            <x-filament::section>
+                <x-slot name="heading">Tempo &amp; Genauigkeit</x-slot>
+                <x-slot name="description">
+                    Je Punkt ein:e Schüler:in: wie viele Sätze bearbeitet (Tempo) und wie viele davon falsch beurteilt (Fehlerquote).
+                </x-slot>
+                <x-slot name="headerEnd">
+                    <x-filament::button size="sm" :color="$byGender ? 'primary' : 'gray'" :outlined="! $byGender"
+                                        icon="heroicon-m-user-group" wire:click="$toggle('byGender')">
+                        Nach Geschlecht
+                    </x-filament::button>
+                </x-slot>
+                @if($v['sa']['n'] === 0)
+                    <p class="da-empty">Keine Versuche mit bearbeiteten Sätzen.</p>
+                @else
+                    <x-analysis.scatter :sa="$v['sa']" :by-gender="$byGender" :names="$v['canSeeNames']" />
+                @endif
+            </x-filament::section>
+        @elseif($tab === 'saetze')
+            @php $ia = $v['ia']; @endphp
+            <x-filament::section>
+                <x-slot name="heading">Satzanalyse</x-slot>
+                <x-slot name="description">
+                    Welche Sätze wurden oft falsch beurteilt, und wie weit kamen die Schüler:innen in der Zeit?
+                </x-slot>
+                @if(count($ia['options']) > 1)
+                    <x-slot name="headerEnd">
+                        <label class="da-waves">
+                            <span>Fragebogen</span>
+                            <x-filament::input.wrapper>
+                                <x-filament::input.select wire:model.live="questionnaireId">
+                                    @foreach($ia['options'] as $id => $label)
+                                        <option value="{{ $id }}" @selected($id === $ia['questionnaire_id'])>{{ $label }}</option>
+                                    @endforeach
+                                </x-filament::input.select>
+                            </x-filament::input.wrapper>
+                        </label>
+                    </x-slot>
+                @endif
+                @if($ia['items'] === [])
+                    <p class="da-empty">Keine Antworten für eine Satzanalyse vorhanden.</p>
+                @else
+                    <x-analysis.items :ia="$ia" />
                 @endif
             </x-filament::section>
         @endif

@@ -239,7 +239,11 @@ Typische Voreinstellungen als Schnellwahl-Buttons über der Filterzeile:
 9. **Gespeicherte Auswertungen**: Tabelle `analysis_presets` (id, user_id, name,
    filter JSON, is_shared bool, timestamps); eigene + geteilte Presets laden.
 
-### Phase 3 – Vertiefung
+### Phase 3 – Vertiefung — ✅ umgesetzt (Branch `feat/data-analysis`)
+> Umsetzung: Fehlerquote = (bearbeitet − Rohwert) / bearbeitet (Rohwert = Anzahl richtig). „Erreicht“ = bis zum
+> letzten beantworteten Satz gekommen; „übersprungen“ = davor ausgelassen. „Schwierig“ = Lösungsquote < 70 % bei
+> mind. 3 Antworten. Satzanalyse wertet einen Fragebogen aus (Standard: der häufigste, wählbar). Der Hinweis zur
+> geschlechtsspezifischen LQ-Normierung (§9) ist umgesetzt.
 10. **Verteilung vs. Norm** (Histogramm + N(100,15)).
 11. **Tempo & Genauigkeit** (Scatter; Quadranten „langsam & genau“, „schnell & fehlerhaft“ …).
 12. **Satzanalyse** (Lösungsquote je Satz, „nicht erreicht“-Anteil).

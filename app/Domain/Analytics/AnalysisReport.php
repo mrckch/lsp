@@ -18,6 +18,14 @@ final class AnalysisReport
     /** Mehr Verlaufslinien werden unübersichtlich → dann nur „Alle“ */
     public const MAX_SERIES = 6;
 
+    /** Quadranten der Tempo/Genauigkeit-Ansicht */
+    public const QUADRANTS = [
+        'fast_accurate' => 'schnell & genau',
+        'fast_inaccurate' => 'schnell & fehlerhaft',
+        'slow_accurate' => 'langsam & genau',
+        'slow_inaccurate' => 'langsam & fehlerhaft',
+    ];
+
     /**
      * Verteilung je Gruppe (optional zweistufig, z. B. Klasse × Geschlecht).
      *
@@ -149,6 +157,110 @@ final class AnalysisReport
             'declines' => $pairs->filter(fn (array $r) => $r['delta'] < 0)
                 ->sortBy([['delta', 'asc'], ['name', 'asc']])->values()
                 ->map(fn (array $r) => $r + ['gender_label' => DistributionStats::GENDER_LABELS[$r['gender']]])->all(),
+        ];
+    }
+
+    /**
+     * Häufigkeitsverteilung der LQ-Werte (Klassenbreite $binWidth) mit der erwarteten
+     * Verteilung laut Norm N(100, 15) und beobachteten vs. erwarteten Anteilen je Förderbereich.
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return array<string, mixed>
+     */
+    public function histogram(Collection $rows, int $binWidth = 5): array
+    {
+        $lqs = $rows->pluck('lq')->all();
+        $n = count($lqs);
+        [$d0, $d1] = DistributionStats::domain($lqs);
+        $sd = DistributionStats::NORM_SD;
+
+        $bins = [];
+        for ($from = $d0; $from < $d1; $from += $binWidth) {
+            $to = $from + $binWidth - 1;
+            $bins[] = [
+                'from' => $from,
+                'to' => $to,
+                'count' => count(array_filter($lqs, fn ($v) => $v >= $from && $v <= $to)),
+                // Erwartung für ganzzahlige LQ-Werte from..to (Stetigkeitskorrektur ±0,5)
+                'expected' => $n * (DistributionStats::normalCdf($to + 0.5, sd: $sd) - DistributionStats::normalCdf($from - 0.5, sd: $sd)),
+            ];
+        }
+
+        // Normkurve als Dichte, skaliert auf „Anzahl je Klasse“
+        $curve = [];
+        for ($x = $d0; $x <= $d1; $x += 1) {
+            $curve[] = [$x, $n * $binWidth * exp(-0.5 * (($x - DistributionStats::NORM_MEAN) / $sd) ** 2) / ($sd * sqrt(2 * M_PI))];
+        }
+
+        $bands = DistributionStats::bands($lqs);
+        $shares = array_map(function (array $b) use ($n, $sd) {
+            $lo = $b['from'] === null ? 0.0 : DistributionStats::normalCdf($b['from'] - 0.5, sd: $sd);
+            $hi = $b['to'] === null ? 1.0 : DistributionStats::normalCdf($b['to'] + 0.5, sd: $sd);
+
+            return $b + [
+                'observed_pct' => $n > 0 ? (float) ($b['count'] / $n * 100) : 0.0,
+                'expected_pct' => ($hi - $lo) * 100,
+                'expected_count' => ($hi - $lo) * $n,
+            ];
+        }, $bands);
+
+        return [
+            'n' => $n,
+            'bins' => $bins,
+            'curve' => $curve,
+            'domain' => [$d0, $d1],
+            'bin_width' => $binWidth,
+            'summary' => DistributionStats::summary($lqs),
+            'shares' => $shares,
+            'max' => max([1, ...array_column($bins, 'count'), ...array_column($curve, 1)]),
+        ];
+    }
+
+    /**
+     * Tempo (bearbeitete Sätze) gegen Genauigkeit (Fehlerquote) je Schüler, Quadranten an den Medianen.
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return array<string, mixed>
+     */
+    public function speedAccuracy(Collection $rows): array
+    {
+        $points = $rows->filter(fn (array $r) => $r['answered_count'] > 0)
+            ->map(fn (array $r) => $r + [
+                'errors' => max(0, $r['answered_count'] - $r['raw']),
+                'error_rate' => max(0, $r['answered_count'] - $r['raw']) / $r['answered_count'] * 100,
+                'severity' => DistributionStats::severityOf($r['lq']),
+            ])->values();
+
+        if ($points->isEmpty()) {
+            return ['n' => 0, 'points' => []];
+        }
+
+        $xs = $points->pluck('answered_count')->sort()->values()->all();
+        $ys = $points->pluck('error_rate')->sort()->values()->all();
+        $mx = DistributionStats::quantile($xs, 0.5);
+        $my = DistributionStats::quantile($ys, 0.5);
+
+        // Quadrant: Tempo über/unter Median, Fehlerquote über/unter Median (Gleichstand zählt als „nicht über“)
+        $quadrantOf = fn (array $p) => ($p['answered_count'] > $mx ? 'fast' : 'slow').'_'.($p['error_rate'] > $my ? 'inaccurate' : 'accurate');
+        $points = $points->map(fn (array $p) => $p + ['quadrant' => $quadrantOf($p)]);
+
+        return [
+            'n' => $points->count(),
+            'points' => $points->all(),
+            'median_x' => $mx,
+            'median_y' => $my,
+            // x ab knapp unter dem kleinsten Wert (sonst viel Leerraum), oben Platz für die Quadranten-Beschriftung
+            'x_min' => (int) max(0, floor((min($xs) - 2) / 5) * 5),
+            'x_max' => (int) (ceil((max($xs) + 1) / 5) * 5),
+            'y_max' => (int) max(20, ceil((max($ys) + 6) / 10) * 10),
+            'quadrants' => collect(self::QUADRANTS)->map(fn (string $label, string $key) => [
+                'key' => $key,
+                'label' => $label,
+                'count' => $points->where('quadrant', $key)->count(),
+            ])->values()->all(),
+            // Für Rückmeldungen: wer schnell, aber fehlerhaft liest – und wer genau, aber langsam
+            'fast_inaccurate' => $points->where('quadrant', 'fast_inaccurate')->sortByDesc('error_rate')->values()->all(),
+            'slow_accurate' => $points->where('quadrant', 'slow_accurate')->sortBy('answered_count')->values()->all(),
         ];
     }
 
