@@ -168,7 +168,7 @@ class MonitorTestRun extends Page implements HasTable
                     ->wrap(),
                 TextColumn::make('login_code')->label('Login-Code')
                     ->fontFamily('mono')->copyable()->copyMessage('Code kopiert')
-                    ->description(fn (StudentLoginCode $r) => self::CODE_STATUS[$r->status] ?? $r->status)
+                    ->description(fn (StudentLoginCode $r) => self::CODE_STATUS[$r->status])
                     ->visible($canSeeCodes),
                 TextColumn::make('phase')->label('Status')->badge()
                     ->getStateUsing(fn (StudentLoginCode $r) => $r->status === 'gesperrt'
@@ -234,7 +234,7 @@ class MonitorTestRun extends Page implements HasTable
                     'code' => $r->login_code,
                     'url' => $url,
                     'qr' => new HtmlString($generator->qrSvgForUrl($url)),
-                    'status' => self::CODE_STATUS[$r->status] ?? $r->status,
+                    'status' => self::CODE_STATUS[$r->status],
                 ]);
             })
             ->modalWidth('md')
@@ -409,7 +409,7 @@ class MonitorTestRun extends Page implements HasTable
             return 'Zeit abgelaufen'; // wird minütlich automatisch gewertet
         }
 
-        return self::ATTEMPT_STATUS[$a->status] ?? $a->status;
+        return self::ATTEMPT_STATUS[$a->status];
     }
 
     /**
