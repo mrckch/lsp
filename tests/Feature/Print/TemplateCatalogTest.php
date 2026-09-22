@@ -45,7 +45,7 @@ class TemplateCatalogTest extends TestCase
         // Wir brauchen Gotenberg nicht – nur den Variable-Replacement-Pfad testen.
         $runner = new PrintJobRunner(new class('http://x') extends GotenbergClient
         {
-            public function htmlToPdf(string $html, ?string $css = null, array $options = []): string
+            public function htmlToPdf(string $html, ?string $css = null, array $options = [], array $extraFiles = []): string
             {
                 return $html;
             }

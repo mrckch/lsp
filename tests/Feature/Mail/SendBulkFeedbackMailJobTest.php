@@ -92,7 +92,7 @@ class SendBulkFeedbackMailJobTest extends TestCase
 
         $this->app->bind(GotenbergClient::class, fn () => new class('http://x') extends GotenbergClient
         {
-            public function htmlToPdf(string $html, ?string $css = null, array $options = []): string
+            public function htmlToPdf(string $html, ?string $css = null, array $options = [], array $extraFiles = []): string
             {
                 return "%PDF\n".$html;
             }

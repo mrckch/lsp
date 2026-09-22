@@ -24,9 +24,11 @@ class GotenbergClient
     /**
      * Konvertiert HTML+CSS zu PDF-Bytes.
      *
+     * @param  array<string, string>  $extraFiles  weitere Dateien, z. B. ['footer.html' => '<html>…']
+     *
      * @throws PdfServiceUnavailableException
      */
-    public function htmlToPdf(string $html, ?string $css = null, array $options = []): string
+    public function htmlToPdf(string $html, ?string $css = null, array $options = [], array $extraFiles = []): string
     {
         $url = rtrim($this->baseUrl, '/').'/forms/chromium/convert/html';
 
@@ -36,6 +38,9 @@ class GotenbergClient
             $request->attach('files', $css, 'styles.css');
         }
         $request->attach('files', $this->wrapHtml($html, $css !== null && $css !== ''), 'index.html');
+        foreach ($extraFiles as $name => $content) {
+            $request->attach('files', $content, $name);
+        }
 
         foreach ($options as $key => $value) {
             $request = $request->attach($key, (string) $value);

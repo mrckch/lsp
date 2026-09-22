@@ -7,9 +7,11 @@ Alle nennenswerten Änderungen in diesem Projekt sind hier dokumentiert. Das For
 ### Added
 - **Echtes Login-2FA**: Wer 2FA aktiviert hat, muss nach der Passwort-Anmeldung einen TOTP-/Recovery-Code bestätigen, bevor das Panel nutzbar ist (`EnforceLoginTwoFactor`-Middleware + `LoginTwoFactor`-Challenge-Page, Nachweis pro Session, Rate-Limit). Vorher diente 2FA nur als Step-up-Re-Auth für sensible Aktionen; der Code wurde beim Login nie verlangt.
 - **Login akzeptiert Username ODER E-Mail** gleichberechtigt (E-Mail-Format → Spalte `email`, sonst `username`).
+- **Auswertung → Datenanalyse** (Phase 1): Erhebungsdaten filtern (Schuljahr, Erhebungstyp, Testdurchläufe, Jahrgang, Lerngruppen, Geschlecht, Wiederholer, Parallelform, Zeitraum) und Gruppen als mehrzeiligen LQ-Boxplot mit Kennzahlentabelle vergleichen; Schnellwahl „Klassen vergleichen“, „Mädchen vs. Jungen“, „Klassen × Geschlecht“; Filter steht in der URL (teilbar); Klick auf eine Gruppe öffnet die Schülerliste. Export als A4-PDF (Hoch/Quer, optional Schülerlisten mit Klarnamen, Fußzeile „Vertraulich“, abgelegt unter „Erzeugte Dokumente“) und CSV; beide Exporte im Audit-Log. Lehrkräfte sehen nur ihre zugewiesenen Lerngruppen, Schulleitung/Admin (`analytics.school_overview`) die ganze Schule.
 
 ### Changed
 - Panel nutzt eine eigene Login-Page (`App\Filament\Pages\Auth\Login`); frischer Login setzt das Login-2FA-Gate zurück. Frisch eingerichtetes 2FA (Setup-Seiten) gilt für die laufende Session sofort als bestätigt.
+- LQ-Statistik (Quantile, Whisker, Förderbereiche) in `App\Domain\Analytics\DistributionStats` ausgelagert; der Boxplot der Testdurchlauf-Übersicht nutzt dieselbe SVG-Komponente (`<x-analysis.boxplot>`) wie die Datenanalyse. `GotenbergClient::htmlToPdf()` nimmt zusätzliche Dateien (z. B. `footer.html`) an.
 
 ## [1.46.1] – 2026-09-15
 

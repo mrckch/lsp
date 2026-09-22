@@ -218,7 +218,10 @@ Typische Voreinstellungen als Schnellwahl-Buttons über der Filterzeile:
 
 ## 6. Umsetzung in Phasen
 
-### Phase 1 – Kern (Klassen- & Geschlechtervergleich, PDF)
+### Phase 1 – Kern (Klassen- & Geschlechtervergleich, PDF) — ✅ umgesetzt (Branch `feat/data-analysis`)
+> Abweichungen: Tabs erst ab Phase 2 (Phase 1 zeigt nur „Vergleich“). Lehrkräfte **ohne**
+> Lerngruppen-Zuweisung sehen hier nichts (strenger als `ScopeFilter`, der „keine Zuweisung“
+> als „alles“ wertet). PDF ohne Schülerlisten geht auch bei gesperrten Klarnamen.
 1. `DistributionStats` extrahieren, `TestRunLqBoxplot` darauf umstellen (Tests grün).
 2. `AnalysisFilter`, `AnalysisDataset` (+ Tests: Scope, latest_per_student, Gruppenzuordnung).
 3. Komponenten `boxplot` (mehrzeilig) + `stats-table`; Monitor-Widget nutzt `boxplot`.
