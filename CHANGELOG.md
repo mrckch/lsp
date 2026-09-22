@@ -4,37 +4,45 @@ Alle nennenswerten Änderungen in diesem Projekt sind hier dokumentiert. Das For
 
 ## [Unreleased]
 
+## [1.47.0] – 2026-09-22
+
+Erster Release seit dem Live-Deployment: Datenanalyse, Durchführung am iPad, Testdurchlauf-Übersicht, echtes Login-2FA, Import-Verlauf und Standard-Bestände. Enthält auch die als 1.46.2 vorgesehenen Live-Hotfixes (dafür wurde nie ein Tag gesetzt).
+
 ### Added
-- **Echtes Login-2FA**: Wer 2FA aktiviert hat, muss nach der Passwort-Anmeldung einen TOTP-/Recovery-Code bestätigen, bevor das Panel nutzbar ist (`EnforceLoginTwoFactor`-Middleware + `LoginTwoFactor`-Challenge-Page, Nachweis pro Session, Rate-Limit). Vorher diente 2FA nur als Step-up-Re-Auth für sensible Aktionen; der Code wurde beim Login nie verlangt.
-- **Login akzeptiert Username ODER E-Mail** gleichberechtigt (E-Mail-Format → Spalte `email`, sonst `username`).
-- **Auswertung → Datenanalyse** (Phase 1): Erhebungsdaten filtern (Schuljahr, Erhebungstyp, Testdurchläufe, Jahrgang, Lerngruppen, Geschlecht, Wiederholer, Parallelform, Zeitraum) und Gruppen als mehrzeiligen LQ-Boxplot mit Kennzahlentabelle vergleichen; Schnellwahl „Klassen vergleichen“, „Mädchen vs. Jungen“, „Klassen × Geschlecht“; Filter steht in der URL (teilbar); Klick auf eine Gruppe öffnet die Schülerliste. Export als A4-PDF (Hoch/Quer, optional Schülerlisten mit Klarnamen, Fußzeile „Vertraulich“, abgelegt unter „Erzeugte Dokumente“) und CSV; beide Exporte im Audit-Log. Lehrkräfte sehen nur ihre zugewiesenen Lerngruppen, Schulleitung/Admin (`analytics.school_overview`) die ganze Schule.
-- **Datenanalyse Phase 2**: Tabs „Vergleich“, „Förderbereiche“ (gestapelte 100-%-Balken je Gruppe mit Anzahlen) und „Entwicklung“ (Median + Q1–Q3 je Erhebungswelle, z. B. Herbst → Frühjahr; Δ-LQ je Schüler als Boxplot, Kennzahlen verbessert/verschlechtert und Liste der stärksten Verschlechterungen, markiert nach der aktiven Δ-Schwelle). PDF mit wählbaren Ansichten und getrennter Option „Mit Klarnamen“ (sonst Schülercodes); CSV enthält im Tab „Entwicklung“ die Δ-Daten. **Gespeicherte Auswertungen** (Filter + Ansicht, privat oder für alle freigegeben; neue Tabelle `analysis_presets`).
-- **Datenanalyse Phase 3**: Tabs „Verteilung vs. Norm“ (Histogramm in 5er-Klassen mit Normkurve N(100; 15), beobachtete vs. erwartete Anteile je Förderbereich), „Tempo & Genauigkeit“ (bearbeitete Sätze gegen Fehlerquote, Quadranten an den Medianen, Listen „schnell, aber fehlerhaft“ / „genau, aber langsam“) und „Satzanalyse“ (Lösungsquote, übersprungen und „erreicht“ je Satz, schwierige Sätze unter 70 % markiert, Fragebogen wählbar). Alle drei auch im PDF. Beim Geschlechtervergleich erscheint ein Hinweis, dass der LQ geschlechtsspezifisch normiert ist.
+- **Auswertung → Datenanalyse**: Erhebungsdaten filtern (Schuljahr, Erhebungstyp, Testdurchläufe, Jahrgang, Lerngruppen, Geschlecht, Wiederholer, Parallelform, Zeitraum) und in sechs Ansichten auswerten – **Vergleich** (mehrzeiliger LQ-Boxplot je Gruppe mit Kennzahlentabelle, auch zweistufig wie „Klassen × Geschlecht“), **Förderbereiche** (gestapelte Balken), **Entwicklung** (Median + Q1–Q3 je Erhebungswelle, Δ-LQ je Schüler, stärkste Verschlechterungen nach der aktiven Δ-Schwelle), **Verteilung vs. Norm** (Histogramm mit Normkurve, beobachtete vs. erwartete Anteile), **Tempo & Genauigkeit** (bearbeitete Sätze gegen Fehlerquote) und **Satzanalyse** (Lösungsquote, übersprungen, „erreicht“ je Satz). Schnellwahl, Filter und Ansicht in der URL, Klick auf eine Gruppe öffnet die Schülerliste, **gespeicherte Auswertungen** (privat oder freigegeben). Export als **A4-PDF** (Ansichten wählbar, optional mit Klarnamen, Fußzeile „Vertraulich“, abgelegt unter „Erzeugte Dokumente“) und **CSV**; beide Exporte im Audit-Log. Lehrkräfte sehen nur zugewiesene Lerngruppen, Schulleitung/Admin (`analytics.school_overview`) die ganze Schule. Beim Geschlechtervergleich weist die Seite darauf hin, dass der LQ geschlechtsspezifisch normiert ist.
+- **Übersicht je Testdurchlauf** (`/admin/test-runs/{id}/uebersicht`): Live-Status alle 10 s, Code/QR anzeigen, Karte nachdrucken, Versuch zurücksetzen/beenden, Code sperren, Versuchsverlauf; Kennzahlen und LQ-Boxplot (optional nach Geschlecht bzw. mit Förderbereichen), scope-gefiltert; Reset respektiert „Lehrkraft darf Reset“.
+- **Dashboard**: eine Kachel je aktivem Testdurchlauf (fertig/gesamt, laufen gerade, nicht angemeldet, Ø LQ), Klick öffnet die Übersicht; Kacheln verlinken auf Listen bzw. das vorgefilterte Audit-Log.
+- **Login-Karten als QR-Kartenblatt (PDF)**: A4-Blatt mit ausschneidbaren Karten je Schüler (Klasse, Name, Code, persönlicher QR-Code auf den Test mit vorbefülltem Code), identisches 2×5-Raster auf jeder Seite für das Schneidgerät. Aufruf per QR meldet ohne Tippen an.
+- **Schüler-Durchführung**: Vorabübung wird wirklich durchgeführt (eigene Übungsfragen, Countdown, sofortige Rückmeldung); der Haupttest-Timer startet erst bei „Test starten“; Fokus-Ansicht mit einer Aussage pro Bildschirm, Restzeit, Fortschritt und „Automatisch weiter“ (iPad quer: drei Aussagen). `/` ist jetzt die Code-Anmeldung mit Link zu `/admin/login`.
+- **Automatische Wertung**: Versuche mit abgelaufener Zeit, die der Browser nie abgegeben hat, wertet der Scheduler minütlich (`attempts:finalize-expired`).
+- **Echtes Login-2FA**: Wer 2FA aktiviert hat, bestätigt nach dem Passwort einen TOTP-/Recovery-Code, bevor das Panel nutzbar ist (`EnforceLoginTwoFactor` + `LoginTwoFactor`-Challenge, Nachweis pro Session, Rate-Limit). Vorher diente 2FA nur als Step-up für sensible Aktionen.
+- **Login per Username oder E-Mail** (E-Mail-Format → Spalte `email`, sonst `username`).
+- **Schüler-Import mit Fortschrittsanzeige** (chunk-weiser Commit per `wire:poll`, damit die Klarnamen-Verschlüsselung in der Session bleibt) und dauerhafter **Import-Verlauf** (Datum, Datei, Nutzer, Statistik, archivierte SuS und Fehler je Lauf).
+- **Standard-Bestände für Neuinstallationen**: je eine Druckvorlage pro Template-Typ (`DefaultPrintTemplatesSeeder`) und das Rückmeldeset „SLS-Standardrückmeldung (LQ)“ mit drei an die Förderschwellen angepassten LQ-Bändern (`DefaultFeedbackSetsSeeder`). Beide idempotent, bestehende (auch bearbeitete) Einträge bleiben unangetastet.
 
 ### Changed
-- Panel nutzt eine eigene Login-Page (`App\Filament\Pages\Auth\Login`); frischer Login setzt das Login-2FA-Gate zurück. Frisch eingerichtetes 2FA (Setup-Seiten) gilt für die laufende Session sofort als bestätigt.
-- LQ-Statistik (Quantile, Whisker, Förderbereiche) in `App\Domain\Analytics\DistributionStats` ausgelagert; der Boxplot der Testdurchlauf-Übersicht nutzt dieselbe SVG-Komponente (`<x-analysis.boxplot>`) wie die Datenanalyse. `GotenbergClient::htmlToPdf()` nimmt zusätzliche Dateien (z. B. `footer.html`) an. Tests laufen mit `memory_limit=512M` (phpunit.xml), lokal reichten 128 MB nicht mehr.
-
-### Changed
-- Panel nutzt eine eigene Login-Page (`App\Filament\Pages\Auth\Login`); frischer Login setzt das Login-2FA-Gate zurück. Frisch eingerichtetes 2FA (Setup-Seiten) gilt für die laufende Session sofort als bestätigt.
-- **Basis-Druckvorlagen als Bestand**: Neuinstallationen bringen je eine Vorlage pro Template-Typ mit (Rückmeldebogen, Zugangsdaten-Liste, Lese-Verlauf, Förderbedarfs-Liste, Klassenergebnis, Benutzer-Zugangsdaten). `DefaultPrintTemplatesSeeder`, idempotent — bestehende (auch bearbeitete) Vorlagen bleiben unangetastet, alles wie bisher editier-/versionier-/löschbar. Läuft auch beim Erst-Seed vor dem Setup (System-Bestand ohne Ersteller).
-
-### Changed
-- Druckvorlagen-Renderer: Array-Variablen (`rows`, `students`, `history`, `stats`) werden jetzt als HTML-Tabellen gerendert (Liste von Datensätzen → Tabelle, Kennzahlen-Map → Feld/Wert-Tabelle) statt als JSON-Dump.
-- `print_template_versions.created_by_user_id` ist nullable (system-gesäte Default-Vorlagen haben keinen menschlichen Ersteller).
-- **Default-Rückmeldeset als Bestand**: Neuinstallationen bringen ein aktives Set „SLS-Standardrückmeldung (LQ)" mit drei LQ-Bändern mit, abgestimmt auf die Default-Förderbedarfs-Schwellen (LQ&nbsp;<&nbsp;70 Förderbedarf, 70–84 auffällig, ab&nbsp;85 Normbereich). `DefaultFeedbackSetsSeeder`, idempotent — bestehende (auch bearbeitete) Sets bleiben unangetastet, alles wie bisher editier-/löschbar.
-
-### Changed
-- `feedback_sets.created_by_user_id` ist nullable (system-gesäte Default-Sets haben keinen menschlichen Ersteller; der Seeder läuft bei Erstinstallation vor dem Setup-Wizard).
-## [1.46.2] – 2026-09-16
-
-Produktions-Hotfixes aus dem ersten Live-Deployment (Docker-VM hinter NPM).
+- Zeilen-Aktionen der Testdurchlauf-Liste als Dropdown (kein horizontales Scrollen mehr); Aktion „Login-Codes drucken (PDF)“.
+- Druckvorlagen-Renderer stellt Array-Variablen (`rows`, `students`, `history`, `stats`) als HTML-Tabellen dar statt als JSON.
+- Panel nutzt eine eigene Login-Page; ein frischer Login setzt das 2FA-Gate zurück, frisch eingerichtetes 2FA gilt für die laufende Session als bestätigt.
+- Antworten nach Zeitablauf (plus 5 s Kulanz) werden abgelehnt; ein zurückgesetzter Versuch beendet die Schüler-Sitzung.
+- LQ-Statistik (Quantile, Whisker, Förderbereiche) liegt in `App\Domain\Analytics\DistributionStats`; Übersicht und Datenanalyse nutzen dieselbe SVG-Boxplot-Komponente. `GotenbergClient::htmlToPdf()` nimmt Zusatzdateien an (z. B. `footer.html`).
+- `print_template_versions.created_by_user_id` und `feedback_sets.created_by_user_id` sind nullable (system-gesäte Einträge haben keinen menschlichen Ersteller).
+- Typisierung: Relationen mit generischen Rückgabetypen, `ScopeFilter` generisch – drei PHPStan-Baseline-Einträge entfallen. Tests laufen mit `memory_limit=512M`.
 
 ### Fixed
-- **Schüler-Import „Datei nicht gefunden"**: Die hochgeladene CSV wurde unter `storage/app/…` gesucht, die `local`-Disk liegt aber unter `storage/app/private` → der Dry-Run brach immer ab. Zugriff jetzt über `Storage::disk('local')->path(...)` (gleicher Bug wie v1.46.1 bei den Normtabellen, hier im `ImportWizardPage` nachgezogen)
-- **500-Fehler auf den Listen Lerngruppen / Schüler / Testläufe**: Tabellen mit einem `modifyQueryUsing`-Scope **und** Filtern stürzten mit „Cannot use ::class on null" ab. Filament reicht die Query per Parameternamen `query` in die Closure; der Parameter hieß `$q`, wurde daher nicht befüllt und ein model-loser Builder lief in den Filter-Formularaufbau. Parameter auf `$query` umbenannt (`LearningGroupResource`, `StudentResource`, `TestRunResource`)
-- **Import-Commit ohne Rückmeldung**: Lief die Klarnamen-Re-Auth während der Diff-Prüfung ab, warf `commit()` unbemerkt eine Exception (kein try/catch). Jetzt kommt eine persistente Fehler-Notification, analog zum Dry-Run
-- **docker-compose**: `queue`- und `scheduler`-Service teilten sich per Bind-Mount denselben `bootstrap/cache/config.php` mit `app`, hatten aber ein unvollständiges `environment` (ohne `DB_CONNECTION`, `CACHE_STORE`, `SESSION_DRIVER` …). Jeder Neustart überschrieb den Config-Cache mit falschen Defaults (App fiel auf `sqlite` zurück). `&app_env`-Anchor an das `app`-Environment angeglichen
+- **Scheduler lief nie** (`schedule:run`): Die Umleitung `>> /dev/stdout` scheiterte als User `lsp` an den Rechten – keine Backups, keine Audit-Archivierung, kein Aufräumen.
+- **Leerer APP_KEY im Config-Cache**: queue/scheduler (User `lsp`) konnten die root-600-`.env` nicht lesen und cachten einen leeren Key in den geteilten `bootstrap/cache` → Klarnamen-Krypto brach nach Neustarts. Der Entrypoint gibt `.env` jetzt der Gruppe `lsp` lesbar (nicht world-readable) und cacht nur mit verfügbarem Key.
+- **docker-compose**: queue/scheduler hatten ein unvollständiges `environment` und überschrieben den gemeinsamen Config-Cache mit falschen Defaults (Rückfall auf sqlite); `&app_env` angeglichen.
+- **Schüler-Import „Datei nicht gefunden“**: Upload wird über die `local`-Disk gelesen (gleicher Bug wie v1.46.1 bei den Normtabellen).
+- **500 auf Lerngruppen / Schüler / Testläufe**: `modifyQueryUsing`-Closures hießen `$q` statt `$query` (Filament injiziert per Name).
+- **500 in „Erzeugte Dokumente“**: Closure-Parameter muss `$state` heißen.
+- Import-Commit ohne Rückmeldung bei abgelaufener Klarnamen-Re-Auth (jetzt persistente Meldung; gesperrte Klarnamen als Banner direkt über dem Import-Button; überflüssiges Bestätigungs-Modal entfernt, das den Start verhinderte).
+- Schüler-Test auf iPad/iPhone: kein Zurückspringen auf bereits gelöste Aussagen beim Auto-Weiter und kein Hängenbleiben nach einer Antwortänderung (WebKit-Scroll-Snap durch skriptgesteuertes Einrasten ersetzt).
+
+### Betrieb / Upgrade
+- `php artisan migrate --force` (neu u. a.: `test_attempts.main_started_at`, Import-Fortschritt, `analysis_presets`, nullable Ersteller-Spalten).
+- **Image neu bauen** (der Entrypoint steckt im Image): `docker compose build app && docker compose up -d`. Erst dann setzt der neue Entrypoint die `.env`-Rechte; danach mit `docker compose logs scheduler` prüfen, dass der Scheduler läuft.
+- Bestehende Installationen: Standard-Vorlagen/-Rückmeldeset bei Bedarf mit `php artisan db:seed --class=DefaultPrintTemplatesSeeder` bzw. `--class=DefaultFeedbackSetsSeeder` ergänzen (idempotent).
 
 ## [1.46.1] – 2026-09-15
 
