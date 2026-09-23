@@ -165,7 +165,8 @@ class TestRunResource extends Resource
                 Select::make('feedback_set_id')->label('Rückmeldeset')
                     ->options(FeedbackSet::where('status', 'aktiv')->pluck('name', 'id')),
                 Select::make('notice_text_id')->label('Hinweistext')
-                    ->options(NoticeText::where('status', 'aktiv')->pluck('name', 'id')),
+                    ->options(NoticeText::where('status', 'aktiv')->pluck('name', 'id'))
+                    ->default(fn () => NoticeText::defaultText()?->id),
                 TextInput::make('time_limit_seconds')->label('Zeitlimit (Sek)')
                     ->numeric()->required()->default(180),
                 TextInput::make('practice_time_seconds')->label('Übungszeit (Sek)')

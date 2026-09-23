@@ -19,6 +19,7 @@ use App\Domain\TestRun\Models\TestRun;
 use App\Models\AppSetting;
 use App\Models\User;
 use Database\Seeders\DefaultAssessmentTypesSeeder;
+use Database\Seeders\DefaultNoticeTextSeeder;
 use Database\Seeders\DefaultUserGroupsSeeder;
 use Database\Seeders\PermissionCatalogSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -199,6 +200,78 @@ class StudentFlowTest extends TestCase
 
         $this->get('/t/aufgaben')->assertRedirect(route('student-test.result'));
         $this->assertSame('zeit_abgelaufen', $attempt->refresh()->status);
+    }
+
+    #[Test]
+    public function relogin_after_closing_the_tab_resumes_the_same_attempt_with_answers(): void
+    {
+        $this->post('/t/login', ['login_code' => $this->loginCode->login_code]);
+        $this->post('/t/starten');
+        $attempt = TestAttempt::query()->latest('id')->firstOrFail();
+        $q = $attempt->questionnaire->questions->first();
+        $this->postJson('/t/antwort', ['question_id' => $q->id, 'answer' => 'falsch'])->assertOk();
+
+        // Neues Gerät / Cookie weg: erneut mit dem QR-Code anmelden
+        $this->flushSession();
+        $this->post('/t/login', ['login_code' => $this->loginCode->login_code])
+            ->assertRedirect(route('student-test.instructions'));
+        $this->get('/t/hinweise')->assertRedirect(route('student-test.questions'));
+
+        $this->assertSame(1, TestAttempt::query()->count());
+        $this->get('/t/aufgaben')->assertOk()->assertViewHas('answers', [$q->id => 'falsch']);
+    }
+
+    #[Test]
+    public function same_qr_code_with_open_session_returns_to_the_test(): void
+    {
+        $this->post('/t/login', ['login_code' => $this->loginCode->login_code]);
+
+        $this->get('/t?code='.$this->loginCode->login_code)->assertRedirect(route('student-test.questions'));
+        $this->get('/t')->assertRedirect(route('student-test.questions'));
+    }
+
+    #[Test]
+    public function other_qr_code_on_shared_device_replaces_the_old_session(): void
+    {
+        $this->post('/t/login', ['login_code' => $this->loginCode->login_code]);
+
+        $this->get('/t?code=BBBBBBBBBB')->assertOk()->assertSee('BBBBBBBBBB')
+            ->assertSessionMissing('student_attempt_id');
+    }
+
+    #[Test]
+    public function relogin_to_same_attempt_keeps_practice_timer(): void
+    {
+        $this->post('/t/login', ['login_code' => $this->loginCode->login_code]);
+        $this->withSession(['student_practice_started_at' => 12345]);
+
+        $this->post('/t/login', ['login_code' => $this->loginCode->login_code])
+            ->assertSessionHas('student_practice_started_at', 12345);
+    }
+
+    #[Test]
+    public function submitted_code_shows_clear_message(): void
+    {
+        $this->post('/t/login', ['login_code' => $this->loginCode->login_code]);
+        $this->post('/t/starten');
+        $this->post('/t/abgeben');
+        $this->get('/t/ergebnis');
+
+        $this->followingRedirects()
+            ->post('/t/login', ['login_code' => $this->loginCode->login_code])
+            ->assertSee('Dein Test wurde bereits abgegeben');
+    }
+
+    #[Test]
+    public function instructions_show_demo_and_default_notice_text(): void
+    {
+        $this->seed(DefaultNoticeTextSeeder::class);
+        $this->post('/t/login', ['login_code' => $this->loginCode->login_code]);
+
+        $this->get('/t/hinweise')->assertOk()
+            ->assertSee('So funktioniert der Test')
+            ->assertSee('Du musst nicht alle Sätze schaffen')
+            ->assertSee('Gleich siehst du nacheinander einzelne Sätze');
     }
 
     #[Test]

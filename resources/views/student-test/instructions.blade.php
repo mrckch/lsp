@@ -3,7 +3,10 @@
 @section('content')
     <div class="card">
         <h1>Hinweise zum Test</h1>
-        <p style="white-space:pre-wrap;">{{ $noticeText }}</p>
+        <p style="white-space:pre-line;">{{ trim($noticeText) }}</p>
+
+        @include('student-test.partials.demo')
+
         <p>
             <span class="label">Zeit:</span> <span class="badge">{{ $timeLimitSeconds }} Sekunden</span>
             @if($hasPractice)

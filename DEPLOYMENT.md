@@ -17,7 +17,7 @@ Reverse-Proxy** (z. B. Nginx Proxy Manager auf eigener VM — Standard) oder der
 # 1. Repo auf festen Release-Tag klonen (nie 'main' in Produktion)
 git clone <repo-url> /opt/lsp
 cd /opt/lsp
-git checkout v1.47.0
+git checkout v1.48.0
 
 # 2. Konfiguration
 cp .env.production.example .env
@@ -72,7 +72,7 @@ ausgecheckt.
 **Stack anlegen:**
 1. Portainer → **Stacks → Add stack → Repository**
 2. Repository-URL: `<repo-url>`
-3. Reference name: konkreter Tag (`refs/tags/v1.47.0`), **nicht** `refs/heads/main`
+3. Reference name: konkreter Tag (`refs/tags/v1.48.0`), **nicht** `refs/heads/main`
 4. Compose path: `docker-compose.yml`
 5. Environment variables aus `.env.production.example` übernehmen und produktive Werte setzen
    (`APP_URL`, `DB_PASSWORD`, `REDIS_PASSWORD`, `LSP_CADDY_TRUSTED_PROXIES`, `TRUSTED_PROXIES`, …)
@@ -89,7 +89,7 @@ ausführen (`composer install … --no-scripts`, `key:generate`, `migrate --seed
 
 **Update auf neuen Tag:**
 1. Portainer → Stack → **Editor**
-2. Reference name auf neuen Tag setzen (`refs/tags/v1.47.0`)
+2. Reference name auf neuen Tag setzen (`refs/tags/v1.48.0`)
 3. **Pull and redeploy** anklicken
 4. Im `app`-Container: `composer install …`, `migrate --force`, `config:cache`,
    `route:cache` (siehe „Update auf neuen Release-Tag")
@@ -291,7 +291,7 @@ docker compose exec -u lsp app php artisan backup:run
 
 # 2. Neuen Tag holen
 git fetch --tags
-git checkout v1.47.0     # konkrete Version, nicht 'main'
+git checkout v1.48.0     # konkrete Version, nicht 'main'
 
 # 3. Container + Dependencies aktualisieren
 docker compose up -d --build --remove-orphans

@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Domain\Attempt\Models\StudentLoginCode;
 use App\Domain\Attempt\Models\TestAttempt;
 use App\Domain\Attempt\TestEngine;
+use App\Domain\NoticeText\Models\NoticeText;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
@@ -27,11 +29,17 @@ class StudentTestController extends Controller
 
     public function start(Request $request): View|RedirectResponse
     {
-        if (Session::has('student_attempt_id')) {
-            return redirect()->route('student-test.questions');
-        }
-
         $code = strtoupper(trim((string) $request->query('code', '')));
+
+        if (Session::has('student_attempt_id')) {
+            // Geteiltes Tablet: Ein anderer QR-Code löst die alte Sitzung ab.
+            // Derselbe Code (oder keiner) führt zurück in den laufenden Test.
+            $usedCode = TestAttempt::query()->whereKey(Session::get('student_attempt_id'))->value('login_code_used');
+            if ($code === '' || $code === $usedCode) {
+                return redirect()->route('student-test.questions');
+            }
+            Session::forget(['student_attempt_id', 'student_practice_started_at']);
+        }
 
         return view('student-test.start', [
             'code' => $code,
@@ -47,14 +55,20 @@ class StudentTestController extends Controller
 
         $info = $this->engine->loginByCode($data['login_code']);
         if ($info === null) {
-            Session::flash('test_error', 'Code unbekannt, gesperrt oder bereits verwendet.');
+            $status = StudentLoginCode::query()->where('login_code', strtoupper($data['login_code']))->value('status');
+            Session::flash('test_error', $status === 'verbraucht'
+                ? 'Dein Test wurde bereits abgegeben. Du kannst dich damit nicht noch einmal anmelden.'
+                : 'Code unbekannt, gesperrt oder bereits verwendet.');
 
             return redirect()->route('student-test.start');
         }
 
         $attempt = $this->engine->startAttempt($info['student'], $info['test_run'], $info['login_code']);
 
-        Session::forget('student_practice_started_at');
+        // Wiederanmeldung in denselben Versuch (z. B. Tab geschlossen): Übungszeit läuft weiter
+        if (Session::get('student_attempt_id') !== $attempt->id) {
+            Session::forget('student_practice_started_at');
+        }
         Session::put('student_attempt_id', $attempt->id);
 
         return redirect()->route('student-test.instructions');
@@ -73,6 +87,7 @@ class StudentTestController extends Controller
         return view('student-test.instructions', [
             'attempt' => $attempt,
             'noticeText' => $attempt->testRun->noticeText?->content
+                ?? NoticeText::defaultText()?->content
                 ?? 'Bitte lies jeden Satz und entscheide, ob er richtig oder falsch ist.',
             'hasPractice' => $this->hasPractice($attempt),
             'practiceSeconds' => (int) $attempt->testRun->practice_time_seconds,

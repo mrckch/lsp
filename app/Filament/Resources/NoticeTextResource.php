@@ -64,7 +64,8 @@ class NoticeTextResource extends Resource
                 ->rows(8)->required(),
             Select::make('status')->options(['entwurf' => 'Entwurf', 'aktiv' => 'Aktiv', 'archiviert' => 'Archiviert'])
                 ->default('aktiv')->required(),
-            Toggle::make('is_default')->label('Standard'),
+            Toggle::make('is_default')->label('Standard')
+                ->helperText('Wird für neue Testdurchläufe vorausgewählt und angezeigt, wenn ein Durchlauf keinen Hinweistext hat. Es gibt nur einen Standard.'),
         ]);
     }
 
