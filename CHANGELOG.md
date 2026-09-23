@@ -4,6 +4,8 @@ Alle nennenswerten Änderungen in diesem Projekt sind hier dokumentiert. Das For
 
 ## [Unreleased]
 
+## [1.48.0] – 2026-09-23
+
 ### Added
 - **Animierte Vorführung „So funktioniert der Test“** auf der Hinweis-Seite (HTML/CSS/JS, kein Video): Eule mit Sprechblasen, Tipp-Finger, drei erfundene Beispielsätze (nicht aus den Fragebögen). Zeigt Antworten, automatisches Weiterblättern, **Zurückscrollen und Korrigieren** einer Antwort sowie Restzeit/Fortschritt. „Überspringen“/„Nochmal ansehen“, Textalternative, bei `prefers-reduced-motion` statisch.
 - **Standard-Hinweistext** „Standard-Hinweis Lesetest“ als Bestand (`DefaultNoticeTextSeeder`, idempotent). Der als Standard markierte Hinweistext wird bei neuen Testdurchläufen vorausgewählt und im Schüler-Test angezeigt, wenn ein Durchlauf keinen eigenen hat. Es gibt höchstens einen Standard.

@@ -12,7 +12,7 @@ Dieses Dokument fasst den Stand des Projekts so zusammen, dass eine neue Session
 - **Lizenz:** EUPL 1.2
 - **Sprache der Doku & UI:** Deutsch
 - **Stack:** Laravel 12 · Filament 3 · MariaDB · Redis · Gotenberg · Docker Compose · Caddy
-- **Aktueller Stand:** `main` (→ **`v1.47.0`**) · **394 PHPUnit-Tests / 1613 Assertions** + **10 Dusk-E2E-Tests / 36 Assertions** durchgehend grün · `composer lint` (Pint + PHPStan Level 5) sauber · CI-Pipeline (GitHub Actions) · `lsp:selftest`-Command · **erstes Live-Deployment auf Docker-VM hinter Nginx Proxy Manager (`https://lsp.lernix.site`) verifiziert**
+- **Aktueller Stand:** `main` (→ **`v1.48.0`**) · **404 PHPUnit-Tests / 1645 Assertions** + **10 Dusk-E2E-Tests / 36 Assertions** durchgehend grün · `composer lint` (Pint + PHPStan Level 5) sauber · CI-Pipeline (GitHub Actions) · `lsp:selftest`-Command · **erstes Live-Deployment auf Docker-VM hinter Nginx Proxy Manager (`https://lsp.lernix.site`) verifiziert**
 
 ---
 
@@ -162,7 +162,8 @@ infra/                – Dockerfile, Caddyfile, docker-compose.yml
 | v1.46.0 | Produktionsreife: Backup auf MariaDB + Binärdaten + SFTP + Scheduler + Pflicht-Passwort, Schüler-Rate-Limits pro Code/Versuch + Save-Retry im Test-UI, Override-Datei raus, NPM-Betrieb (Caddyfile/Trusted Proxies), manueller Fragen-Import CSV/JSON |
 | v1.46.1 | Hotfix: Normtabellen-CSV-Import importierte nie Zeilen (falscher Disk-Pfad) — jetzt über die Disk, Upload wird gelöscht, Excel-Encoding, Fehlermeldungen |
 | v1.46.2 | *(nie getaggt – Inhalt in v1.47.0 enthalten)* |
-| **v1.47.0** | **Auswertung → Datenanalyse (6 Ansichten, PDF/CSV, gespeicherte Auswertungen), Testdurchlauf-Übersicht + Dashboard-Kacheln, QR-Login-Karten, Fokus-Ansicht mit Vorabübung, Auto-Wertung, echtes Login-2FA, Import-Fortschritt/-Verlauf, Standard-Druckvorlagen/-Rückmeldeset; Fixes: Scheduler, leerer APP_KEY im Cache, Import-Pfad, 500er (`$query`/`$state`)** |
+| v1.47.0 | Auswertung → Datenanalyse (6 Ansichten, PDF/CSV, gespeicherte Auswertungen), Testdurchlauf-Übersicht + Dashboard-Kacheln, QR-Login-Karten, Fokus-Ansicht mit Vorabübung, Auto-Wertung, echtes Login-2FA, Import-Fortschritt/-Verlauf, Standard-Druckvorlagen/-Rückmeldeset; Fixes: Scheduler, leerer APP_KEY im Cache, Import-Pfad, 500er (`$query`/`$state`) |
+| **v1.48.0** | **Schüler-Test: animierte Vorführung statt Probeaufgaben, Standard-Hinweistext (Seeder + Vorauswahl), geteiltes Tablet (anderer QR-Code löst Sitzung ab), klare Meldung bei abgegebenem Code** |
 
 ---
 
