@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             DefaultSupportThresholdsSeeder::class,
             DefaultFeedbackSetsSeeder::class,
             DefaultPrintTemplatesSeeder::class,
+            DefaultNoticeTextSeeder::class,
         ]);
     }
 }

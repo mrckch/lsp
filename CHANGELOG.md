@@ -4,6 +4,18 @@ Alle nennenswerten Änderungen in diesem Projekt sind hier dokumentiert. Das For
 
 ## [Unreleased]
 
+### Added
+- **Animierte Vorführung „So funktioniert der Test“** auf der Hinweis-Seite (HTML/CSS/JS, kein Video): Eule mit Sprechblasen, Tipp-Finger, drei erfundene Beispielsätze (nicht aus den Fragebögen). Zeigt Antworten, automatisches Weiterblättern, **Zurückscrollen und Korrigieren** einer Antwort sowie Restzeit/Fortschritt. „Überspringen“/„Nochmal ansehen“, Textalternative, bei `prefers-reduced-motion` statisch.
+- **Standard-Hinweistext** „Standard-Hinweis Lesetest“ als Bestand (`DefaultNoticeTextSeeder`, idempotent). Der als Standard markierte Hinweistext wird bei neuen Testdurchläufen vorausgewählt und im Schüler-Test angezeigt, wenn ein Durchlauf keinen eigenen hat. Es gibt höchstens einen Standard.
+
+### Fixed
+- **Geteiltes Tablet**: Ein anderer QR-Code löst eine noch offene Schüler-Sitzung ab, statt in den Test des vorherigen Schülers zu führen. Derselbe Code führt weiter zurück in den laufenden Test (Antworten und Restzeit bleiben erhalten).
+- Wiederanmeldung in denselben Versuch setzt die Übungszeit nicht mehr zurück.
+- Anmeldung mit einem bereits abgegebenen Code zeigt „Dein Test wurde bereits abgegeben“ statt einer allgemeinen Fehlermeldung.
+
+### Upgrade
+- `php artisan migrate` (`notice_texts.created_by_user_id` wird nullable), danach auf bestehenden Installationen `php artisan db:seed --class=DefaultNoticeTextSeeder`.
+
 ## [1.47.0] – 2026-09-22
 
 Erster Release seit dem Live-Deployment: Datenanalyse, Durchführung am iPad, Testdurchlauf-Übersicht, echtes Login-2FA, Import-Verlauf und Standard-Bestände. Enthält auch die als 1.46.2 vorgesehenen Live-Hotfixes (dafür wurde nie ein Tag gesetzt).

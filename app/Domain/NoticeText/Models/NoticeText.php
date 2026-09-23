@@ -14,4 +14,20 @@ class NoticeText extends Model
     {
         return ['is_default' => 'boolean'];
     }
+
+    protected static function booted(): void
+    {
+        // Es gibt höchstens einen Standard-Hinweistext
+        static::saved(function (NoticeText $text): void {
+            if ($text->is_default) {
+                static::query()->whereKeyNot($text->getKey())->where('is_default', true)->update(['is_default' => false]);
+            }
+        });
+    }
+
+    /** Aktiver Standard-Hinweistext (Vorauswahl für neue Testdurchläufe, Fallback im Schüler-Test). */
+    public static function defaultText(): ?self
+    {
+        return static::query()->where('is_default', true)->where('status', 'aktiv')->first();
+    }
 }
